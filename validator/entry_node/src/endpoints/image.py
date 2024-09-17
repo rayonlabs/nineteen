@@ -73,7 +73,7 @@ async def make_non_stream_organic_query(redis_db: Redis, payload: dict[str, Any]
 
     except asyncio.TimeoutError:
         logger.error(f"No confirmation received for job {job_id} within timeout period. Task: {task}")
-        raise HTTPException(status_code=500, detail=f"Unable to proccess task: {task}, please try again later.")
+        raise HTTPException(status_code=500, detail=f"Unable to process task: {task}, please try again later.")
 
 async def process_image_request(
     payload: payload_models.TextToImagePayload | payload_models.ImageToImagePayload | payload_models.InpaintPayload | payload_models.AvatarPayload,
