@@ -3,3 +3,12 @@ python-dotenv~=1.0
 redis~=5.0
 asyncpg==0.29.0
 colorama==0.4.6
+
+opentelemetry-distro>=0.47b0
+opentelemetry-exporter-otlp-proto-http>=1.26.0
+opentelemetry-instrumentation-asyncio>=0.47b0
+opentelemetry-instrumentation-asyncpg>=0.47b0
+opentelemetry-instrumentation-httpx>=0.47b0
+opentelemetry-instrumentation-logging>=0.47b0
+opentelemetry-instrumentation-redis>=0.47b0
+opentelemetry-instrumentation-system-metrics>=0.47b0

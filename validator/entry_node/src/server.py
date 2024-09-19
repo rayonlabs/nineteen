@@ -1,3 +1,5 @@
+import functools
+
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 import uvicorn
@@ -7,6 +9,9 @@ from validator.entry_node.src.endpoints.image import router as image_router
 from validator.entry_node.src.core import configuration
 from core.logging import get_logger
 from scalar_fastapi import get_scalar_api_reference
+from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
+
+
 logger = get_logger(__name__)
 
 
@@ -20,15 +25,13 @@ def factory_app(debug: bool = False) -> FastAPI:
 
     app = FastAPI(lifespan=lifespan, debug=debug)
 
-    
-    async def scalar_html():
-        return get_scalar_api_reference(
-            openapi_url=app.openapi_url,  # type: ignore
-            title=app.title,
+    app.add_api_route(
+        "/scalar",
+        lambda: get_scalar_api_reference(openapi_url=app.openapi_url, title=app.title),
+        methods=["GET"],
     )
 
-    app.add_api_route("/scalar", scalar_html, methods=["GET"])
-
+    FastAPIInstrumentor().instrument_app(app)
     return app
 
 

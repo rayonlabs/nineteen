@@ -1,0 +1,63 @@
+services:
+  caddy:
+    image: caddy:2.8.4-alpine
+    restart: always
+    volumes:
+      - ./dockerfiles/Caddyfile:/etc/caddy/Caddyfile
+    ports:
+      - ${CADDY_PORT:-80}:80
+
+  grafana:
+    image: grafana/grafana
+    restart: always
+    environment:
+      # these are the defaults, you should probably change them in deployment
+      GF_SERVER_ROOT_URL: http://localhost/grafana
+      GF_SECURITY_ADMIN_USER: ${GF_SECURITY_ADMIN_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GF_SECURITY_ADMIN_PASSWORD:-admin}
+    volumes:
+      - grafana:/var/lib/grafana
+      - ./dockerfiles/grafana-datasource.yaml:/etc/grafana/provisioning/datasources/otel.yaml
+
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.106.1
+    restart: always
+    volumes:
+      - ./dockerfiles/otel-config.yaml:/etc/otelcol-contrib/config.yaml
+
+  jaeger:
+    image: jaegertracing/all-in-one:1.59.0
+    restart: always
+    command:
+      - --collector.otlp.grpc.host-port
+      - 0.0.0.0:4317
+    environment:
+      COLLECTOR_OTLP_ENABLED: "true"
+    volumes:
+      - jaeger:/badger
+
+  loki:
+    image: grafana/loki:main
+    restart: always
+    volumes:
+      - loki:/loki
+      - ./dockerfiles/loki-config.yaml:/etc/loki/local-config.yaml
+
+  prometheus:
+    image: prom/prometheus
+    restart: always
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --storage.tsdb.retention.time=14d
+      - --web.console.libraries=/usr/share/prometheus/console_libraries
+      - --web.console.templates=/usr/share/prometheus/console
+    volumes:
+      - prometheus:/prometheus
+      - ./dockerfiles/prometheus-config.yaml:/etc/prometheus/prometheus.yml
+
+volumes:
+  grafana:
+  jaeger:
+  loki:
+  prometheus:

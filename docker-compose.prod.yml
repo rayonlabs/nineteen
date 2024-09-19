@@ -1,6 +1,7 @@
+include:
+  - ./docker-compose.observability.yml
+
 services:
-
-
   control_node:
     build:
       context: .
@@ -10,15 +11,16 @@ services:
         condition: service_completed_successfully
       redis:
         condition: service_started
-    networks:
-      - postgres_network
-      - redis_network
-    entrypoint: ["python", "-u", "/app/validator/control_node/src/main.py"]
+    entrypoint: ["opentelemetry-instrument", "--logs_exporter", "otlp", "--traces_exporter", "otlp", "--metrics_exporter", "otlp", "--service_name", "control_node", "python", "-u", "/app/validator/control_node/src/main.py"]
     volumes:
       - ~/.bittensor/wallets:/root/.bittensor/wallets
     env_file:
       - .prod.env
-    container_name: control_node
+    environment:
+      OTEL_EXPORTER_OTLP_PROTOCOL: "http/protobuf"
+      OTEL_EXPORTER_OTLP_ENDPOINT: "http://caddy/otel"
+      OTEL_PYTHON_LOGGING_AUTO_INSTRUMENTATION_ENABLED: "true"
+      OTEL_PYTHON_LOG_CORRELATION: "true"
     deploy:
       restart_policy:
         condition: on-failure
@@ -38,12 +40,12 @@ services:
     depends_on:
       - redis
       - postgresql
-    networks:
-      - postgres_network
-      - redis_network
-    entrypoint: ["python", "-u", "/app/validator/query_node/src/main.py"]
-    container_name: query_node
+    entrypoint: ["opentelemetry-instrument", "--logs_exporter", "otlp", "--traces_exporter", "otlp", "--metrics_exporter", "otlp", "--service_name", "query_node", "python", "-u", "/app/validator/query_node/src/main.py"]
     environment:
+      OTEL_EXPORTER_OTLP_PROTOCOL: "http/protobuf"
+      OTEL_EXPORTER_OTLP_ENDPOINT: "http://caddy/otel"
+      OTEL_PYTHON_LOGGING_AUTO_INSTRUMENTATION_ENABLED: "true"
+      OTEL_PYTHON_LOG_CORRELATION: "true"
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: ${POSTGRES_DB}
@@ -67,14 +69,12 @@ services:
     depends_on:
       - redis
       - postgresql
-    networks:
-      - postgres_network
-      - redis_network
-    ports:
-      - "8000:8000"
-    entrypoint: ["python", "-u", "/app/validator/entry_node/src/server.py"]
-    container_name: entry_node
+    entrypoint: ["opentelemetry-instrument", "--logs_exporter", "otlp", "--traces_exporter", "otlp", "--metrics_exporter", "otlp", "--service_name", "entry_node", "python", "-u", "/app/validator/entry_node/src/server.py"]
     environment:
+      OTEL_EXPORTER_OTLP_PROTOCOL: "http/protobuf"
+      OTEL_EXPORTER_OTLP_ENDPOINT: "http://caddy/otel"
+      OTEL_PYTHON_LOGGING_AUTO_INSTRUMENTATION_ENABLED: "true"
+      OTEL_PYTHON_LOG_CORRELATION: "true"
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: ${POSTGRES_DB}
@@ -91,11 +91,6 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
-    networks:
-      - postgres_network
-    ports:
-      - "5432:5432"
-    container_name: 0_postgresql
     environment:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
@@ -107,32 +102,16 @@ services:
     image: amacneil/dbmate
     volumes:
       - ./validator/db:/db
-    command: up
+    command: --wait up
+    environment:
+      DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgresql:5432/${POSTGRES_DB}?sslmode=disable
     depends_on:
       postgresql:
         condition: service_healthy
-    networks:
-      - postgres_network
-    environment:
-      DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgresql:5432/${POSTGRES_DB}?sslmode=disable
-    container_name: 0_dbmate
 
   redis:
     image: redis/redis-stack:latest
-    networks:
-      - redis_network
-    ports:
-      - "6379:6379"
-    container_name: 0_redis
     deploy:
       restart_policy:
         condition: on-failure
 
-networks:
-  postgres_network:
-    driver: bridge
-  redis_network:
-    driver: bridge
-
-volumes:
-  postgres_data:
