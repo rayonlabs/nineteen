@@ -115,3 +115,13 @@ services:
       restart_policy:
         condition: on-failure
 
+  adminer:
+    image: adminer
+    restart: always
+    environment:
+      ADMINER_DEFAULT_SERVER: postgresql
+      ADMINER_DESIGN: nette
+      ADMINER_PLUGINS: tables-filter tinymce
+    depends_on:
+      postgresql:
+        condition: service_healthy
