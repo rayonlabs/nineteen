@@ -1,9 +1,13 @@
+import os
 import secrets
 import string
 import re
 import argparse
 from typing import Callable, Any
 import random
+from dotenv import load_dotenv
+
+
 
 def generate_secure_password(length: int = 16) -> str:
     alphabet = string.ascii_letters + string.digits
@@ -64,9 +68,15 @@ def generate_miner_config(dev: bool = False) -> dict[str, Any]:
     return config
 
 def generate_validator_config(dev: bool = False) -> dict[str, Any]:
+
+    load_dotenv(f".{'dev' if dev else 'prod'}.env")
+    # Check if POSTGRES_PASSWORD already exists in the environment
+    existing_password = os.getenv('POSTGRES_PASSWORD')
+
+    
     config: dict[str, Any] = {}
     config['POSTGRES_USER'] = "user"
-    config['POSTGRES_PASSWORD'] = generate_secure_password()
+    config['POSTGRES_PASSWORD'] = generate_secure_password() if not existing_password else existing_password
     config['POSTGRES_DB'] = "19_db"
     config['POSTGRES_PORT'] = "5432"
     config['POSTGRES_HOST'] = "postgresql"

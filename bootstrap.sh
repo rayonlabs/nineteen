@@ -16,6 +16,8 @@ NO_LAUNCH=${NO_LAUNCH:-0}
 REBOOT_REQUIRED=0
 DEBIAN_FRONTEND=noninteractive
 export DEBIAN_FRONTEND=noninteractive
+export NEEDRESTART_MODE=a
+export NEEDRESTART_SUSPEND=1
 
 function echo_() {
   echo "# $@"
@@ -100,8 +102,7 @@ if [ ! -d "$VENV_PATH" ]; then
     chown -R $SUDO_USER:$SUDO_USER $VENV_PATH $HOME/.bashrc
     echo_ "Python venv created"
     source $VENV_PATH/bin/activate
-    pip install bittensor==7.3.1
-    deactivate
+    pip install bittensor==7.4.0
 else
     echo_ "Python venv already exists at $VENV_PATH"
 fi
@@ -137,6 +138,15 @@ fi
 groupadd docker || true
 usermod -aG docker $SUDO_USER || true
 
+# pm2 & jq
+################################################################################
+echo_ checking for pm2 & jq
+apt-get update -qq && apt-get upgrade -y -qq
+apt-get install -y -qq nodejs npm
+npm i -g -q pm2
+apt-get install -y -qq jq
+
+
 
 
 # Nano for config
@@ -144,8 +154,7 @@ usermod -aG docker $SUDO_USER || true
 echo_ checking for nano
 if ! [[ $(which nano) ]]; then
   echo_ nano was not found, installing...
-  apt-get update
-  apt-get install nano
+  apt-get install -y -qq nano
 fi
 
 # Task for taskfile
@@ -179,3 +188,6 @@ if [[ REBOOT_REQUIRED -eq 1 ]]; then
 else
   echo_ "bootstrap.sh is all done :)"
 fi
+
+echo_ "Please run the following command!!"
+echo_ "source ~/.bashrc"
