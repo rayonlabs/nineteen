@@ -85,7 +85,7 @@ services:
   postgresql:
     image: postgres:latest
     volumes:
-      - ./postgres_data:/var/lib/postgresql/data
+      - postgres_data:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
       interval: 5s
@@ -126,6 +126,7 @@ services:
       postgresql:
         condition: service_healthy
 
+  # if you want this, scale it to `1`
   redis-commander:
     scale: 0
     image: ghcr.io/joeferner/redis-commander:latest
@@ -135,3 +136,6 @@ services:
       - '8081:8081'
     depends_on:
       - redis
+
+volumes:
+  postgres_data:
