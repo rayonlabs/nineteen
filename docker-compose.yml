@@ -116,12 +116,16 @@ services:
         condition: on-failure
 
   adminer:
+  # if you want this, scale it to `1`
+    scale: 0
     image: adminer
     restart: always
     environment:
       ADMINER_DEFAULT_SERVER: postgresql
       ADMINER_DESIGN: nette
       ADMINER_PLUGINS: tables-filter tinymce
+    ports:
+      - '8080:8080'
     depends_on:
       postgresql:
         condition: service_healthy
@@ -130,6 +134,7 @@ services:
   redis-commander:
     scale: 0
     image: ghcr.io/joeferner/redis-commander:latest
+    restart: always
     environment:
       - REDIS_HOSTS=local:redis:6379
     ports:

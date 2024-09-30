@@ -7,9 +7,5 @@
     reverse_proxy otel-collector:4317
   }
 
-  handle_path /postgres* {
-    reverse_proxy adminer:8080
-  }
-
   reverse_proxy entry_node:8091
 }
