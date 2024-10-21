@@ -195,5 +195,11 @@ services:
     depends_on:
       - redis
 
+networks:
+  postgres_network:
+    driver: bridge
+  redis_network:
+    driver: bridge
+
 volumes:
   postgres_data:
