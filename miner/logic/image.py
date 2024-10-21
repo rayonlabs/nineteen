@@ -1,7 +1,7 @@
 import json
 import httpx
 from pydantic import BaseModel
-from core.logging import get_logger
+from fiber.logging_utils import get_logger
 from miner.config import WorkerConfig
 
 logger = get_logger(__name__)

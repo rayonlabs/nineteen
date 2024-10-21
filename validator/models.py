@@ -2,7 +2,6 @@ from collections import defaultdict
 
 
 from pydantic import BaseModel, Field
-from core.tasks import Task
 from typing import Optional
 from datetime import datetime
 
@@ -11,7 +10,7 @@ task_data = defaultdict(lambda: defaultdict(list))
 
 class PeriodScore(BaseModel):
     hotkey: str
-    task: Task
+    task: str
     period_score: Optional[float]
     consumed_capacity: float
     created_at: datetime
@@ -75,9 +74,9 @@ class RewardData(BaseModel):
     validator_hotkey: str
     node_hotkey: str
     synthetic_query: bool
-    speed_scoring_factor: Optional[float] = None
-    response_time: Optional[float] = None
-    volume: Optional[float] = None
+    metric: float | None = None
+    response_time: float | None = None
+    volume: float | None = None
     created_at: datetime = Field(default_factory=datetime.now)
 
     def dict(self):  # type: ignore
@@ -89,7 +88,7 @@ class RewardData(BaseModel):
             "validator_hotkey": self.validator_hotkey,
             "node_hotkey": self.node_hotkey,
             "synthetic_query": self.synthetic_query,
-            "speed_scoring_factor": self.speed_scoring_factor,
+            "metric": self.metric,
             "response_time": self.response_time,
             "volume": self.volume,
             "created_at": self.created_at.isoformat(),  # Convert datetime to ISO string

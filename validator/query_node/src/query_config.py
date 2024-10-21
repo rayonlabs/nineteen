@@ -1,6 +1,7 @@
 from dataclasses import dataclass
+from fiber import Keypair
 import httpx
-from core.logging import get_logger
+from fiber.logging_utils import get_logger
 from validator.db.src.database import PSQLDB
 from redis.asyncio import Redis
 
@@ -9,6 +10,7 @@ logger = get_logger(__name__)
 
 @dataclass
 class Config:
+    keypair: Keypair
     psql_db: PSQLDB
     redis_db: Redis
     ss58_address: str

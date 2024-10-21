@@ -1,7 +1,6 @@
 import os
 import logging
 import sys
-from functools import lru_cache
 from colorama import Fore, Back, Style, init
 
 init(autoreset=True)
@@ -33,7 +32,6 @@ class ColoredFormatter(logging.Formatter):
         return message
 
 
-@lru_cache(maxsize=None)
 def get_logger(name: str):
     logger = logging.getLogger(name.split(".")[-1])
     mode: str = os.getenv("ENV", "prod")

@@ -1,9 +1,14 @@
 # Table names
+API_KEYS_TABLE = "api_keys"
+LOGS_TABLE = "logs"
 HOTKEY_INFO_TABLE = "hotkey_info"
 NODES_TABLE = "nodes"
 NODES_HISTORY_TABLE = "nodes_history"
 CONTENDERS_TABLE = "contenders"
 CONTENDERS_HISTORY_TABLE = "contenders_history"
+
+CONTENDERS_WEIGHTS_STATS_TABLE = "contenders_weights_stats"
+NODES_WEIGHTS_TABLE = "nodes_weights"
 
 TABLE_TASKS = "tasks"
 TABLE_REWARD_DATA = "reward_data"
@@ -13,6 +18,17 @@ DELAY_BETWEEN_SYNTHETIC_REQUESTS = "delay_between_synthetic_requests"
 SYNTHETIC_REQUESTS_STILL_TO_MAKE = "synthetic_requests_still_to_make"
 
 ######## Column names ###########
+
+# Api key table and logs table
+KEY = "key"
+NAME = "name"
+BALANCE = "balance"
+RATE_LIMIT_PER_MINUTE = "rate_limit_per_minute"
+ENDPOINT = "endpoint"
+COST = "cost"
+CREATED_AT = "created_at"
+
+
 
 # Hotkey info table
 HOTKEY = "hotkey"
@@ -117,7 +133,7 @@ COLUMN_NODE_ID = "node_id"
 COLUMN_QUALITY_SCORE = "quality_score"
 COLUMN_VALIDATOR_HOTKEY = "validator_hotkey"
 COLUMN_SYNTHETIC_QUERY = "synthetic_query"
-COLUMN_SPEED_SCORING_FACTOR = "speed_scoring_factor"
+COLUMN_METRIC = "metric"
 COLUMN_RESPONSE_TIME = "response_time"
 COLUMN_VOLUME = "volume"
 
@@ -128,3 +144,15 @@ COLUMN_TOTAL_REQUESTS_MADE = "total_requests_made"
 COLUMN_REQUESTS_429 = "requests_429"
 COLUMN_REQUESTS_500 = "requests_500"
 COLUMN_PERIOD_SCORE = "period_score"
+
+
+# Weights and scoring stats
+VERSION_KEY = "version_key"
+COLUMN_WEIGHT = "node_weight"
+COLUMN_AVERAGE_QUALITY_SCORE = "average_quality_score"
+COLUMN_METRIC_BONUS = "metric_bonus"
+COLUMN_COMBINED_QUALITY_SCORE = "combined_quality_score"
+COLUMN_PERIOD_SCORE_MULTIPLIER = "period_score_multiplier"
+COLUMN_NORMALISED_PERIOD_SCORE = "normalised_period_score"
+COLUMN_CONTENDER_CAPACITY = "contender_capacity"
+COLUMN_NORMALISED_NET_SCORE = "normalised_net_score"

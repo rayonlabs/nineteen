@@ -4,8 +4,8 @@ from core.tasks import Task
 from validator.db.src.database import PSQLDB
 from validator.db.src import sql
 from validator.models import Contender
-from validator.utils import redis_constants as rcst
-from validator.control_node.src.synthetic_data.schedule_synthetic_queries import (
+from validator.utils.redis import redis_constants as rcst
+from validator.control_node.src.synthetics.refresh_synthetic_data import (
     Config,
     schedule_synthetics_until_done,
 )

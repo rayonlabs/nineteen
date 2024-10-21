@@ -39,16 +39,19 @@ cd nineteen
 ```bash
 NO_LAUNCH=1 sudo -E ./bootstrap.sh
 source $HOME/.bashrc
-pip install git+https://github.com/namoray/fiber.git
+pip uninstall bittensor  # I would recommend uninstalling this so you can use fiber, but you may need it to clone keys as of now?
+pip install git+https://github.com/rayonlabs/fiber.git@1.0.0  # This is the only requirement for mining machines as of now!
 ``` 
 
 ### Get hot and coldkeys onto your machine
 Securely move them onto your machine as usual. Either with the btcli or with a secure method of your choosing.
 
 ## Create the config
+(Add --dev flag if you are a developer on nineteen)
 ```bash
 python core/create_config.py --miner
 ```
+
 
 ## Post IP's to chain
 Example command:
@@ -57,6 +60,8 @@ fiber-post-ip --netuid 176 --subtensor.network test --external_port 1234 --walle
 ```
 
 ## Start miners
+
+(If you are a dev, go to dev.md docs now)
 Example command
 ```bash
 uvicorn miner.server:app --reload --host 0.0.0.0 --port 1234 --env-file .default.env --log-level debug &

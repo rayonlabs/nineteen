@@ -4,8 +4,8 @@ from typing import Any
 import asyncpg
 from asyncpg import Pool
 
-from validator.utils import database_utils as dutils
-from core.logging import get_logger
+from validator.utils.database import database_utils as dutils
+from fiber.logging_utils import get_logger
 
 logger = get_logger(__name__)
 

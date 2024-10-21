@@ -1,7 +1,9 @@
+from datetime import datetime
 import enum
 from typing import Optional, Any
 
 from pydantic import BaseModel
+from pydantic.fields import Field
 
 
 class Role(str, enum.Enum):
@@ -14,7 +16,7 @@ class Role(str, enum.Enum):
 
 class Message(BaseModel):
     role: Role = Role.user
-    content: str = "Remind me that I have forgot to set the messages"
+    content: str = Field(default=..., examples=["Remind me that I have forgot to set the messages"])
 
     class Config:
         use_enum_values = True
@@ -28,6 +30,7 @@ class QueryResult(BaseModel):
     task: str
     status_code: Optional[int]
     success: bool
+    created_at: datetime = Field(default_factory=datetime.now)
 
 
 class ImageHashes(BaseModel):

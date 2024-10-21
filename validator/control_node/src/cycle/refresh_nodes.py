@@ -4,12 +4,13 @@ migrating the old nodes to history in the process
 """
 
 import asyncio
+import traceback
 
 
-from fiber.chain_interactions.models import Node
+from fiber.networking.models import NodeWithFernet as Node
 from validator.db.src.sql.nodes import get_nodes, migrate_nodes_to_history, insert_nodes, get_last_updated_time_for_nodes
-from core.logging import get_logger
-from fiber.chain_interactions import fetch_nodes
+from fiber.logging_utils import get_logger
+from fiber.chain import fetch_nodes
 from validator.control_node.src.control_config import Config
 from validator.db.src.sql.nodes import insert_symmetric_keys_for_nodes, update_our_vali_node_in_db
 from fiber.validator import handshake, client
@@ -19,14 +20,20 @@ from cryptography.fernet import Fernet
 
 logger = get_logger(__name__)
 
+def _format_exception(e: Exception) -> str:
+    """Format an exception with its traceback for logging."""
+    return f"Exception Type: {type(e).__name__}\nException Message: {str(e)}\nTraceback:\n{''.join(traceback.format_tb(e.__traceback__))}"
+
 
 async def get_and_store_nodes(config: Config) -> list[Node]:
     async with await config.psql_db.connection() as connection:
         if await is_recent_update(connection, config.netuid):
             return await get_nodes(config.psql_db, config.netuid)
 
-    nodes = await fetch_nodes_from_substrate(config)
+    raw_nodes = await fetch_nodes_from_substrate(config)
 
+    # Ensuring the Nodes get converted to NodesWithFernet
+    nodes = [Node(**node.model_dump(mode="json")) for node in raw_nodes]
 
     await store_nodes(config, nodes)
     await update_our_validator_node(config)
@@ -46,7 +53,9 @@ async def is_recent_update(connection, netuid: int) -> bool:
 
 
 async def fetch_nodes_from_substrate(config: Config) -> list[Node]:
-    return await asyncio.to_thread(fetch_nodes.get_nodes_for_netuid, config.substrate_interface, config.netuid)
+    # NOTE: Will this cause issues if this method closes the conenction
+    # on substrate interface, but we use the same substrate interface object elsewhere?
+    return await asyncio.to_thread(fetch_nodes.get_nodes_for_netuid, config.substrate, config.netuid)
 
 
 async def store_nodes(config: Config, nodes: list[Node]):
@@ -69,11 +78,17 @@ async def _handshake(config: Config, node: Node, async_client: httpx.AsyncClient
     )
 
     try:
-        symmetric_key, symmetric_key_uid = await handshake.perform_handshake(async_client, server_address, config.keypair)
-    except (httpx.HTTPStatusError, httpx.RequestError, httpx.ConnectError) as e:
-        # logger.warning(f"Failed to connect to {server_address}: {e}")
-        if hasattr(e, "response"):
-            logger.debug(f"response content: {e.response.text}")  # type: ignore
+        symmetric_key, symmetric_key_uid = await handshake.perform_handshake(
+            async_client, server_address, config.keypair, node.hotkey
+        )
+    except Exception as e:
+        error_details = _format_exception(e)
+        logger.debug(f"Failed to perform handshake with {server_address}. Details:\n{error_details}")
+
+        if isinstance(e, (httpx.HTTPStatusError, httpx.RequestError, httpx.ConnectError)):
+            if hasattr(e, "response"):
+                logger.debug(f"Response content: {e.response.text}")
+        
         return node_copy
 
     fernet = Fernet(symmetric_key)
@@ -84,14 +99,26 @@ async def _handshake(config: Config, node: Node, async_client: httpx.AsyncClient
 
 async def perform_handshakes(nodes: list[Node], config: Config) -> list[Node]:
     tasks = []
+    shaked_nodes: list[Node] = []
     for node in nodes:
         if node.fernet is None or node.symmetric_key_uuid is None:
             tasks.append(_handshake(config, node, config.httpx_client))
+        if len(tasks) > 50:
+            shaked_nodes.extend(await asyncio.gather(*tasks))
+            tasks = []
 
-    nodes = await asyncio.gather(*tasks)
+    if tasks:
+        shaked_nodes.extend(await asyncio.gather(*tasks))
+
+    nodes_where_handshake_worked = [
+        node for node in shaked_nodes if node.fernet is not None and node.symmetric_key_uuid is not None
+    ]
+    if len(nodes_where_handshake_worked) == 0:
+        logger.info("❌ Failed to perform handshakes with any nodes!")
+        return []
+    logger.info(f"✅ performed handshakes successfully with {len(nodes_where_handshake_worked)} nodes!")
 
     async with await config.psql_db.connection() as connection:
-        await insert_symmetric_keys_for_nodes(connection, nodes)
+        await insert_symmetric_keys_for_nodes(connection, nodes_where_handshake_worked)
 
-    logger.info(f"✅ performed handshakes with {len(nodes)} nodes!")
-    return nodes
+    return shaked_nodes

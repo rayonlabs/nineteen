@@ -11,16 +11,42 @@ services:
         condition: service_completed_successfully
       redis:
         condition: service_started
+    networks:
+      - postgres_network
+      - redis_network
     entrypoint: ["opentelemetry-instrument", "--logs_exporter", "otlp", "--traces_exporter", "otlp", "--metrics_exporter", "otlp", "--service_name", "control_node", "python", "-u", "/app/validator/control_node/src/main.py"]
     volumes:
-      - ~/.bittensor/wallets:/root/.bittensor/wallets
+      - ${HOME}/.bittensor/wallets:/root/.bittensor/wallets
     env_file:
-      - .prod.env
+      - .vali.env
     environment:
       OTEL_EXPORTER_OTLP_PROTOCOL: "http/protobuf"
       OTEL_EXPORTER_OTLP_ENDPOINT: "http://caddy/otel"
       OTEL_PYTHON_LOGGING_AUTO_INSTRUMENTATION_ENABLED: "true"
       OTEL_PYTHON_LOG_CORRELATION: "true"
+    container_name: control_node
+    deploy:
+      restart_policy:
+        condition: on-failure
+
+  weight_setter:
+    build:
+      context: .
+      dockerfile: dockerfiles/control_node.dockerfile
+    depends_on:
+      dbmate:
+        condition: service_completed_successfully
+      redis:
+        condition: service_started
+    networks:
+      - postgres_network
+      - redis_network
+    entrypoint: [ "python", "-u", "/app/validator/control_node/src/set_weights/calculate_and_schedule_weights.py" ]
+    volumes:
+      - ${HOME}/.bittensor/wallets:/root/.bittensor/wallets
+    env_file:
+      - .vali.env
+    container_name: weight_setter
     deploy:
       restart_policy:
         condition: on-failure
@@ -40,6 +66,11 @@ services:
     depends_on:
       - redis
       - postgresql
+    networks:
+      - postgres_network
+      - redis_network
+    volumes:
+      - ${HOME}/.bittensor/wallets:/root/.bittensor/wallets
     entrypoint: ["opentelemetry-instrument", "--logs_exporter", "otlp", "--traces_exporter", "otlp", "--metrics_exporter", "otlp", "--service_name", "query_node", "python", "-u", "/app/validator/query_node/src/main.py"]
     environment:
       OTEL_EXPORTER_OTLP_PROTOCOL: "http/protobuf"
@@ -53,6 +84,9 @@ services:
       POSTGRES_HOST: ${POSTGRES_HOST}
       ENV: ${ENV}
       NETUID: ${NETUID}
+    container_name: query_node
+    env_file:
+      - .vali.env
 
   entry_node:
     build:
@@ -69,6 +103,11 @@ services:
     depends_on:
       - redis
       - postgresql
+    networks:
+      - postgres_network
+      - redis_network
+    ports:
+      - "${ORGANIC_SERVER_PORT:-8091}:${ORGANIC_SERVER_PORT:-8091}"
     entrypoint: ["opentelemetry-instrument", "--logs_exporter", "otlp", "--traces_exporter", "otlp", "--metrics_exporter", "otlp", "--service_name", "entry_node", "python", "-u", "/app/validator/entry_node/src/server.py"]
     environment:
       OTEL_EXPORTER_OTLP_PROTOCOL: "http/protobuf"
@@ -81,16 +120,24 @@ services:
       POSTGRES_PORT: ${POSTGRES_PORT}
       POSTGRES_HOST: ${POSTGRES_HOST}
       ENV: ${ENV}
+    container_name: entry_node
+    env_file:
+      - .vali.env
+    profiles:
+      - entry_node_profile
 
   postgresql:
     image: postgres:latest
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      test: [ "CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}" ]
       interval: 5s
       timeout: 5s
       retries: 5
+    networks:
+      - postgres_network
+    container_name: 0_postgresql
     environment:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
@@ -108,9 +155,15 @@ services:
     depends_on:
       postgresql:
         condition: service_healthy
+    networks:
+      - postgres_network
+    container_name: 0_dbmate_nineteen
 
   redis:
     image: redis/redis-stack:latest
+    networks:
+      - redis_network
+    container_name: 0_redis
     deploy:
       restart_policy:
         condition: on-failure

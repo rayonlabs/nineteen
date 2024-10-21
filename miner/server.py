@@ -1,38 +1,15 @@
-from fastapi import Request, Response  # noqa
-from starlette.middleware.base import _StreamingResponse  # noqa
+import os
 from fiber.miner import server
+from core.models.config_models import TaskType
 from miner.endpoints.text import factory_router as text_factory_router
 from miner.endpoints.image import factory_router as image_factory_router
 from miner.endpoints.generic import factory_router as generic_factory_router
 from fiber.logging_utils import get_logger
+from fiber.miner.middleware import configure_extra_logging_middleware
+
 logger = get_logger(__name__)
 
 app = server.factory_app(debug=True)
-
-# @app.middleware("http")
-# async def log_requests(request: Request, call_next):
-#     response: Response = await call_next(request)
-#     if response.status_code != 200:
-#         if isinstance(response, _StreamingResponse):
-#             response_body = b""
-#             async for chunk in response.body_iterator:
-#                 response_body += chunk
-
-#             async def new_body_iterator():
-#                 yield response_body
-
-#             response.body_iterator = new_body_iterator()
-#             logger.error(f"Response error content: {response_body.decode()}")
-#         else:
-#             response_body = await response.body()
-#             logger.error(f"Response error content: {response_body.decode()}")
-#     return response
-
-
-# @app.exception_handler(Exception)
-# async def exception_handler(request: Request, exc: Exception):
-#     logger.error(f"An error occurred: {exc}", exc_info=True)
-#     return {"detail": "Internal Server Error"}
 
 
 text_router = text_factory_router()
@@ -41,6 +18,16 @@ generic_router = generic_factory_router()
 app.include_router(text_router)
 app.include_router(image_router)
 app.include_router(generic_router)
+
+if os.getenv("ENV", "prod").lower() == "dev":
+    configure_extra_logging_middleware(app)
+
+my_miner_type = os.getenv("MINER_TYPE")
+if not my_miner_type:
+    raise ValueError("MINER_TYPE is not set. Please set the MINER_TYPE environment variable miner!!!")
+if my_miner_type not in  TaskType._value2member_map_:
+    allowed_values = ", ".join(TaskType._value2member_map_.keys())
+    raise ValueError(f"MINER_TYPE {my_miner_type} is not valid. Please set the MINER_TYPE to one of the following: {allowed_values}")
 
 if __name__ == "__main__":
     import uvicorn

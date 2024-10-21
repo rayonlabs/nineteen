@@ -9,11 +9,11 @@ def should_update_local(local_commit, remote_commit):
 def run_auto_updater():
     print("Starting auto-updater...")
     print("First i'll run the docker containers...")
-    print("Checking for .prod.env file...")
-    while not os.path.exists('.prod.env'):
-        print(".prod.env file not found. Waiting 10 seconds before checking again...")
+    print("Checking for .vali.env file...")
+    while not os.path.exists('.vali.env'):
+        print(".vali.env file not found. Waiting 10 seconds before checking again...")
         time.sleep(10)
-    print(".prod.env file found. Proceeding with docker setup...")
+    print(".vali.env file found. Proceeding with docker setup...")
     launch_command = "./utils/launch_validator.sh"
     os.system(launch_command)
     time.sleep(60)

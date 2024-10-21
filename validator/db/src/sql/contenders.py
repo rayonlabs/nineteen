@@ -1,10 +1,9 @@
-from core.tasks import Task
-from core.logging import get_logger
+from fiber.logging_utils import get_logger
 
 from asyncpg import Connection
 from validator.db.src.database import PSQLDB
 from validator.models import Contender, PeriodScore, calculate_period_score
-from validator.utils import database_constants as dcst
+from validator.utils.database import database_constants as dcst
 
 logger = get_logger(__name__)
 
@@ -99,7 +98,7 @@ async def migrate_contenders_to_contender_history(connection: Connection) -> Non
     await connection.execute(f"DELETE FROM {dcst.CONTENDERS_TABLE}")
 
 
-async def get_contenders_for_task(connection: Connection, task: Task, top_x: int = 5) -> list[Contender]:
+async def get_contenders_for_task(connection: Connection, task: str, top_x: int = 5) -> list[Contender]:
     rows = await connection.fetch(
         f"""
         WITH ranked_contenders AS (
@@ -108,16 +107,8 @@ async def get_contenders_for_task(connection: Connection, task: Task, top_x: int
                 c.{dcst.RAW_CAPACITY}, c.{dcst.CAPACITY_TO_SCORE}, c.{dcst.CONSUMED_CAPACITY},
                 c.{dcst.TOTAL_REQUESTS_MADE}, c.{dcst.REQUESTS_429}, c.{dcst.REQUESTS_500}, 
                 c.{dcst.CAPACITY}, c.{dcst.PERIOD_SCORE}, c.{dcst.NETUID},
-                CASE 
-                    WHEN c.{dcst.CAPACITY} = 0 THEN 0
-                    ELSE 1.0 - (c.{dcst.CONSUMED_CAPACITY}::float / c.{dcst.CAPACITY}::float)
-                END AS capacity_unqueried_percentage,
                 ROW_NUMBER() OVER (
-                    ORDER BY 
-                        CASE 
-                            WHEN c.{dcst.CAPACITY} = 0 THEN 1
-                            ELSE c.{dcst.CONSUMED_CAPACITY}::float / c.{dcst.CAPACITY}::float
-                        END ASC
+                    ORDER BY c.{dcst.TOTAL_REQUESTS_MADE} ASC
                 ) AS rank
             FROM {dcst.CONTENDERS_TABLE} c
             JOIN {dcst.NODES_TABLE} n ON c.{dcst.NODE_ID} = n.{dcst.NODE_ID} AND c.{dcst.NETUID} = n.{dcst.NETUID}
@@ -128,10 +119,9 @@ async def get_contenders_for_task(connection: Connection, task: Task, top_x: int
         SELECT *
         FROM ranked_contenders
         WHERE rank <= $2
-          AND random() < capacity_unqueried_percentage
         ORDER BY rank
         """,
-        task.value,
+        task,
         top_x,
     )
 
@@ -149,11 +139,11 @@ async def get_contenders_for_task(connection: Connection, task: Task, top_x: int
             WHERE c.{dcst.TASK} = $1 
             AND c.{dcst.CAPACITY} > 0 
             AND n.{dcst.SYMMETRIC_KEY_UUID} IS NOT NULL
-            ORDER BY c.{dcst.CONSUMED_CAPACITY}::float / c.{dcst.CAPACITY}::float ASC
+            ORDER BY c.{dcst.TOTAL_REQUESTS_MADE} ASC
             LIMIT $2
             OFFSET $3
             """,
-            task.value,
+            task,
             top_x - len(rows) if rows else top_x,
             len(rows) if rows else 0,
         )
@@ -181,7 +171,8 @@ async def update_contender_429_count(psql_db: PSQLDB, contender: Contender) -> N
         await connection.execute(
             f"""
             UPDATE {dcst.CONTENDERS_TABLE}
-            SET {dcst.REQUESTS_429} = {dcst.REQUESTS_429} + 1
+            SET {dcst.REQUESTS_429} = {dcst.REQUESTS_429} + 1,
+                {dcst.TOTAL_REQUESTS_MADE} = {dcst.TOTAL_REQUESTS_MADE} + 1
             WHERE {dcst.CONTENDER_ID} = $1
             """,
             contender.id,
@@ -193,7 +184,8 @@ async def update_contender_500_count(psql_db: PSQLDB, contender: Contender) -> N
         await connection.execute(
             f"""
             UPDATE {dcst.CONTENDERS_TABLE}
-            SET {dcst.REQUESTS_500} = {dcst.REQUESTS_500} + 1
+            SET {dcst.REQUESTS_500} = {dcst.REQUESTS_500} + 1,
+                {dcst.TOTAL_REQUESTS_MADE} = {dcst.TOTAL_REQUESTS_MADE} + 1
             WHERE {dcst.CONTENDER_ID} = $1
             """,
             contender.id,
@@ -294,9 +286,6 @@ async def update_contenders_period_scores(connection: Connection, netuid: int) -
         updates,
     )
     logger.info(f"Updated {len(updates)} contenders with new period scores")
-
-    contenders = await fetch_all_contenders(connection, netuid)
-    logger.debug(f"Found {contenders} contenders")
 
 
 async def get_and_decrement_synthetic_request_count(connection: Connection, contender_id: str) -> int | None:

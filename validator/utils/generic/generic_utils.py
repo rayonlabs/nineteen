@@ -5,8 +5,8 @@ import time
 from typing import AsyncGenerator
 
 
-from core.logging import get_logger
-from validator.utils import generic_constants as gcst
+from fiber.logging_utils import get_logger
+from validator.utils.generic import generic_constants as gcst
 
 logger = get_logger(__name__)
 

@@ -27,7 +27,7 @@ wait_for_postgres() {
 # Function to run dbmate migrations
 run_dbmate_migrations() {
   echo "Running dbmate migrations..."
-  docker-compose -f docker-compose.yml -f docker-compose.testing.yml run --rm dbmate up
+  docker compose -f docker-compose.yml -f docker-compose.testing.yml run --rm dbmate up
   echo "dbmate migrations completed."
 }
 

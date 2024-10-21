@@ -11,8 +11,8 @@ NVIDIA_DRIVER_VERSION=${NVIDIA_DRIVER_VERSION:-535}
 NO_LAUNCH=${NO_LAUNCH:-0}
 
 
-# internal vars
-################################################################################
+# # internal vars
+# ################################################################################
 REBOOT_REQUIRED=0
 DEBIAN_FRONTEND=noninteractive
 export DEBIAN_FRONTEND=noninteractive
@@ -54,6 +54,15 @@ chown $SUDO_USER:$SUDO_USER $HOME/.bashrc
 chmod 644 $HOME/.bashrc
 
 mkdir -p $HOME/.local/bin
+if ! [[ $(echo $PATH | grep "$HOME/.local/bin") ]]; then
+  # add ~/.local/bin to the path
+  export PATH="$HOME/.local/bin:$PATH "
+
+  # and ensure it's there in future
+  echo "" >> $HOME/.bashrc
+  echo "export PATH=$HOME/.local/bin:$PATH" >> $HOME/.bashrc
+fi
+
 chown -R $SUDO_USER:$SUDO_USER $HOME/.local
 
 if ! [[ $(echo $PATH | grep "$HOME/.local/bin") ]]; then
@@ -107,13 +116,14 @@ if [ ! -d "$VENV_PATH" ]; then
     echo_ "Python venv created"
     source $VENV_PATH/bin/activate
     pip install bittensor==7.4.0
+    pip install python-dotenv==1.0.1
 else
     echo_ "Python venv already exists at $VENV_PATH"
 fi
 
 # docker
 ################################################################################
-echo_ checking for docker
+echo_ "checking for docker"
 if ! [[ $(which docker) ]]; then
   echo_ docker was not found, installing...
   apt-get update
@@ -132,9 +142,9 @@ if ! [[ $(which docker) ]]; then
   systemctl enable --now docker
 fi
 
-echo_ checking for docker-compose
+echo_ "checking for docker-compose"
 if ! [[ $(which docker-compose) ]]; then
-  echo_ docker-compose was not found, installing...
+  echo_ "docker-compose was not found, installing..."
   apt-get update
   apt-get install -y docker-compose-plugin
 fi
@@ -144,28 +154,25 @@ usermod -aG docker $SUDO_USER || true
 
 # pm2 & jq
 ################################################################################
-echo_ checking for pm2 & jq
-apt-get update -qq && apt-get upgrade -y -qq
+echo_ "checking for pm2 & jq"
 apt-get install -y -qq nodejs npm
 npm i -g -q pm2
 apt-get install -y -qq jq
 
 
-
-
 # Nano for config
 ################################################################################
-echo_ checking for nano
+echo_ "checking for nano"
 if ! [[ $(which nano) ]]; then
-  echo_ nano was not found, installing...
+  echo_ "nano was not found, installing..."
   apt-get install -y -qq nano
 fi
 
 # Task for taskfile
 ################################################################################
-echo_ checking for task
+echo_ "checking for task"
 if ! [[ $(which task) ]]; then
-  echo_ task was not found, installing...
+  echo_ "task was not found, installing..."
   sh -c "$(curl --location https://taskfile.dev/install.sh)" -- -d -b ~/.local/bin
   echo_ "task installed successfully"
 fi
@@ -176,10 +183,10 @@ if [[ NO_LAUNCH -eq 1 ]]; then
   :
 else
   if [[ WITH_AUTOUPDATES -eq 1 ]]; then
+    source $HOME/.venv/bin/activate
     sudo -E ./validator_autoupdater.sh
   else
-    docker-compose --env-file .prod.env -f docker-compose.prod.yml up -d
-    echo "@reboot $(which docker-compose) --env-file $(pwd)/.prod.env -f $(pwd)/docker-compose.prod.yml up -d" | sudo tee -a /etc/crontab
+    docker compose --env-file .vali.env -f docker-compose.yml up -d --build
   fi
 fi
 

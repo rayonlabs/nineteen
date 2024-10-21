@@ -3,7 +3,7 @@ from redis.asyncio import Redis
 import json
 from enum import Enum
 import copy
-from core.logging import get_logger
+from fiber.logging_utils import get_logger
 
 logger = get_logger(__name__)
 

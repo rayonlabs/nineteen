@@ -1,6 +1,18 @@
-# Features to be included in the Vision 5.0 release:
+## Shortly after Vision 6.0 release
 
-- Specialist miners. Miners will be in 3 categories for launch: Small LLM's, Medium LLM's, Image generation - and can only run one type of miner on a uid
-- Speed scoring to be based off medians - and potentially using the distribution of miners instead of a fixed distribution
+
+# TODO:
+- try to run it
+- pr review
+- image server changes
+
+
+## Dev TODOS:
+- Organic queries to prioritise those contenders who historically have done the best (highest incentive before).
+- Make synthetic generation be more customisable from config
 - Change text synthetics to pull from a larger text orientated dataset
-- Post to sn19.ai with the created_at time pointing to the time of the query, not time of insertion
+- Streaming smoothness
+
+
+## High level TODOS:
+- 'Trusted providers'

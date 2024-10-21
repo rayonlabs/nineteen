@@ -19,11 +19,11 @@ from dataclasses import dataclass
 class Config:
     redis_db: Redis
     psql_db: PSQLDB
-    prod: bool 
+    prod: bool
     httpx_client: httpx.AsyncClient
 
 
-@cached(ttl=None)
+@cached(ttl=60 * 5)
 async def factory_config() -> Config:
     localhost = bool(os.getenv("LOCALHOST", "false").lower() == "true")
     if localhost:

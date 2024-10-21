@@ -1,13 +1,16 @@
 import functools
 
 from contextlib import asynccontextmanager
+import os
 from fastapi import FastAPI
 import uvicorn
 from validator.entry_node.src.endpoints.text import router as chat_router
 from validator.entry_node.src.endpoints.image import router as image_router
-
+from validator.entry_node.src.endpoints.generic import router as generic_router
+from fastapi.middleware.cors import CORSMiddleware
 from validator.entry_node.src.core import configuration
-from core.logging import get_logger
+from fiber.logging_utils import get_logger
+from fiber.miner.middleware import configure_extra_logging_middleware  # noqa
 from scalar_fastapi import get_scalar_api_reference
 from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
 
@@ -38,11 +41,30 @@ def factory_app(debug: bool = False) -> FastAPI:
 app = factory_app()
 app.include_router(chat_router)
 app.include_router(image_router)
+app.include_router(generic_router)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"], 
+    allow_credentials=True,
+    allow_methods=["*"], 
+    allow_headers=["*"], 
+)
+
+if os.getenv("ENV") != "prod":
+    configure_extra_logging_middleware(app)
+
 
 
 if __name__ == "__main__":
     import uvicorn
 
-    uvicorn.run(app, host="0.0.0.0", port=8091)
+    port = os.getenv("ORGANIC_SERVER_PORT")
+    if port is None:
+        logger.error("ORGANIC_SERVER_PORT is not set")
+        exit(1)
+    else:
+        port = int(port)
+        uvicorn.run(app, host="0.0.0.0", port=port)
 
-    # uvicorn validator.entry_node.src.server:app --reload --host 0.0.0.0 --port 8091 --env-file .dev.env
+    # uvicorn validator.entry_node.src.server:app --reload --host 0.0.0.0 --port 8091 --env-file .vali.env

@@ -4,7 +4,7 @@ from asyncpg import Connection
 
 from validator.db.src.database import PSQLDB
 from validator.control_node.src.cycle.refresh_nodes import Config, get_and_store_nodes
-from fiber.chain_interactions.models import Node
+from fiber.networking.models import NodeWithFernet as Node
 
 
 class TestRefreshNodes(unittest.IsolatedAsyncioTestCase):
@@ -15,8 +15,7 @@ class TestRefreshNodes(unittest.IsolatedAsyncioTestCase):
             test_env=True,
             subtensor_network="test",
             netuid=1,
-            seconds_between_syncs=60,
-            substrate_interface=AsyncMock(),
+            substrate=AsyncMock(),
             keypair=AsyncMock(),
         )
 

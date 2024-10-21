@@ -5,8 +5,7 @@ from typing import List, Any
 
 
 from core.models import utility_models
-from core.tasks import Task
-from core import tasks_config as tcfg
+from core import task_config as tcfg
 
 from validator.db.src.database import PSQLDB
 from validator.db.src.sql.rewards_and_scores import (
@@ -64,15 +63,15 @@ async def potentially_store_result_in_db(
             )
 
 
-async def select_and_delete_task_result(psql_db: PSQLDB, task: Task) -> tuple[list[dict[str, Any]], str] | None:
+async def select_and_delete_task_result(psql_db: PSQLDB, task: str) -> tuple[list[dict[str, Any]], str] | None:
     async with await psql_db.connection() as connection:
-        row = await select_task_for_deletion(connection, task.value)
+        row = await select_task_for_deletion(connection, task)
         if row is None:
             return None
         checking_data, node_hotkey = row
         checking_data_loaded = json.loads(checking_data)
 
-        await delete_specific_task(connection, task.value, checking_data)
+        await delete_specific_task(connection, task, checking_data)
 
     return checking_data_loaded, node_hotkey
 
@@ -89,8 +88,8 @@ async def delete_data_older_than_date(connection: Connection, minutes: int) -> N
     ...
 
 
-async def fetch_recent_most_rewards_for_uid(
-    connection: Connection, task: str, node_hotkey: str, quality_tasks_to_fetch: int = 50
+async def fetch_recent_most_rewards(
+    connection: Connection, task: str, node_hotkey: str | None = None, quality_tasks_to_fetch: int = 50
 ) -> List[RewardData]:
     date = datetime.now() - timedelta(hours=72)
     priority_results = await select_recent_reward_data_for_a_task(connection, task, date, node_hotkey) or []
@@ -110,7 +109,7 @@ async def fetch_recent_most_rewards_for_uid(
             validator_hotkey=row[4],
             node_hotkey=row[5],
             synthetic_query=row[6],
-            speed_scoring_factor=row[7],
+            metric=row[7],
             response_time=row[8],
             volume=row[9],
             created_at=row[10],

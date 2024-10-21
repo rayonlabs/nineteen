@@ -2,138 +2,41 @@ include:
   - ./docker-compose.observability.yml
 
 services:
-  dev_core:
-    build:
-      context: .
-      dockerfile: dockerfiles/core.dockerfile
-    image: dev_core
-    networks:
-      - dev_postgres_network
-      - redis_network
-    depends_on:
-      dbmate:
-        condition: service_completed_successfully
-    container_name: dev_core
-
-  control_node:
-    build:
-      context: .
-      dockerfile: dockerfiles/control_node.dockerfile
-    depends_on:
-      dbmate:
-        condition: service_completed_successfully
-      redis:
-        condition: service_started
-      dev_core:
-        condition: service_started
-    volumes:
-      - .:/app
-      - ~/.bittensor/wallets:/root/.bittensor/wallets
-    networks:
-      - dev_postgres_network
-      - redis_network
-    entrypoint: ["python", "-u", "/app/validator/control_node/src/main.py"]
-    env_file:
-      - .dev.env
-    container_name: dev_control_node
-  
-  query_node:
-    build:
-      context: .
-      dockerfile: dockerfiles/query_node.dockerfile
-    deploy:
-      replicas: 1
-      resources:
-        limits:
-          cpus: '0.50'
-          memory: 512M
-      restart_policy:
-        condition: on-failure
-    depends_on:
-      - redis
-      - postgresql
-      - dev_core
-    volumes:
-      - .:/app
-    networks:
-      - dev_postgres_network
-      - redis_network
-    env_file:
-      - .dev.env
-    entrypoint: ["python", "-u", "/app/validator/query_node/src/main.py"]
-    container_name: dev_query_node
-
-  entry_node:
-    build:
-      context: .
-      dockerfile: dockerfiles/entry_node.dockerfile
-    deploy:
-      replicas: 1
-      resources:
-        limits:
-          cpus: '0.50'
-          memory: 512M
-      restart_policy:
-        condition: on-failure
-    depends_on:
-      - redis
-      - postgresql
-    networks:
-      - dev_postgres_network
-      - redis_network
-    ports:
-      - "8091:8091"
-    volumes:
-      - .:/app 
-    env_file:
-      - .dev.env
-    entrypoint: ["python", "-u", "/app/validator/entry_node/src/server.py"]
-    container_name: dev_entry_node
 
   postgresql:
-    image: postgres:latest
-    volumes:
-      - ./dev_postgres_data:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
-      interval: 5s
-      timeout: 5s
-      retries: 5
-    networks:
-      - dev_postgres_network
     ports:
-      - "5432:5432"
-    env_file:
-      - .dev.env
-    container_name: postgresql
-
-  dbmate:
-    image: amacneil/dbmate
-    volumes:
-      - ./validator/db:/db
-    command: up
-    depends_on:
-      postgresql:
-        condition: service_healthy
-    networks:
-      - dev_postgres_network
-    environment:
-      DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgresql:5432/${POSTGRES_DB}?sslmode=disable
-    container_name: dbmate
+      - "127.0.0.1:5432:5432"
+    container_name: 0_postgresql_dev
 
   redis:
-    image: redis/redis-stack:latest
+    ports:
+      - "127.0.0.1:6379:6379"
+    container_name: 0_redis_dev
+
+  redis-commander:
+    image: ghcr.io/joeferner/redis-commander:latest
+    environment:
+      - REDIS_HOSTS=local:redis:6379
+    ports:
+      - "127.0.0.1:8081:8081"
     networks:
       - redis_network
+    depends_on:
+      - redis
+    container_name: 0_redis-commander
+
+  adminer:
+    image: adminer
+    restart: always
     ports:
-      - "6379:6379"
-    container_name: redis
+      - 5051:8080
+    environment:
+      ADMINER_DEFAULT_SERVER: postgresql
+      ADMINER_DESIGN: nette
+      ADMINER_PLUGINS: tables-filter tinymce
+    networks:
+      - postgres_network
+    depends_on:
+      - postgresql
+    container_name: 0_adminer
 
-networks:
-  dev_postgres_network:
-    driver: bridge
-  redis_network:
-    driver: bridge
-
-volumes:
-  dev_postgres_data:

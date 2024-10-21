@@ -4,22 +4,22 @@ Helpful Docker Commands
 
 ### Start services
 ```bash
-docker-compose --env-file .prod.env -f docker-compose.prod.yml up -d
+docker compose --env-file .vali.env -f docker-compose.yml up -d
 ```
 
 ### View logs
 ```bash
-docker-compose --env-file .prod.env -f docker-compose.prod.yml logs -f
+docker compose --env-file .vali.env -f docker-compose.yml logs -f
 ```
 
 ### Stop services
 ```bash
-docker-compose --env-file .prod.env -f docker-compose.prod.yml down
+docker compose --env-file .vali.env -f docker-compose.yml down
 ```
 
 ### Rebuild and start services
 ```bash
-docker-compose --env-file .prod.env -f docker-compose.prod.yml up --build
+docker compose --env-file .vali.env -f docker-compose.yml up --build
 ```
 
 ### View running containers

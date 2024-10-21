@@ -1,13 +1,4 @@
 services:
-  core:
-    build:
-      context: .
-      dockerfile: dockerfiles/core.dockerfile
-    image: core
-    networks:
-      - postgres_network
-      - redis_network
-    container_name: test_core
 
   entry_node:
     build:
@@ -16,7 +7,6 @@ services:
     depends_on:
       - redis
       - test_db
-      - core
     volumes:
       - .:/app
     networks:
@@ -31,7 +21,6 @@ services:
       POSTGRES_PASSWORD: test_password
       POSTGRES_DB: test_db
       POSTGRES_PORT: 5432
-      POSTGRES_HOST: test_db
       POSTGRES_HOST: test_db
       ENV: test
 
@@ -55,7 +44,6 @@ services:
     depends_on:
       - redis
       - test_db
-      - core
     volumes:
       - .:/app
     networks:
@@ -69,7 +57,6 @@ services:
       POSTGRES_DB: test_db
       POSTGRES_PORT: 5432
       POSTGRES_HOST: test_db
-      POSTGRES_HOST: test_db
       ENV: test
       NETUID: 19
 
@@ -78,7 +65,6 @@ services:
       context: .
       dockerfile: dockerfiles/chain_node.dockerfile
     depends_on:
-      - core
       - test_db
       - redis
     volumes:
@@ -94,7 +80,6 @@ services:
       POSTGRES_DB: test_db
       POSTGRES_PORT: 5432
       POSTGRES_HOST: test_db
-      POSTGRES_HOST: test_db
       RUN_ONCE: "true"
       DUMMY: "true"
       NETUID: 19
@@ -109,7 +94,6 @@ services:
     depends_on:
       - redis
       - test_db
-      - core
     volumes:
       - .:/app
     networks:
@@ -122,7 +106,6 @@ services:
       POSTGRES_PASSWORD: test_password
       POSTGRES_DB: test_db
       POSTGRES_PORT: 5432
-      POSTGRES_HOST: test_db
       POSTGRES_HOST: test_db
       ENV: test
 
@@ -179,7 +162,6 @@ services:
       POSTGRES_PASSWORD: test_password
       POSTGRES_DB: test_db
       POSTGRES_PORT: 5432
-      POSTGRES_HOST: test_db
       POSTGRES_HOST: test_db
       DATABASE_URL: "postgres://test_user:test_password@test_db:5432/test_db?sslmode=disable"
 

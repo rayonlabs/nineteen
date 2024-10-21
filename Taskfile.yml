@@ -2,64 +2,51 @@ version: "3"
 
 tasks:
 
+
+
   set_weights:
     cmds:
-      - docker compose --env-file .prod.env -f docker-compose.prod.yml run --entrypoint "python src/cycle/calculate_and_schedule_weights.py" control_node
+      - JUST_ONCE=true docker compose --env-file .vali.env -f docker-compose.yml run -e LOCALHOST=false --entrypoint "python src/set_weights/calculate_and_schedule_weights.py" weight_setter
+
+  show_stats:
+    cmds:
+      - docker compose --env-file .vali.env -f docker-compose.yml run -e LOCALHOST=false --entrypoint "python src/collect_statistics.py" control_node
+
   control_node_dev:
     cmds:
-      - ENV_FILE=.dev.env python -m validator.control_node.src.main
+      - LOCALHOST=true ENV_FILE=.vali.env python -m validator.control_node.src.main
   
   query_node_dev:
     cmds: 
-      - ENV_FILE=.dev.env python -m validator.query_node.src.main
+      - LOCALHOST=true ENV_FILE=.vali.env python -m validator.query_node.src.main
 
   entry_node_dev:
     cmds:
-      - uvicorn validator.entry_node.src.server:app --reload --host 0.0.0.0 --port 8091 --env-file .dev.env
+      - LOCALHOST=true uvicorn validator.entry_node.src.server:app --reload --host 0.0.0.0 --port 8090 --env-file .vali.env
+    
+  weight_setter_dev:
+    cmds:
+      - LOCALHOST=true ENV_FILE=.vali.env python -m validator.control_node.src.set_weights.calculate_and_schedule_weights
 
   dev_setup:
     cmds:
-      - docker compose --env-file .dev.env up -d --scale=control_node=0 --scale=entry_node=0 --scale=query_node=0 --scale=redis-commander=1 --scale=adminer=1
+      - docker compose --env-file .vali.env -f docker-compose.yml -f docker-compose.dev.yml --profile entry_node_profile up -d --build --scale entry_node=0 --scale query_node=0 --scale control_node=0 --scale weight_setter=0
+      # Now use control_node_dev etc
 
-  miners_dev:
+  m1_dev:
     cmds:
-      - |
-        uvicorn miner.server:app --reload --host 0.0.0.0 --port 4001 --env-file .1.env --log-level debug &
-        uvicorn miner.server:app --reload --host 0.0.0.0 --port 4002 --env-file .2.env --log-level debug &
-        wait
-  
+      - ENV=DEV uvicorn miner.server:app --reload --host 0.0.0.0 --port 4001 --env-file .1.env --log-level debug
+
+  m2_dev:
+    cmds:
+      - ENV=DEV uvicorn miner.server:app --reload --host 0.0.0.0 --port 4002 --env-file .2.env --log-level debug
+
+  update_docker_fiber_version:
+    cmds:
+      - docker run --rm nineteen-control_node sh -c "pip install git+https://github.com/rayonlabs/fiber.git@1.0.0 --upgrade"
+      - docker run --rm nineteen-entry_node sh -c "pip install git+https://github.com/rayonlabs/fiber.git@1.0.0 --upgrade"
+      - docker run --rm nineteen-query_node sh -c "pip install git+https://github.com/rayonlabs/fiber.git@1.0.0 --upgrade"
+
   createm:
     cmds:
-      - |
-        for env_file in .*.env; do
-          if grep -q "NODE_PORT" "$env_file"; then
-            node_port=$(grep "NODE_PORT" "$env_file" | cut -d '=' -f2)
-            service_name="miner_$(echo $env_file | sed 's/\.//g' | sed 's/env//')"
-            pm2 start $service_name 'uvicorn miner.server:app --reload --host 0.0.0.0 --port $node_port --env-file $env_file --log-level debug & '
-          fi
-        done
-
-  stopm:
-    cmds:
-      - |
-        for service in $(sudo systemctl list-units --type=service --state=active | grep miner_ | awk '{print $1}'); do
-          echo "Stopping $service"
-          sudo systemctl stop $service
-        done
-
-  restartm:
-    cmds:
-      - |
-        for service in $(sudo systemctl list-units --type=service --state=active,failed | grep miner_ | awk '{print $1}'); do
-          echo "Restarting $service"
-          sudo systemctl restart $service
-        done
-
-  statusm:
-    cmds:
-      - |
-        for service in $(sudo systemctl list-units --type=service --all | grep miner_ | grep '\.service' | awk '{print $1}' | grep -v '^●'); do
-          echo "Status of $service:"
-          sudo systemctl status $service --no-pager
-          echo "----------------------"
-        done
+      - bash start_miners.sh

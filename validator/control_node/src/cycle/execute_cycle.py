@@ -11,24 +11,38 @@ A cycle consists of
 """
 
 import asyncio
+from datetime import datetime
 from validator.control_node.src.control_config import Config
 from validator.control_node.src.cycle import (
-    calculate_and_schedule_weights,
     refresh_nodes,
     refresh_contenders,
-    schedule_synthetic_queries,
-    # calculate_and_schedule_weights,
 )
-from core import constants as ccst
+from validator.control_node.src.cycle.schedule_synthetic_queries import schedule_synthetics_until_done
 from validator.db.src.sql.nodes import (
     get_nodes,
 )
 from fiber.logging_utils import get_logger
 
 from validator.models import Contender
-
+from validator.utils.post.nineteen import DataTypeToPost, ValidatorInfoPostBody, post_to_nineteen_ai
+from core.task_config import get_public_task_configs
+from core import constants as ccst
+from validator.db.src.sql.rewards_and_scores import delete_task_data_older_than_date
 
 logger = get_logger(__name__)
+
+
+async def _post_vali_stats(config: Config):
+    public_configs = get_public_task_configs()
+    await post_to_nineteen_ai(
+        data_to_post=ValidatorInfoPostBody(
+            validator_hotkey=config.keypair.ss58_address,
+            task_configs=public_configs,
+            versions=str(ccst.VERSION_KEY),
+        ).model_dump(mode="json"),
+        keypair=config.keypair,
+        data_type_to_post=DataTypeToPost.VALIDATOR_INFO,
+    )
 
 
 async def get_nodes_and_contenders(config: Config) -> list[Contender] | None:
@@ -38,6 +52,8 @@ async def get_nodes_and_contenders(config: Config) -> list[Contender] | None:
         nodes = await refresh_nodes.get_and_store_nodes(config)
     else:
         nodes = await get_nodes(config.psql_db, config.netuid)
+
+    await _post_vali_stats(config)
 
     logger.info("Got nodes! Performing handshakes now...")
 
@@ -52,15 +68,18 @@ async def get_nodes_and_contenders(config: Config) -> list[Contender] | None:
     return contenders
 
 
-async def schedule_synthetics(config: Config) -> None:
-    logger.info(f"Scheduling synthetics; this will take {ccst.SCORING_PERIOD_TIME // 60} minutes ish...")
-
-    await schedule_synthetic_queries.schedule_synthetics_until_done(config)
+async def _remove_task_data(config: Config):
+    # NOTE: remove on next update
+    # For a short time after this update, delete task data since the NSFW flag has changed.
+    if datetime.now() < datetime(2024, 10, 14, 15):
+        async with await config.psql_db.connection() as connection:
+            await delete_task_data_older_than_date(connection, datetime.now())
 
 
 async def main(config: Config) -> None:
     time_to_sleep_if_no_contenders = 20
     contenders = await get_nodes_and_contenders(config)
+
     if contenders is None or len(contenders) == 0:
         logger.info(
             f"No contenders to query, skipping synthetic scheduling and sleeping for {time_to_sleep_if_no_contenders} seconds to wait."
@@ -68,8 +87,10 @@ async def main(config: Config) -> None:
         await asyncio.sleep(time_to_sleep_if_no_contenders)  # Sleep for 5 minutes to wait for contenders to become available
         tasks = []
     else:
-        tasks = [schedule_synthetics(config)]
+        tasks = [schedule_synthetics_until_done(config)]
+
     while True:
+        await _remove_task_data(config)
         await asyncio.gather(*tasks)
         contenders = await get_nodes_and_contenders(config)
         if contenders is None or len(contenders) == 0:
@@ -79,4 +100,4 @@ async def main(config: Config) -> None:
             await asyncio.sleep(time_to_sleep_if_no_contenders)  # Sleep for 5 minutes to wait for contenders to become available
             tasks = []
         else:
-            tasks = [calculate_and_schedule_weights.get_and_set_weights(config), schedule_synthetics(config)]
+            tasks = [schedule_synthetics_until_done(config)]

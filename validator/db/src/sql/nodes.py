@@ -1,12 +1,15 @@
 import datetime
+from fiber import SubstrateInterface
 from validator.db.src.database import PSQLDB
-from fiber.chain_interactions.models import Node
-from core.logging import get_logger
+from fiber.networking.models import NodeWithFernet as Node
+from fiber.logging_utils import get_logger
 
 from asyncpg import Connection
-from validator.utils import database_constants as dcst
+from validator.utils.database import database_constants as dcst
 from fiber import utils as futils
 from cryptography.fernet import Fernet
+
+from validator.utils.substrate.query_substrate import query_substrate
 
 logger = get_logger(__name__)
 
@@ -191,9 +194,9 @@ async def get_node(psql_db: PSQLDB, node_id: int, netuid: int) -> Node | None:
     node = await psql_db.fetchone(query, node_id, netuid)
 
     if node is None:
-        logger.error(f"No node found for hotkey {node_id} and netuid {netuid}")
+        logger.error(f"No node found for node id {node_id} and netuid {netuid}")
         logger.error(f"all nodes: {await psql_db.fetchall(f'SELECT * FROM {dcst.NODES_TABLE} WHERE {dcst.NETUID} = $1', netuid)}")
-        raise ValueError(f"No node found for hotkey {node_id} and netuid {netuid}")
+        raise ValueError(f"No node found for node id {node_id} and netuid {netuid}")
     try:
         node["fernet"] = Fernet(node[dcst.SYMMETRIC_KEY])
     except Exception as e:
@@ -229,18 +232,8 @@ async def get_vali_ss58_address(psql_db: PSQLDB, netuid: int) -> str | None:
     return node[dcst.HOTKEY]
 
 
-async def get_vali_node_id(psql_db: PSQLDB, netuid: int) -> str | None:
-    query = f"""
-        SELECT 
-            {dcst.NODE_ID}
-        FROM {dcst.NODES_TABLE}
-        WHERE {dcst.OUR_VALIDATOR} = true AND {dcst.NETUID} = $1
-    """
-
-    node = await psql_db.fetchone(query, netuid)
-
-    if node is None:
-        logger.error(f"No validator node found for netuid {netuid}")
-        return None
-
-    return node[dcst.NODE_ID]
+async def get_vali_node_id(substrate: SubstrateInterface, netuid: int, ss58_address: str) -> str | None:
+    _, uid = query_substrate(
+        substrate, "SubtensorModule", "Uids", [netuid, ss58_address], return_value=True
+    )
+    return uid
