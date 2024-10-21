@@ -18,7 +18,8 @@ services:
     volumes:
       - grafana:/var/lib/grafana
       - ./config/grafana-datasource.yaml:/etc/grafana/provisioning/datasources/otel.yaml
-
+    ports:
+      - ${GRAFANA_PORT:-3000}:3000
   otel-collector:
     image: otel/opentelemetry-collector-contrib:0.106.1
     restart: always
