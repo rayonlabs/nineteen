@@ -3,9 +3,5 @@
     reverse_proxy grafana:3000
   }
 
-  handle_path /otel* {
-    reverse_proxy otel-collector:4317
-  }
-
   reverse_proxy entry_node:8091
 }
