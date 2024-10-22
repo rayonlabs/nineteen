@@ -2,6 +2,7 @@ import json
 from typing import Any
 import uuid
 from fastapi import Depends, HTTPException
+from opentelemetry import metrics
 from redis.asyncio import Redis
 from fiber.logging_utils import get_logger
 from fastapi.routing import APIRouter
@@ -22,6 +23,10 @@ from validator.utils.generic.generic_dataclasses import GenericResponse
 logger = get_logger(__name__)
 
 
+COUNTER_IMAGE_ERROR = metrics.get_meter(__name__).create_counter("validator.image.error")
+COUNTER_IMAGE_SUCCESS = metrics.get_meter(__name__).create_counter("validator.image.success")
+
+
 def _construct_organic_message(payload: dict, job_id: str, task: str) -> str:
     return json.dumps({"query_type": gcst.ORGANIC, "query_payload": payload, "task": task, "job_id": job_id})
 
@@ -32,6 +37,7 @@ async def _wait_for_acknowledgement(pubsub: PubSub, job_id: str) -> bool:
         if channel == f"{gcst.ACKNLOWEDGED}:{job_id}" and message["type"] == "message":
             logger.info(f"Job {job_id} confirmed by worker")
             break
+
     await pubsub.unsubscribe(f"{gcst.ACKNLOWEDGED}:{job_id}")
     return True
 
@@ -89,21 +95,31 @@ async def process_image_request(
     task = task.replace("_", "-")
     task_config = get_enabled_task_config(task)  # NOTE: is grim
     if task_config is None:
+        COUNTER_IMAGE_ERROR.add(1, {"reason": "no_task_config"})
         logger.error(f"Task config not found for task: {task}")
         raise HTTPException(status_code=400, detail=f"Invalid model {task}")
 
     result = await make_non_stream_organic_query(
-        redis_db=config.redis_db, payload=payload.model_dump(), task=task, timeout=task_config.timeout
+        redis_db=config.redis_db,
+        payload=payload.model_dump(),
+        task=task,
+        timeout=task_config.timeout,
     )
+
     if result is None or result.content is None:
+        COUNTER_IMAGE_ERROR.add(1, {"reason": "no_response"})
         logger.error(f"No content received an image request for some reason. Task: {task}")
         raise HTTPException(status_code=500, detail="Unable to process request")
 
     image_response = payload_models.ImageResponse(**json.loads(result.content))
     if image_response.is_nsfw:
+        COUNTER_IMAGE_ERROR.add(1, {"reason": "nsfw"})
         raise HTTPException(status_code=403, detail="NSFW content detected")
+
     if image_response.image_b64 is None:
+        COUNTER_IMAGE_ERROR.add(1, {"reason": "no_response"})
         raise HTTPException(status_code=500, detail="Unable to process request")
+
     return request_models.ImageResponse(image_b64=image_response.image_b64)
 
 
@@ -112,7 +128,10 @@ async def text_to_image(
     config: Config = Depends(get_config),
 ) -> request_models.ImageResponse:
     payload = request_models.text_to_image_to_payload(text_to_image_request)
-    return await process_image_request(payload, payload.model, config)
+
+    result = await process_image_request(payload, payload.model, config)
+    COUNTER_IMAGE_SUCCESS.add(1, {"kind": "text_to_image", "model": text_to_image_request.model})
+    return result
 
 
 async def image_to_image(
@@ -120,9 +139,14 @@ async def image_to_image(
     config: Config = Depends(get_config),
 ) -> request_models.ImageResponse:
     payload = await request_models.image_to_image_to_payload(
-        image_to_image_request, httpx_client=config.httpx_client, prod=config.prod
+        image_to_image_request,
+        httpx_client=config.httpx_client,
+        prod=config.prod,
     )
-    return await process_image_request(payload, payload.model, config)
+
+    result = await process_image_request(payload, payload.model, config)
+    COUNTER_IMAGE_SUCCESS.add(1, {"kind": "image_to_image", "model": image_to_image_request.model})
+    return result
 
 
 async def inpaint(
@@ -130,7 +154,10 @@ async def inpaint(
     config: Config = Depends(get_config),
 ) -> request_models.ImageResponse:
     payload = await request_models.inpaint_to_payload(inpaint_request, httpx_client=config.httpx_client, prod=config.prod)
-    return await process_image_request(payload, "inpaint", config)
+
+    result = await process_image_request(payload, "inpaint", config)
+    COUNTER_IMAGE_SUCCESS.add(1, {"kind": "inpaint"})
+    return result
 
 
 async def avatar(
@@ -138,15 +165,18 @@ async def avatar(
     config: Config = Depends(get_config),
 ) -> request_models.ImageResponse:
     payload = await request_models.avatar_to_payload(avatar_request, httpx_client=config.httpx_client, prod=config.prod)
-    return await process_image_request(payload, "avatar", config)
+
+    result = await process_image_request(payload, "avatar", config)
+    COUNTER_IMAGE_SUCCESS.add(1, {"kind": "avatar"})
+    return result
 
 
-router = APIRouter()
-router.add_api_route(
-    "/v1/text-to-image", text_to_image, methods=["POST"], tags=["Image"], dependencies=[Depends(verify_api_key_rate_limit)]
+router = APIRouter(
+    tags=["Image"],
+    dependencies=[Depends(verify_api_key_rate_limit)],
 )
-router.add_api_route(
-    "/v1/image-to-image", image_to_image, methods=["POST"], tags=["Image"], dependencies=[Depends(verify_api_key_rate_limit)]
-)
-router.add_api_route("/v1/inpaint", inpaint, methods=["POST"], tags=["Image"], dependencies=[Depends(verify_api_key_rate_limit)])
-router.add_api_route("/v1/avatar", avatar, methods=["POST"], tags=["Image"], dependencies=[Depends(verify_api_key_rate_limit)])
+
+router.add_api_route("/v1/text-to-image", text_to_image, methods=["POST"])
+router.add_api_route("/v1/image-to-image", image_to_image, methods=["POST"])
+router.add_api_route("/v1/inpaint", inpaint, methods=["POST"])
+router.add_api_route("/v1/avatar", avatar, methods=["POST"])

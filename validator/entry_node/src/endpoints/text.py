@@ -3,6 +3,7 @@ from typing import Any, AsyncGenerator
 import uuid
 from fastapi import Depends, HTTPException
 from fastapi.responses import JSONResponse, StreamingResponse
+from opentelemetry import metrics
 from redis.asyncio import Redis
 from fiber.logging_utils import get_logger
 from fastapi.routing import APIRouter
@@ -17,6 +18,10 @@ from validator.utils.query.query_utils import load_sse_jsons
 from redis.asyncio.client import PubSub
 
 logger = get_logger(__name__)
+
+
+COUNTER_TEXT_GENERATION_ERROR = metrics.get_meter(__name__).create_counter("validator.text.error")
+COUNTER_TEXT_GENERATION_SUCCESS = metrics.get_meter(__name__).create_counter("validator.text.success")
 
 
 def _construct_organic_message(payload: dict, job_id: str, task: str) -> str:
@@ -122,17 +127,27 @@ async def chat(
 
     try:
         text_generator = await make_stream_organic_query(
-            redis_db=config.redis_db, payload=payload.model_dump(), task=payload.model
+            redis_db=config.redis_db,
+            payload=payload.model_dump(),
+            task=payload.model,
         )
+
         logger.info("Here returning a response!")
+
+        # TODO: Use the success counter but only if an error _doesn't_ happen.
+
         if chat_request.stream:
             return StreamingResponse(text_generator, media_type="text/event-stream")
         else:
             return await _handle_no_stream(text_generator)
+
     except HTTPException as http_exc:
+        COUNTER_TEXT_GENERATION_ERROR.add(1, {"kind": "HTTPException", "model": chat_request.model})
         logger.info(f"HTTPException in chat endpoint: {str(http_exc)}")
         raise http_exc
+
     except Exception as e:
+        COUNTER_TEXT_GENERATION_ERROR.add(1, {"kind": type(e).__name__, "model": chat_request.model})
         logger.error(f"Unexpected error in chat endpoint: {str(e)}")
         raise HTTPException(status_code=500, detail="An unexpected error occurred")
 

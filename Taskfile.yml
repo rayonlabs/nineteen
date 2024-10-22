@@ -1,4 +1,8 @@
 version: "3"
+dotenv:
+  - .env
+  - .vali.env
+
 tasks:
   set_weights:
     cmds:
@@ -73,3 +77,7 @@ tasks:
   shutdown_and_delete:
     cmds:
       - docker compose --env-file .vali.env --profile entry_node_profile down --remove-orphans -v
+
+  postgres:
+    cmds:
+      - docker compose --env-file .vali.env --profile entry_node_profile exec -it postgresql psql -U$POSTGRES_USER $POSTGRES_DB

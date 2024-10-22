@@ -1,5 +1,3 @@
-import functools
-
 from contextlib import asynccontextmanager
 import os
 from fastapi import FastAPI
@@ -45,15 +43,14 @@ app.include_router(generic_router)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"], 
+    allow_origins=["*"],
     allow_credentials=True,
-    allow_methods=["*"], 
-    allow_headers=["*"], 
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 if os.getenv("ENV") != "prod":
     configure_extra_logging_middleware(app)
-
 
 
 if __name__ == "__main__":
