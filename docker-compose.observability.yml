@@ -5,21 +5,24 @@ services:
     volumes:
       - ./config/Caddyfile:/etc/caddy/Caddyfile
     ports:
-      - ${CADDY_PORT:-80}:80
+      - ${SERVER_PORT:-80}:80
 
   grafana:
     image: grafana/grafana
     restart: always
     environment:
       # these are the defaults, you should probably change them in deployment
-      GF_SERVER_ROOT_URL: http://localhost/grafana
-      GF_SECURITY_ADMIN_USER: ${GF_SECURITY_ADMIN_USER:-admin}
-      GF_SECURITY_ADMIN_PASSWORD: ${GF_SECURITY_ADMIN_PASSWORD:-admin}
+      GF_SERVER_ROOT_URL: ${SERVER_BASE_URL:-http://localhost}:${SERVER_PORT:-80}/grafana
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_USERNAME:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASSWORD:-admin}
     volumes:
       - grafana:/var/lib/grafana
       - ./config/grafana-datasource.yaml:/etc/grafana/provisioning/datasources/otel.yaml
+      - ./config/grafana-dashboards.yaml:/etc/grafana/provisioning/dashboards/dashboards.yaml
+      - ./config/grafana-validator-errors.json:/var/lib/grafana/dashboards/grafana-validator-errors.json
     ports:
       - ${GRAFANA_PORT:-3000}:3000
+
   otel-collector:
     image: otel/opentelemetry-collector-contrib:0.106.1
     restart: always
@@ -50,7 +53,7 @@ services:
     command:
       - --config.file=/etc/prometheus/prometheus.yml
       - --storage.tsdb.path=/prometheus
-      - --storage.tsdb.retention.time=14d
+      - --storage.tsdb.retention.time=7d
       - --web.console.libraries=/usr/share/prometheus/console_libraries
       - --web.console.templates=/usr/share/prometheus/console
     volumes:
