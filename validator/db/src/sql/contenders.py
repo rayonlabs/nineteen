@@ -206,11 +206,12 @@ async def recalculate_contenders_for_task(psql_db: PSQLDB, task: str, best_conte
         }
         for row in rows
     ]
-
+    logger.debug(f"rows_contenders for task {task} are : {rows_contenders}")
     # sort contenders by normalised scores
     contenders = [Contender(**row) for row in rows_contenders]
     contenders_with_scores = [(contender, row[dcst.COLUMN_NORMALISED_NET_SCORE]) for contender, row in zip(contenders, rows)]
     contenders_with_scores.sort(key=lambda x: x[1], reverse=True)
+    logger.debug(f"contenders_with_scores for task {task} are : {contenders_with_scores}")
 
     # split into 10 groupes, reorder by total_requests_made ascending inside each group
     num_groups = 10
@@ -219,7 +220,7 @@ async def recalculate_contenders_for_task(psql_db: PSQLDB, task: str, best_conte
         sorted(contenders_with_scores[i * group_size: (i + 1) * group_size], key=lambda x: x[0].total_requests_made)
         for i in range(num_groups)
     ]
-    
+    logger.debug(f"grouped_contenders for task {task} are : {grouped_contenders}")
     sorted_contenders = [contender[0] for group in grouped_contenders for contender in group]
     logger.debug(f"Best contenders for task {task} are : {sorted_contenders}")
     
