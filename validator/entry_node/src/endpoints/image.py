@@ -80,14 +80,14 @@ async def make_non_stream_organic_query(
 
     except asyncio.TimeoutError:
         logger.error(f"No confirmation received for job {job_id} within timeout period. Task: {task}")
-        COUNTER_IMAGE_ERROR.add(1, {"job_id": job_id, "task": task, "kind": "redis_acknowledgement_timeout", "status_code": 500})
+        COUNTER_IMAGE_ERROR.add(1, {"task": task, "kind": "redis_acknowledgement_timeout", "status_code": 500})
         raise HTTPException(status_code=500, detail=f"Unable to process task: {task}, please try again later.")
     
     try:
         return await asyncio.wait_for(_collect_single_result(pubsub, job_id), timeout=timeout)
     except asyncio.TimeoutError:
         logger.error(f"Timed out waiting for the first chunk of results for job {job_id}. Task: {task}")
-        COUNTER_IMAGE_ERROR.add(1, {"job_id": job_id, "task": task, "kind": "_collect_single_result_failed", "status_code": 500})
+        COUNTER_IMAGE_ERROR.add(1, {"task": task, "kind": "_collect_single_result_failed", "status_code": 500})
         raise HTTPException(status_code=500, detail=f"Unable to process task: {task}, please try again later.")
 
 
@@ -117,20 +117,20 @@ async def process_image_request(
     )
 
     if result is None or result.content is None:
-        COUNTER_IMAGE_ERROR.add(1, {"job_id": job_id, "task": task, "kind": "no_result", "status_code": 500})
+        COUNTER_IMAGE_ERROR.add(1, {"task": task, "kind": "no_result", "status_code": 500})
         logger.error(f"No content received an image request for some reason. Task: {task}")
         raise HTTPException(status_code=500, detail="Unable to process request")
 
     image_response = payload_models.ImageResponse(**json.loads(result.content))
     if image_response.is_nsfw:
-        COUNTER_IMAGE_ERROR.add(1, {"job_id": job_id, "task": task, "kind": "nsfw", "status_code": 403})
+        COUNTER_IMAGE_ERROR.add(1, {"task": task, "kind": "nsfw", "status_code": 403})
         raise HTTPException(status_code=403, detail="NSFW content detected")
 
     if image_response.image_b64 is None:
-        COUNTER_IMAGE_ERROR.add(1, {"job_id": job_id, "task": task, "kind": "no_image", "status_code": 500})
+        COUNTER_IMAGE_ERROR.add(1, {"task": task, "kind": "no_image", "status_code": 500})
         raise HTTPException(status_code=500, detail="Unable to process request")
 
-    COUNTER_IMAGE_SUCCESS.add(1, {"job_id": job_id, "task": task, "status_code": 200})
+    COUNTER_IMAGE_SUCCESS.add(1, {"task": task, "status_code": 200})
     return request_models.ImageResponse(image_b64=image_response.image_b64)
 
 

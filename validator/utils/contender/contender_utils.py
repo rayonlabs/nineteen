@@ -34,9 +34,8 @@ async def load_contenders(psql_db: PSQLDB) -> list[Contender]:
 
 async def add_synthetic_query_to_queue(redis_db: Redis, task: str, max_length: int) -> None:
     message = construct_synthetic_query_message(task)
-    job_id = message["job_id"]
     message = json.dumps(message)
-    COUNTER_SYNTHETIC_QUERIES.add(1, {"task": task, "query": message, "job_id": job_id})
+    COUNTER_SYNTHETIC_QUERIES.add(1, {"task": task, "query": message})
     await rutils.add_str_to_redis_list(redis_db, rcst.QUERY_QUEUE_KEY, message, max_length)
 
 

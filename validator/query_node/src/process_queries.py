@@ -25,6 +25,7 @@ COUNTER_TOTAL_QUERIES = metrics.get_meter(__name__).create_counter(
     name="validator.query_node.process.total_queries",
     description="Number of total queries sent to `process_task`",
 )
+
 COUNTER_FAILED_QUERIES= metrics.get_meter(__name__).create_counter(
     name="validator.query_node.process.failed_queries",
     description="Number of failed queries within `process_task`",
@@ -146,12 +147,13 @@ async def process_task(config: Config, message: rdc.QueryQueueMessage):
             status_code=500,
             error_message=f"Can't find the task {task}, please try again later",
         )
+
         COUNTER_FAILED_QUERIES.add(1, {
             "task": task,
-            "job_id": message.job_id,
             "synthetic_query": str(message.query_type == gcst.SYNTHETIC),
             "error_message": f"Can't find the task {task}, please try again later",
         })
+
         return
 
     stream = task_config.is_stream
@@ -162,7 +164,7 @@ async def process_task(config: Config, message: rdc.QueryQueueMessage):
     if contenders_to_query is None:
         raise ValueError("No contenders to query! :(")
 
-    COUNTER_TOTAL_QUERIES.add(1, {"task": task, "job_id": message.job_id, "synthetic_query": str(message.query_type == gcst.SYNTHETIC)})
+    COUNTER_TOTAL_QUERIES.add(1, {"task": task, "synthetic_query": str(message.query_type == gcst.SYNTHETIC)})
     
     try:
         if stream:
@@ -181,7 +183,6 @@ async def process_task(config: Config, message: rdc.QueryQueueMessage):
         )
         COUNTER_FAILED_QUERIES.add(1, {
             "task": task,
-            "job_id": message.job_id,
             "synthetic_query": str(message.query_type == gcst.SYNTHETIC),
             "error_message": f"Error processing task {task}: {e}",
             "status_code": 500

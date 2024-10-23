@@ -44,6 +44,8 @@ def _get_capacity_to_score(capacity: float, capacity_to_score_multiplier: float)
     else:
         multiplier = 0.8
 
+    multiplier = 1
+
     return capacity * multiplier * capacity_to_score_multiplier
 
 

@@ -100,7 +100,7 @@ async def listen_for_tasks(config: Config):
                 task = asyncio.create_task(process_task(config, rdc.QueryQueueMessage(**json.loads(message_json[1]))))
                 tasks.add(task)
             except TypeError:
-                QUERY_NODE_FAILED_TASKS_COUNTER.add(1, {"error": message_json})
+                QUERY_NODE_FAILED_TASKS_COUNTER.add(1)
                 logger.error(f"Failed to process message: {message_json}")
 
         await asyncio.sleep(0.01)

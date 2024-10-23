@@ -15,11 +15,14 @@ services:
       GF_SERVER_ROOT_URL: ${SERVER_BASE_URL:-http://localhost}:${SERVER_PORT:-80}/grafana
       GF_SECURITY_ADMIN_USER: ${GRAFANA_USERNAME:-admin}
       GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASSWORD:-admin}
+      GF_INSTALL_PLUGINS: redis-datasource
     volumes:
       - grafana:/var/lib/grafana
       - ./config/grafana-datasource.yaml:/etc/grafana/provisioning/datasources/otel.yaml
       - ./config/grafana-dashboards.yaml:/etc/grafana/provisioning/dashboards/dashboards.yaml
       - ./config/grafana-validator-errors.json:/var/lib/grafana/dashboards/grafana-validator-errors.json
+      - ./config/grafana-validator-general.json:/var/lib/grafana/dashboards/grafana-validator-general.json
+      - ./config/grafana-redis-realtime.json:/var/lib/grafana/dashboards/grafana-redis-realtime.json
     ports:
       - ${GRAFANA_PORT:-3000}:3000
 
