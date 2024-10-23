@@ -214,7 +214,7 @@ async def recalculate_contenders_for_task(psql_db: PSQLDB, task: str, best_conte
     logger.debug(f"contenders_with_scores for task {task} are : {contenders_with_scores}")
 
     # split into 10 groupes, reorder by total_requests_made ascending inside each group
-    num_groups = 10
+    num_groups = min(10, len(contenders))
     group_size = len(contenders_with_scores) // num_groups
     grouped_contenders = [
         sorted(contenders_with_scores[i * group_size: (i + 1) * group_size], key=lambda x: x[0].total_requests_made)
