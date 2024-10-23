@@ -209,11 +209,33 @@ async def get_contenders_for_organic_task(psql_db: PSQLDB, task: str, top_x: int
 
     if contenders_with_scores:
         if len(contenders_with_scores) > top_x:
-            top_75_percent = contenders_with_scores[:max(1, 3 * len(contenders_with_scores) // 4)]  #  top 75%
-            top_25_percent = top_75_percent[:max(1, len(top_75_percent) // 3)]  # top 25% within the top 75%
+            # Use defined constants for top 75% and top 25% logic
+            top_x_percent = contenders_with_scores[:max(1, int(gcst.ORGANIC_SELECT_CONTENDER_LOW_POURC * len(contenders_with_scores)))]  # Top 75%
+            best_top_x_percent = top_x_percent[:max(1, int(gcst.ORGANIC_TOP_POURC * len(top_x_percent)))]  # Top 25% within the top 75%
+            remaining_top_x_percent = top_x_percent[len(best_top_x_percent):]
+
+            # Use defined constants for weights
+            best_top_x_weights = [gcst.ORGANIC_TOP_POURC_FACTOR / (rank + 1) for rank in range(len(best_top_x_percent))]  # Higher weight for top 25%
+            remaining_top_x_weights = [1 / (rank + 1) for rank in range(len(remaining_top_x_percent))]
+            
+            combined_contenders = [contender[0] for contender in (best_top_x_percent + remaining_top_x_percent)]
+            combined_weights = best_top_x_weights + remaining_top_x_weights
+            
+            selected_contenders = random.choices(combined_contenders, weights=combined_weights, k=min(top_x, len(combined_contenders)))
+            logger.debug(f"Selected contenders for task {task} : {selected_contenders}")
+            return selected_contenders
+        else:
+            logger.debug(f"Number of contenders ({len(contenders_with_scores)}) < top_x ({top_x}). Returning all contenders")
+            return [contender[0] for contender in contenders_with_scores]
+
+
+    if contenders_with_scores:
+        if len(contenders_with_scores) > top_x:
+            top_75_percent = contenders_with_scores[:max(1, 3 * len(contenders_with_scores) // 4)]  #  top 75% - here use gcst.ORGANIC_SELECT_CONTENDER_LOW_POURC (1-0.25=0.75 here)
+            top_25_percent = top_75_percent[:max(1, len(top_75_percent) // 3)]  # top 25% within the top 75% - here use gcst.ORGANIC_TOP_POURC (0.25 here)
             remaining_50_percent = top_75_percent[len(top_25_percent):]
 
-            top_25_weights = [3 / (rank + 1) for rank in range(len(top_25_percent))]  # higher weight for top 25%
+            top_25_weights = [3 / (rank + 1) for rank in range(len(top_25_percent))]  # higher weight for top 25% - here use gcst.ORGANIC_TOP_POURC_FACTOR = 3
             remaining_50_weights = [1 / (rank + 1) for rank in range(len(remaining_50_percent))]
             combined_contenders = [contender[0] for contender in (top_25_percent + remaining_50_percent)]
             combined_weights = top_25_weights + remaining_50_weights
@@ -225,7 +247,7 @@ async def get_contenders_for_organic_task(psql_db: PSQLDB, task: str, top_x: int
             return [contender[0] for contender in contenders_with_scores]
     # fall back in case of an issue
     else:
-        logger.debug(f"Contenders selection for organic queries with task {task} yielded nothing, falling back to synthetic queries logic.")
+        logger.debug(f"Contenders selectiRequest error when getting an imageon for organic queries with task {task} yielded nothing, falling back to synthetic queries logic.")
         return await get_contenders_for_synthetic_task(psql_db, task, top_x)
 
 
