@@ -3,10 +3,11 @@ from collections import defaultdict
 
 from pydantic import BaseModel, Field
 from typing import Optional
-from datetime import datetime
+from datetime import datetime, timedelta
+from asyncio import Lock
 
 task_data = defaultdict(lambda: defaultdict(list))
-
+best_contenders_lock = Lock()
 
 class PeriodScore(BaseModel):
     hotkey: str
@@ -34,6 +35,32 @@ class Contender(BaseModel):
     def id(self) -> str:
         contender_id = self.node_hotkey + "-" + self.task
         return contender_id
+    
+class BestContenders(BaseModel):
+    best_contenders: list[Contender] = []
+    last_update_date: Optional[datetime] = None
+
+
+class BestContendersPerTask(BaseModel):
+    tasks: dict[str, BestContenders] = {}
+
+    def get_task_contenders(self, task: str) -> BestContenders:
+        return self.tasks.get(task, BestContenders())
+    
+    async def update_task_contenders(self, task: str, contenders: list[Contender], update_time: datetime):
+        async with best_contenders_lock:
+            self.tasks[task] = BestContenders(best_contenders=contenders, last_update_date=update_time)
+    
+    def needs_update(self, task: str, scoring_period: int) -> bool:
+        task_contenders = self.get_task_contenders(task)
+        if task_contenders.last_update_date is None:
+            return True
+        return datetime.now() - task_contenders.last_update_date >= timedelta(seconds=scoring_period)
+    
+    class Config:
+        arbitrary_types_allowed = True
+
+
 
 
 def calculate_period_score(
