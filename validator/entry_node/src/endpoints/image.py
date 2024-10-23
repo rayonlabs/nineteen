@@ -23,8 +23,8 @@ from validator.utils.generic.generic_dataclasses import GenericResponse
 logger = get_logger(__name__)
 
 
-COUNTER_IMAGE_ERROR = metrics.get_meter(__name__).create_counter("validator.image.error")
-COUNTER_IMAGE_SUCCESS = metrics.get_meter(__name__).create_counter("validator.image.success")
+COUNTER_IMAGE_ERROR = metrics.get_meter(__name__).create_counter("validator.entry_node.image.error")
+COUNTER_IMAGE_SUCCESS = metrics.get_meter(__name__).create_counter("validator.entry_node.image.success")
 
 
 def _construct_organic_message(payload: dict, job_id: str, task: str) -> str:
@@ -64,9 +64,9 @@ async def _collect_single_result(pubsub: PubSub, job_id: str) -> GenericResponse
 
 
 async def make_non_stream_organic_query(
-    redis_db: Redis, payload: dict[str, Any], task: str, timeout: float
+    job_id: str, redis_db: Redis, payload: dict[str, Any], task: str, timeout: float
 ) -> GenericResponse | None:
-    job_id = uuid.uuid4().hex
+    
     organic_message = _construct_organic_message(payload=payload, job_id=job_id, task=task)  # NOTE: tis grim
 
     pubsub = redis_db.pubsub()
@@ -77,11 +77,19 @@ async def make_non_stream_organic_query(
         await asyncio.wait_for(_wait_for_acknowledgement(pubsub, job_id), timeout=1)
 
         await pubsub.subscribe(f"{rcst.JOB_RESULTS}:{job_id}")
-        return await asyncio.wait_for(_collect_single_result(pubsub, job_id), timeout=timeout)
 
     except asyncio.TimeoutError:
         logger.error(f"No confirmation received for job {job_id} within timeout period. Task: {task}")
+        COUNTER_IMAGE_ERROR.add(1, {"job_id": job_id, "task": task, "kind": "redis_acknowledgement_timeout", "status_code": 500})
         raise HTTPException(status_code=500, detail=f"Unable to process task: {task}, please try again later.")
+    
+    try:
+        return await asyncio.wait_for(_collect_single_result(pubsub, job_id), timeout=timeout)
+    except asyncio.TimeoutError:
+        logger.error(f"Timed out waiting for the first chunk of results for job {job_id}. Task: {task}")
+        COUNTER_IMAGE_ERROR.add(1, {"job_id": job_id, "task": task, "kind": "_collect_single_result_failed", "status_code": 500})
+        raise HTTPException(status_code=500, detail=f"Unable to process task: {task}, please try again later.")
+
 
 
 async def process_image_request(
@@ -99,7 +107,9 @@ async def process_image_request(
         logger.error(f"Task config not found for task: {task}")
         raise HTTPException(status_code=400, detail=f"Invalid model {task}")
 
+    job_id = uuid.uuid4().hex
     result = await make_non_stream_organic_query(
+        job_id=job_id,
         redis_db=config.redis_db,
         payload=payload.model_dump(),
         task=task,
@@ -107,19 +117,20 @@ async def process_image_request(
     )
 
     if result is None or result.content is None:
-        COUNTER_IMAGE_ERROR.add(1, {"reason": "no_response"})
+        COUNTER_IMAGE_ERROR.add(1, {"job_id": job_id, "task": task, "kind": "no_result", "status_code": 500})
         logger.error(f"No content received an image request for some reason. Task: {task}")
         raise HTTPException(status_code=500, detail="Unable to process request")
 
     image_response = payload_models.ImageResponse(**json.loads(result.content))
     if image_response.is_nsfw:
-        COUNTER_IMAGE_ERROR.add(1, {"reason": "nsfw"})
+        COUNTER_IMAGE_ERROR.add(1, {"job_id": job_id, "task": task, "kind": "nsfw", "status_code": 403})
         raise HTTPException(status_code=403, detail="NSFW content detected")
 
     if image_response.image_b64 is None:
-        COUNTER_IMAGE_ERROR.add(1, {"reason": "no_response"})
+        COUNTER_IMAGE_ERROR.add(1, {"job_id": job_id, "task": task, "kind": "no_image", "status_code": 500})
         raise HTTPException(status_code=500, detail="Unable to process request")
 
+    COUNTER_IMAGE_SUCCESS.add(1, {"job_id": job_id, "task": task, "status_code": 200})
     return request_models.ImageResponse(image_b64=image_response.image_b64)
 
 
@@ -130,7 +141,6 @@ async def text_to_image(
     payload = request_models.text_to_image_to_payload(text_to_image_request)
 
     result = await process_image_request(payload, payload.model, config)
-    COUNTER_IMAGE_SUCCESS.add(1, {"kind": "text_to_image", "model": text_to_image_request.model})
     return result
 
 
@@ -145,7 +155,6 @@ async def image_to_image(
     )
 
     result = await process_image_request(payload, payload.model, config)
-    COUNTER_IMAGE_SUCCESS.add(1, {"kind": "image_to_image", "model": image_to_image_request.model})
     return result
 
 
@@ -156,7 +165,6 @@ async def inpaint(
     payload = await request_models.inpaint_to_payload(inpaint_request, httpx_client=config.httpx_client, prod=config.prod)
 
     result = await process_image_request(payload, "inpaint", config)
-    COUNTER_IMAGE_SUCCESS.add(1, {"kind": "inpaint"})
     return result
 
 
@@ -167,7 +175,6 @@ async def avatar(
     payload = await request_models.avatar_to_payload(avatar_request, httpx_client=config.httpx_client, prod=config.prod)
 
     result = await process_image_request(payload, "avatar", config)
-    COUNTER_IMAGE_SUCCESS.add(1, {"kind": "avatar"})
     return result
 
 

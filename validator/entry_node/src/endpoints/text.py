@@ -20,8 +20,8 @@ from redis.asyncio.client import PubSub
 logger = get_logger(__name__)
 
 
-COUNTER_TEXT_GENERATION_ERROR = metrics.get_meter(__name__).create_counter("validator.text.error")
-COUNTER_TEXT_GENERATION_SUCCESS = metrics.get_meter(__name__).create_counter("validator.text.success")
+COUNTER_TEXT_GENERATION_ERROR = metrics.get_meter(__name__).create_counter("validator.entry_node.text.error")
+COUNTER_TEXT_GENERATION_SUCCESS = metrics.get_meter(__name__).create_counter("validator.entry_node.text.success")
 
 
 def _construct_organic_message(payload: dict, job_id: str, task: str) -> str:
@@ -38,7 +38,7 @@ async def _wait_for_acknowledgement(pubsub: PubSub, job_id: str) -> bool:
     return True
 
 
-async def _stream_results(pubsub: PubSub, job_id: str, first_chunk: str) -> AsyncGenerator[str, str]:
+async def _stream_results(pubsub: PubSub, job_id: str, task: str, first_chunk: str) -> AsyncGenerator[str, str]:
     yield first_chunk
     async for message in pubsub.listen():
         channel = message["channel"].decode()
@@ -49,12 +49,14 @@ async def _stream_results(pubsub: PubSub, job_id: str, first_chunk: str) -> Asyn
                 continue
             status_code = result[gcst.STATUS_CODE]
             if status_code >= 400:
+                COUNTER_TEXT_GENERATION_ERROR.add(1, {"job_id": job_id, "task": task, "kind": "nth_chunk_timeout", "status_code": status_code})
                 raise HTTPException(status_code=status_code, detail=result[gcst.ERROR_MESSAGE])
 
             content = result[gcst.CONTENT]
             yield content
             if "[DONE]" in content:
                 break
+    COUNTER_TEXT_GENERATION_SUCCESS.add(1, {"job_id": job_id, "task": task, "status_code": 200})
     await pubsub.unsubscribe(f"{rcst.JOB_RESULTS}:{job_id}")
 
 
@@ -87,6 +89,7 @@ async def make_stream_organic_query(
         logger.error(
             f"Query node down? No confirmation received for job {job_id} within timeout period. Task: {task}, model: {payload['model']}"
         )
+        COUNTER_TEXT_GENERATION_ERROR.add(1, {"job_id": job_id, "task": task, "kind": "redis_acknowledgement_timeout", "status_code": 500})
         raise HTTPException(status_code=500, detail="Unable to process request")
 
     await pubsub.subscribe(f"{rcst.JOB_RESULTS}:{job_id}")
@@ -97,11 +100,12 @@ async def make_stream_organic_query(
         logger.error(
             f"Query node down? Timed out waiting for the first chunk of results for job {job_id}. Task: {task}, model: {payload['model']}"
         )
+        COUNTER_TEXT_GENERATION_ERROR.add(1, {"job_id": job_id, "task": task, "kind": "first_chunk_timeout", "status_code": 500})
         raise HTTPException(status_code=500, detail="Unable to process request")
 
     if first_chunk is None:
         raise HTTPException(status_code=500, detail="Unable to process request")
-    return _stream_results(pubsub, job_id, first_chunk)
+    return _stream_results(pubsub, job_id, task, first_chunk)
 
 
 async def _handle_no_stream(text_generator: AsyncGenerator[str, str]) -> JSONResponse:
@@ -134,20 +138,17 @@ async def chat(
 
         logger.info("Here returning a response!")
 
-        # TODO: Use the success counter but only if an error _doesn't_ happen.
-
         if chat_request.stream:
             return StreamingResponse(text_generator, media_type="text/event-stream")
         else:
             return await _handle_no_stream(text_generator)
 
     except HTTPException as http_exc:
-        COUNTER_TEXT_GENERATION_ERROR.add(1, {"kind": "HTTPException", "model": chat_request.model})
         logger.info(f"HTTPException in chat endpoint: {str(http_exc)}")
         raise http_exc
 
     except Exception as e:
-        COUNTER_TEXT_GENERATION_ERROR.add(1, {"kind": type(e).__name__, "model": chat_request.model})
+        COUNTER_TEXT_GENERATION_ERROR.add(1, {"job_id": 0, "task": payload.model, "kind": type(e).__name__, "status_code": 500})
         logger.error(f"Unexpected error in chat endpoint: {str(e)}")
         raise HTTPException(status_code=500, detail="An unexpected error occurred")
 
