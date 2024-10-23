@@ -227,7 +227,7 @@ async def get_contenders_for_organic_task(psql_db: PSQLDB, task: str, top_x: int
             return [contender[0] for contender in contenders_with_scores]
     # fall back in case of an issue
     else:
-        logger.debug(f"Contenders selection for organic queries with task {task} yielded nothing, falling back to synthetic queries logic.")
+        logger.debug(f"Contenders selection for organic queries with task {task} yielded nothing (probably statistiques table is empty), falling back to synthetic queries logic.")
         return await get_contenders_for_synthetic_task(psql_db, task, top_x)
 
 
