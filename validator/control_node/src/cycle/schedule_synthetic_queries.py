@@ -16,9 +16,14 @@ from validator.utils.generic import generic_constants as gcst
 from validator.utils.redis import redis_constants as rcst
 from core import constants as ccst
 from fiber.logging_utils import get_logger
+from opentelemetry import metrics
 
 logger = get_logger(__name__)
 
+HIST_REQUESTS_TO_SKIP = metrics.get_meter(__name__).create_counter("validator.control_node.synthetic.requests_to_skip")
+HIST_SCHEDULE_REMAINING_REQUESTS = metrics.get_meter(__name__).create_counter("validator.control_node.synthetic.schedule_remaining_requests")
+HIST_LATEST_REMAINING_REQUESTS = metrics.get_meter(__name__).create_counter("validator.control_node.synthetic.latest_remaining_requests")
+HIST_TOTAL_REQUESTS = metrics.get_meter(__name__).create_counter("validator.control_node.synthetic.total_requests")
 
 @dataclass
 class TaskScheduleInfo:
@@ -144,7 +149,13 @@ async def schedule_synthetics_until_done(config: Config):
         if latest_remaining_requests <= 0:
             logger.info(f"No more requests remaining for task {schedule.task}")
             continue
+
+        HIST_TOTAL_REQUESTS.record(schedule.total_requests, {"task": schedule.task})
+        HIST_SCHEDULE_REMAINING_REQUESTS.record(schedule.remaining_requests, {"task": schedule.task})
+        HIST_LATEST_REMAINING_REQUESTS.record(latest_remaining_requests, {"task": schedule.task})
+
         requests_to_skip = schedule.remaining_requests - latest_remaining_requests
+        HIST_REQUESTS_TO_SKIP.record(requests_to_skip, {"task": schedule.task})
 
         if requests_to_skip > 0:
             logger.info(f"Skipping {requests_to_skip} requests for task {schedule.task}")
