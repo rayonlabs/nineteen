@@ -182,7 +182,7 @@ async def get_contenders_for_organic_task(psql_db: PSQLDB, task: str, top_x: int
             """,
             task,
         )
-
+    logger.debug(f"Number of valid contenders for task {task} for organic query : {len(rows)}")
     rows_contenders = [
         {
             "node_hotkey": row[dcst.NODE_HOTKEY],
@@ -205,6 +205,7 @@ async def get_contenders_for_organic_task(psql_db: PSQLDB, task: str, top_x: int
     contenders = [Contender(**row) for row in rows_contenders]
     contenders_with_scores = [(contender, row[dcst.COLUMN_NORMALISED_NET_SCORE]) for contender, row in zip(contenders, rows)]
     contenders_with_scores.sort(key=lambda x: x[1], reverse=True)
+    logger.debug(f"Contenders for task {task} with normalised net score : {contenders_with_scores}")
 
     if contenders_with_scores:
         top_75_percent = contenders_with_scores[:max(1, 3 * len(contenders_with_scores) // 4)]  #  top 75%
@@ -217,6 +218,7 @@ async def get_contenders_for_organic_task(psql_db: PSQLDB, task: str, top_x: int
         combined_weights = top_25_weights + remaining_50_weights
 
         selected_contenders = random.choices(combined_contenders, weights=combined_weights, k=min(top_x, len(combined_contenders)))
+        logger.debug(f"Selected contenders for task {task} : {selected_contenders}")
         return selected_contenders
 
     # fall back in case of an issue
