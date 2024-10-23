@@ -188,7 +188,7 @@ async def recalculate_contenders_for_task(psql_db: PSQLDB, task: str, best_conte
             """,
             task,
         )
-
+    logger.debug(f"len(valid_contenders): {len(rows)}")
     rows_contenders = [
         {
             "node_hotkey": row[dcst.NODE_HOTKEY],
@@ -212,7 +212,7 @@ async def recalculate_contenders_for_task(psql_db: PSQLDB, task: str, best_conte
     contenders_with_scores = [(contender, row[dcst.COLUMN_NORMALISED_NET_SCORE]) for contender, row in zip(contenders, rows)]
     contenders_with_scores.sort(key=lambda x: x[1], reverse=True)
 
-    # split into 10 groupes, reorder by total_requests_made ascending
+    # split into 10 groupes, reorder by total_requests_made ascending inside each group
     num_groups = 10
     group_size = len(contenders_with_scores) // num_groups
     grouped_contenders = [
@@ -222,6 +222,7 @@ async def recalculate_contenders_for_task(psql_db: PSQLDB, task: str, best_conte
     
     sorted_contenders = [contender[0] for group in grouped_contenders for contender in group]
     logger.debug(f"Best contenders for task {task} are : {sorted_contenders}")
+    
     await best_contenders_per_task.update_task_contenders(task, sorted_contenders, datetime.now())
 
 
@@ -230,7 +231,7 @@ async def get_contenders_for_organic_task(psql_db: PSQLDB, task: str, best_conte
     
     task_contenders = best_contenders_per_task.get_task_contenders(task)
 
-    if best_contenders_per_task.needs_update(task, ccst.SCORING_PERIOD_TIME):
+    if best_contenders_per_task.needs_update(task, ccst.SCORING_PERIOD_TIME) or len(task_contenders.best_contenders)==0:
         asyncio.create_task(recalculate_contenders_for_task(psql_db, task, best_contenders_per_task, top_x, netuid))
 
     contenders = task_contenders.best_contenders
