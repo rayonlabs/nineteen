@@ -233,9 +233,18 @@ async def get_contenders_for_organic_task(psql_db: PSQLDB, task: str, best_conte
 
     contenders = task_contenders.best_contenders
     if contenders:
-        top_75_percent = contenders[:max(1, 3 * len(contenders) // 4)]
-        weights = [1 / (rank + 1) for rank in range(len(top_75_percent))]        
-        selected_contenders = random.choices(top_75_percent, weights=weights, k=min(top_x, len(top_75_percent)))
+        top_75_percent = contenders[:max(1, 3 * len(contenders) // 4)]  #  top 75%
+        top_25_percent = top_75_percent[:max(1, len(top_75_percent) // 3)]  # top 25% within the top 75%
+        remaining_50_percent = top_75_percent[len(top_25_percent):]
+
+        top_25_weights = [3 / (rank + 1) for rank in range(len(top_25_percent))]  # higher weight for top 25%
+        remaining_50_weights = [1 / (rank + 1) for rank in range(len(remaining_50_percent))]
+
+        combined_contenders = top_25_percent + remaining_50_percent
+        combined_weights = top_25_weights + remaining_50_weights
+
+        selected_contenders = random.choices(combined_contenders, weights=combined_weights, k=min(top_x, len(combined_contenders)))
+        
         return selected_contenders
 
     # fall back in case of an issue
