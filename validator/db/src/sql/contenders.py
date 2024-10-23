@@ -3,6 +3,7 @@ from fiber.logging_utils import get_logger
 from asyncpg import Connection
 import asyncio
 from datetime import datetime
+import random
 
 from validator.db.src.database import PSQLDB
 from validator.models import Contender, PeriodScore, calculate_period_score, BestContendersPerTask
@@ -205,11 +206,12 @@ async def recalculate_contenders_for_task(psql_db: PSQLDB, task: str, best_conte
         for row in rows
     ]
 
+    # sort contenders by normalised scores
     contenders = [Contender(**row) for row in rows_contenders]
-
     contenders_with_scores = [(contender, row[dcst.COLUMN_NORMALISED_NET_SCORE]) for contender, row in zip(contenders, rows)]
     contenders_with_scores.sort(key=lambda x: x[1], reverse=True)
 
+    # split into 10 groupes, reorder by total_requests_made ascending
     num_groups = 10
     group_size = len(contenders_with_scores) // num_groups
     grouped_contenders = [
@@ -229,7 +231,16 @@ async def get_contenders_for_organic_task(psql_db: PSQLDB, task: str, best_conte
     if best_contenders_per_task.needs_update(task, ccst.SCORING_PERIOD_TIME):
         asyncio.create_task(recalculate_contenders_for_task(psql_db, task, best_contenders_per_task, top_x, netuid))
 
-    return task_contenders.best_contenders[:top_x]
+    contenders = task_contenders.best_contenders
+    if contenders:
+        top_75_percent = contenders[:max(1, 3 * len(contenders) // 4)]
+        weights = [1 / (rank + 1) for rank in range(len(top_75_percent))]        
+        selected_contenders = random.choices(top_75_percent, weights=weights, k=min(top_x, len(top_75_percent)))
+        return selected_contenders
+
+    # fall back in case of an issue
+    else:
+        return await get_contenders_for_synthetic_task(psql_db, task, top_x)
 
 
 async def get_contenders_for_task(psql_db: PSQLDB, task: str, best_contenders_per_task: BestContendersPerTask, top_x: int = 5, 
