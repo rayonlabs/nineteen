@@ -4,10 +4,8 @@ from collections import defaultdict
 from pydantic import BaseModel, Field
 from typing import Optional
 from datetime import datetime
-from asyncio import Lock
 
 task_data = defaultdict(lambda: defaultdict(list))
-best_contenders_lock = Lock()
 
 class PeriodScore(BaseModel):
     hotkey: str

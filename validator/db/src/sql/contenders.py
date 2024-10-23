@@ -216,7 +216,7 @@ async def get_contenders_for_organic_task(psql_db: PSQLDB, task: str, top_x: int
             best_top_x_weights = [gcst.ORGANIC_TOP_POURC_FACTOR / (len(top_x_percent) + 1) for _ in range(len(best_top_x_percent))]  # higher weight for top 25%
             remaining_top_x_weights = [1 / (len(top_x_percent) + 1) for _ in range(len(remaining_top_x_percent))]
             
-            combined_contenders = [contender[0] for contender in (best_top_x_percent + remaining_top_x_percent)]
+            combined_contenders = [contender_score[0] for contender_score in (best_top_x_percent + remaining_top_x_percent)]
             combined_weights = best_top_x_weights + remaining_top_x_weights
             
             selected_contenders = random.choices(combined_contenders, weights=combined_weights, k=min(top_x, len(combined_contenders)))
@@ -224,7 +224,7 @@ async def get_contenders_for_organic_task(psql_db: PSQLDB, task: str, top_x: int
             return selected_contenders
         else:
             logger.debug(f"Number of contenders ({len(contenders_with_scores)}) < top_x ({top_x}). Returning all contenders")
-            return [contender[0] for contender in contenders_with_scores]
+            return [contender_score[0] for contender_score in contenders_with_scores]
     # fall back in case of an issue
     else:
         logger.debug(f"Contenders selection for organic queries with task {task} yielded nothing (probably statistiques table is empty), falling back to synthetic queries logic.")
