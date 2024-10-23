@@ -2,6 +2,7 @@ import json
 import time
 from redis.asyncio import Redis
 from core.models.payload_models import ImageResponse
+from validator.models import Contender
 from validator.query_node.src.query_config import Config
 from core import task_config as tcfg
 from validator.utils.generic import generic_utils as gutils
