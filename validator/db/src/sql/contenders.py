@@ -199,6 +199,9 @@ async def get_contenders_for_organic_task(psql_db: PSQLDB, task: str, top_x: int
         if contender:
             contenders.append(contender)
 
+    if len(contenders) < top_x:
+        return await get_contenders_for_synthetic_task(psql_db, task, top_x)
+
     return contenders
 
 
