@@ -13,7 +13,6 @@ from validator.query_node.src.query_config import Config
 from validator.utils.redis import redis_constants as rcst, redis_dataclasses as rdc
 from validator.query_node.src.process_queries import process_task
 from validator.db.src.sql.nodes import get_vali_ss58_address
-from validator.models import BestContendersPerTask
 from validator.db.src.database import PSQLDB
 from fiber.chain import chain_utils
 
@@ -65,8 +64,6 @@ async def load_config() -> Config:
 async def listen_for_tasks(config: Config):
     tasks: set[asyncio.Task] = set()
 
-    best_contenders_per_task = BestContendersPerTask()
-
     logger.info("Listening for tasks.")
     while True:
         done = {t for t in tasks if t.done()}
@@ -80,7 +77,7 @@ async def listen_for_tasks(config: Config):
             if not message_json:
                 break
             try:
-                task = asyncio.create_task(process_task(config, rdc.QueryQueueMessage(**json.loads(message_json[1])), best_contenders_per_task))
+                task = asyncio.create_task(process_task(config, rdc.QueryQueueMessage(**json.loads(message_json[1]))))
                 tasks.add(task)
             except TypeError:
                 logger.error(f"Failed to process message: {message_json}")

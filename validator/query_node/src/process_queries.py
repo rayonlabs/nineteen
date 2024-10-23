@@ -2,7 +2,6 @@ import json
 import time
 from redis.asyncio import Redis
 from core.models.payload_models import ImageResponse
-from validator.models import Contender, BestContendersPerTask
 from validator.query_node.src.query_config import Config
 from core import task_config as tcfg
 from validator.utils.generic import generic_utils as gutils
@@ -115,7 +114,7 @@ async def _handle_error(config: Config, synthetic_query: bool, job_id: str, stat
         )
 
 
-async def process_task(config: Config, message: rdc.QueryQueueMessage, best_contenders_per_task: BestContendersPerTask):
+async def process_task(config: Config, message: rdc.QueryQueueMessage):
     task = message.task
 
     if message.query_type == gcst.ORGANIC:
@@ -140,7 +139,7 @@ async def process_task(config: Config, message: rdc.QueryQueueMessage, best_cont
 
     stream = task_config.is_stream
 
-    contenders_to_query = await get_contenders_for_task(config.psql_db, task, best_contenders_per_task, 5, message.query_type, netuid=config.netuid)
+    contenders_to_query = await get_contenders_for_task(config.psql_db, task, 5, message.query_type)
 
     if contenders_to_query is None:
         raise ValueError("No contenders to query! :(")

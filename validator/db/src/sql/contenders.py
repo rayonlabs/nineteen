@@ -1,13 +1,10 @@
 from fiber.logging_utils import get_logger
 
 from asyncpg import Connection
-import asyncio
-from datetime import datetime
 import random
 
 from validator.db.src.database import PSQLDB
-from validator.models import Contender, PeriodScore, calculate_period_score, BestContendersPerTask
-from core import constants as ccst
+from validator.models import Contender, PeriodScore, calculate_period_score
 from validator.utils.database import database_constants as dcst
 from validator.utils.generic import generic_constants as gcst
 from validator.utils.database import database_constants as dcst
@@ -158,12 +155,9 @@ async def get_contenders_for_synthetic_task(psql_db: PSQLDB, task: str, top_x: i
             rows = rows + additional_rows if rows else additional_rows
 
     return [Contender(**row) for row in rows]
+    
 
-
-async def recalculate_contenders_for_task(psql_db: PSQLDB, task: str, best_contenders_per_task: BestContendersPerTask, 
-                                          top_x: int, netuid: int) -> None:
-    # get all valid contenders with their normalised_net_score
-    logger.debug(f"Refreshing best contenders for task {task}")
+async def get_contenders_for_organic_task(psql_db: PSQLDB, task: str, top_x: int = 5) -> list[Contender]:
     async with await psql_db.connection() as connection:
         rows = await connection.fetch(
             f"""
@@ -188,6 +182,7 @@ async def recalculate_contenders_for_task(psql_db: PSQLDB, task: str, best_conte
             """,
             task,
         )
+
     rows_contenders = [
         {
             "node_hotkey": row[dcst.NODE_HOTKEY],
@@ -205,61 +200,37 @@ async def recalculate_contenders_for_task(psql_db: PSQLDB, task: str, best_conte
         }
         for row in rows
     ]
-    # sort contenders by normalised scores
+
+    # sort contenders by net normalised scores
     contenders = [Contender(**row) for row in rows_contenders]
     contenders_with_scores = [(contender, row[dcst.COLUMN_NORMALISED_NET_SCORE]) for contender, row in zip(contenders, rows)]
     contenders_with_scores.sort(key=lambda x: x[1], reverse=True)
-    logger.debug(f"Contenders with scores for task {task}  : {contenders_with_scores}")
 
-    # split into 10 groupes, reorder by total_requests_made ascending inside each group
-    num_groups = min(10, len(contenders))
-    group_size = len(contenders_with_scores) // num_groups
-    grouped_contenders = [
-        sorted(contenders_with_scores[i * group_size: (i + 1) * group_size], key=lambda x: x[0].total_requests_made)
-        for i in range(num_groups)
-    ]
-    sorted_contenders = [contender[0] for group in grouped_contenders for contender in group]
-    logger.debug(f"Best contenders for task {task} are : {sorted_contenders}")
-    
-    await best_contenders_per_task.update_task_contenders(task, sorted_contenders, datetime.now())
-
-
-async def get_contenders_for_organic_task(psql_db: PSQLDB, task: str, best_contenders_per_task: BestContendersPerTask, 
-                                          top_x: int = 5, netuid: int = 19) -> list[Contender]:
-    
-    task_contenders = best_contenders_per_task.get_task_contenders(task)
-
-    if best_contenders_per_task.needs_update(task, ccst.SCORING_PERIOD_TIME) or len(task_contenders.best_contenders)==0:
-        asyncio.create_task(recalculate_contenders_for_task(psql_db, task, best_contenders_per_task, top_x, netuid))
-
-    contenders = task_contenders.best_contenders
-    if contenders:
-        top_75_percent = contenders[:max(1, 3 * len(contenders) // 4)]  #  top 75%
+    if contenders_with_scores:
+        top_75_percent = contenders_with_scores[:max(1, 3 * len(contenders_with_scores) // 4)]  #  top 75%
         top_25_percent = top_75_percent[:max(1, len(top_75_percent) // 3)]  # top 25% within the top 75%
         remaining_50_percent = top_75_percent[len(top_25_percent):]
 
         top_25_weights = [3 / (rank + 1) for rank in range(len(top_25_percent))]  # higher weight for top 25%
         remaining_50_weights = [1 / (rank + 1) for rank in range(len(remaining_50_percent))]
-
-        combined_contenders = top_25_percent + remaining_50_percent
+        combined_contenders = [contender[0] for contender in (top_25_percent + remaining_50_percent)]
         combined_weights = top_25_weights + remaining_50_weights
 
         selected_contenders = random.choices(combined_contenders, weights=combined_weights, k=min(top_x, len(combined_contenders)))
-        
         return selected_contenders
 
     # fall back in case of an issue
     else:
-        logger.debug(f"Contenders selection for organic queries with task {task} yielded nothing, falling back to synthetic queries logic. task_contenders: {task_contenders}")
+        logger.debug(f"Contenders selection for organic queries with task {task} yielded nothing, falling back to synthetic queries logic.")
         return await get_contenders_for_synthetic_task(psql_db, task, top_x)
 
 
-async def get_contenders_for_task(psql_db: PSQLDB, task: str, best_contenders_per_task: BestContendersPerTask, top_x: int = 5, 
-                                  query_type: str = gcst.SYNTHETIC, netuid: int = 19) -> list[Contender]:
+async def get_contenders_for_task(psql_db: PSQLDB, task: str, top_x: int = 5, 
+                                  query_type: str = gcst.SYNTHETIC) -> list[Contender]:
     if query_type == gcst.SYNTHETIC:
         return await get_contenders_for_synthetic_task(psql_db, task, top_x)
     elif query_type == gcst.ORGANIC:
-        return await get_contenders_for_organic_task(psql_db, task, best_contenders_per_task, top_x, netuid)
+        return await get_contenders_for_organic_task(psql_db, task, top_x)
     else:
         raise ValueError(f"No contender selection strategy have been implemented for query type : {query_type}")
     
