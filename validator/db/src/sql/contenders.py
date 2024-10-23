@@ -163,6 +163,7 @@ async def get_contenders_for_synthetic_task(psql_db: PSQLDB, task: str, top_x: i
 async def recalculate_contenders_for_task(psql_db: PSQLDB, task: str, best_contenders_per_task: BestContendersPerTask, 
                                           top_x: int, netuid: int) -> None:
     # get all valid contenders with their normalised_net_score
+    logger.debug(f"Refreshing best contenders for task {task}")
     async with await psql_db.connection() as connection:
         rows = await connection.fetch(
             f"""
@@ -220,6 +221,7 @@ async def recalculate_contenders_for_task(psql_db: PSQLDB, task: str, best_conte
     ]
     
     sorted_contenders = [contender[0] for group in grouped_contenders for contender in group]
+    logger.debug(f"Best contenders for task {task} are : {sorted_contenders}")
     await best_contenders_per_task.update_task_contenders(task, sorted_contenders, datetime.now())
 
 

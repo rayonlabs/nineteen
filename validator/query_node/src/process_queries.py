@@ -140,10 +140,7 @@ async def process_task(config: Config, message: rdc.QueryQueueMessage, best_cont
 
     stream = task_config.is_stream
 
-    start = time.time()
     contenders_to_query = await get_contenders_for_task(config.psql_db, task, best_contenders_per_task, 5, message.query_type, netuid=config.netuid)
-    duration = round(time.time() - start, 4)
-    logger.debug(f"Selected contenders {contenders_to_query} for task {task} in {duration} s")
 
     if contenders_to_query is None:
         raise ValueError("No contenders to query! :(")
