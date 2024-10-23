@@ -20,10 +20,23 @@ from opentelemetry import metrics
 
 logger = get_logger(__name__)
 
-HIST_REQUESTS_TO_SKIP = metrics.get_meter(__name__).create_counter("validator.control_node.synthetic.requests_to_skip")
-HIST_SCHEDULE_REMAINING_REQUESTS = metrics.get_meter(__name__).create_counter("validator.control_node.synthetic.schedule_remaining_requests")
-HIST_LATEST_REMAINING_REQUESTS = metrics.get_meter(__name__).create_counter("validator.control_node.synthetic.latest_remaining_requests")
-HIST_TOTAL_REQUESTS = metrics.get_meter(__name__).create_counter("validator.control_node.synthetic.total_requests")
+HIST_REQUESTS_TO_SKIP = metrics.get_meter(__name__).create_histogram(
+    "validator.control_node.synthetic.cycle.requests_to_skip",
+    description="Number of synthetic requests to skip for scheduled task"
+)
+HIST_SCHEDULE_REMAINING_REQUESTS = metrics.get_meter(__name__).create_histogram(
+    "validator.control_node.synthetic.cycle.schedule_remaining_requests",
+    description="Number of remaining synthetic requests for scheduled task"
+)
+HIST_LATEST_REMAINING_REQUESTS = metrics.get_meter(__name__).create_histogram(
+    "validator.control_node.synthetic.cycle.latest_remaining_requests",
+    description="Number of latest remaining synthetic requests for scheduled task"
+)
+HIST_TOTAL_REQUESTS = metrics.get_meter(__name__).create_histogram(
+    "validator.control_node.synthetic.cycle.total_requests",
+    description="Number of total synthetic requests to be scheduled for the task in current cycle"
+)
+
 
 @dataclass
 class TaskScheduleInfo:
@@ -166,6 +179,7 @@ async def schedule_synthetics_until_done(config: Config):
             continue
         else:
             await _schedule_synthetic_query(config.redis_db, schedule.task, max_len=100)
+
 
             remaining_requests = latest_remaining_requests - 1
             await _update_redis_remaining_requests(config.redis_db, schedule.task, remaining_requests)

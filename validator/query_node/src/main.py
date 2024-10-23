@@ -22,19 +22,19 @@ logger = get_logger(__name__)
 MAX_CONCURRENT_TASKS = 100
 
 QUERY_NODE_REQUESTS_PROCESSING_HIST = metrics.get_meter(__name__).create_histogram(
-    name="validator.query_node.concurrent_queries_processing",
+    name="validator.query_node.src.concurrent_queries_processing",
     description="concurrent number of requests currently being processed by query node's `listen_for_tasks`",
     unit="1"
 )
 
 QUERY_NODE_FAILED_POPS_COUNTER = metrics.get_meter(__name__).create_counter(
-    name="validator.query_node.query_node_failed_pops",
+    name="validator.query_node.src.query_node_failed_pops",
     description="number of failed pops from redis QUERY_QUEUE_KEY",
     unit="1"
 )
 
 QUERY_NODE_FAILED_TASKS_COUNTER = metrics.get_meter(__name__).create_counter(
-    name="validator.query_node.query_node_failed_tasks",
+    name="validator.query_node.src.query_node_failed_tasks",
     description="number of failed `process_task` instances",
     unit="1"
 )

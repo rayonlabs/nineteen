@@ -8,15 +8,18 @@ from redis.asyncio import Redis
 from fiber.logging_utils import get_logger
 import uuid
 from validator.utils.generic import generic_constants as gcst
+from opentelemetry import metrics
 
 logger = get_logger(__name__)
 
 
-def construct_synthetic_query_message(task: str) -> str:
-    return json.dumps(
-        asdict(rdc.QueryQueueMessage(query_payload={}, query_type=gcst.SYNTHETIC, task=task, job_id=uuid.uuid4().hex))
-    )
+COUNTER_SYNTHETIC_QUERIES = metrics.get_meter(__name__).create_counter(
+    name="validator.control_node.synthetic.redis.synthetic_queries_added",
+    description="Number of synthetic queries added to redis list QUERY_QUEUE_KEY",
+)
 
+def construct_synthetic_query_message(task: str) -> dict:
+    return asdict(rdc.QueryQueueMessage(query_payload={}, query_type=gcst.SYNTHETIC, task=task, job_id=uuid.uuid4().hex))
 
 # Consistently about 1ms
 async def load_contender(psql_db: PSQLDB, contender_id: str) -> Contender | None:
@@ -31,6 +34,9 @@ async def load_contenders(psql_db: PSQLDB) -> list[Contender]:
 
 async def add_synthetic_query_to_queue(redis_db: Redis, task: str, max_length: int) -> None:
     message = construct_synthetic_query_message(task)
+    job_id = message["job_id"]
+    message = json.dumps(message)
+    COUNTER_SYNTHETIC_QUERIES.add(1, {"task": task, "query": message, "job_id": job_id})
     await rutils.add_str_to_redis_list(redis_db, rcst.QUERY_QUEUE_KEY, message, max_length)
 
 
