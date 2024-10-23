@@ -251,6 +251,7 @@ async def get_contenders_for_organic_task(psql_db: PSQLDB, task: str, best_conte
 
     # fall back in case of an issue
     else:
+        logger.debug(f"Contenders selection for organic queries with task {task} yielded nothing, falling back to synthetic queries logic. task_contenders: {task_contenders}")
         return await get_contenders_for_synthetic_task(psql_db, task, top_x)
 
 

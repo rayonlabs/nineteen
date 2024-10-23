@@ -53,7 +53,7 @@ class BestContendersPerTask(BaseModel):
     
     def needs_update(self, task: str, scoring_period: int) -> bool:
         task_contenders = self.get_task_contenders(task)
-        if task_contenders.last_update_date is None:
+        if task_contenders.last_update_date is None or len(task_contenders.best_contenders) == 0:
             return True
         return datetime.now() - task_contenders.last_update_date >= timedelta(seconds=scoring_period)
     
