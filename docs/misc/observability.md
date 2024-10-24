@@ -1,15 +1,12 @@
 # Observability
 
-As a part of the Validator deployment, A full observability stack is provided. Make sure to set the following vars:
+As a part of the Validator deployment, A full observability stack is provided. Make sure to set the following vars (unless you've ran the config generator at which point this will be done for you):
 
 ```bash
-# configure the HTTP proxy
 SERVER_BASE_URL=http://111.222.333.444
-SERVER_PORT=80                          # defaults to 80, but the proxy will bind to this port
-
-# configure grafana
-GRAFANA_USERNAME=foobar                 # defaults to `admin`. You might want something else.
-GRAFANA_PASSWORD=hunter2                # defaults to `admin`. Change this, make it secure!
+SERVER_PORT=80
+GRAFANA_USERNAME=admin
+GRAFANA_PASSWORD=hunter2
 ```
 
 After starting the Validator, head to `http://<server_ip>:<server_port>/grafana`

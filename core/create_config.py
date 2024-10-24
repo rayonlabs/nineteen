@@ -1,10 +1,16 @@
+import argparse
 import os
+import random
+import re
 import secrets
 import string
-import re
-import argparse
-from typing import Callable, Any
-import random
+import urllib.request
+from typing import Any
+from typing import Callable
+
+
+def get_external_ip() -> str:
+    return urllib.request.urlopen("https://ipv4.icanhazip.com").read().decode().strip()
 
 
 def generate_secure_password(length: int = 16) -> str:
@@ -85,11 +91,16 @@ def generate_miner_config(dev: bool = False) -> dict[str, Any]:
 
 def generate_validator_config(dev: bool = False) -> dict[str, Any]:
     # Check if POSTGRES_PASSWORD already exists in the environment
-    existing_password = os.getenv("POSTGRES_PASSWORD")
+    postgres_password = os.getenv("POSTGRES_PASSWORD")
+    grafana_password = os.getenv("GRAFANA_PASSWORD")
 
     config: dict[str, Any] = {}
+    config["SERVER_BASE_URL"] = "http://{}".format(get_external_ip())
+    config["SERVER_PORT"] = "80"
+    config["GRAFANA_USERNAME"] = input("Enter grafana username (default: admin): ") or "admin"
+    config["GRAFANA_PASSWORD"] = generate_secure_password() if not grafana_password else grafana_password
     config["POSTGRES_USER"] = "user"
-    config["POSTGRES_PASSWORD"] = generate_secure_password() if not existing_password else existing_password
+    config["POSTGRES_PASSWORD"] = generate_secure_password() if not postgres_password else postgres_password
     config["POSTGRES_DB"] = "19_db"
     config["POSTGRES_PORT"] = "5432"
     config["POSTGRES_HOST"] = "postgresql"
