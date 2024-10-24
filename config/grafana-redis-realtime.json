@@ -4,8 +4,8 @@
       {
         "builtIn": 1,
         "datasource": {
-          "type": "grafana",
-          "uid": "-- Grafana --"
+          "type": "datasource",
+          "uid": "grafana"
         },
         "enable": true,
         "hide": true,
@@ -15,16 +15,18 @@
       }
     ]
   },
+  "description": "Predefined dashboard to observe any Redis database using Redis Data Source. Requires Grafana 7.1+.",
   "editable": true,
   "fiscalYearStartMonth": 0,
+  "gnetId": 12980,
   "graphTooltip": 0,
-  "id": 3,
+  "id": 2,
   "links": [],
   "panels": [
     {
       "datasource": {
-        "type": "prometheus",
-        "uid": "PBFA97CFB590B2093"
+        "type": "redis-datasource",
+        "uid": "PA7F6415749A3297A"
       },
       "fieldConfig": {
         "defaults": {
@@ -39,7 +41,7 @@
             "axisPlacement": "auto",
             "barAlignment": 0,
             "drawStyle": "line",
-            "fillOpacity": 0,
+            "fillOpacity": 10,
             "gradientMode": "none",
             "hideFrom": {
               "legend": false,
@@ -53,7 +55,7 @@
             "scaleDistribution": {
               "type": "linear"
             },
-            "showPoints": "auto",
+            "showPoints": "never",
             "spanNulls": false,
             "stacking": {
               "group": "A",
@@ -76,156 +78,441 @@
                 "value": 80
               }
             ]
-          }
+          },
+          "unit": "ops"
         },
         "overrides": []
       },
       "gridPos": {
-        "h": 5,
-        "w": 8,
+        "h": 9,
+        "w": 12,
         "x": 0,
+        "y": 0
+      },
+      "id": 2,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": false
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "7.1.3",
+      "targets": [
+        {
+          "command": "info",
+          "datasource": {
+            "type": "redis-datasource",
+            "uid": "PA7F6415749A3297A"
+          },
+          "query": "",
+          "refId": "A",
+          "section": "stats",
+          "streaming": true,
+          "streamingCapacity": 1000,
+          "streamingInterval": 1000,
+          "type": "command"
+        }
+      ],
+      "title": "Ops/sec",
+      "transformations": [
+        {
+          "id": "filterFieldsByName",
+          "options": {
+            "include": {
+              "names": [
+                "time",
+                "instantaneous_ops_per_sec"
+              ]
+            }
+          }
+        }
+      ],
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "redis-datasource",
+        "uid": "PA7F6415749A3297A"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 9,
+        "x": 12,
         "y": 0
       },
       "id": 3,
       "options": {
         "legend": {
-          "calcs": [],
-          "displayMode": "list",
+          "calcs": [
+            "mean",
+            "lastNotNull"
+          ],
+          "displayMode": "table",
           "placement": "bottom",
           "showLegend": true
         },
         "tooltip": {
-          "mode": "single",
+          "mode": "multi",
           "sort": "none"
         }
       },
+      "pluginVersion": "7.1.3",
       "targets": [
         {
+          "command": "info",
           "datasource": {
-            "type": "prometheus",
-            "uid": "PBFA97CFB590B2093"
+            "type": "redis-datasource",
+            "uid": "PA7F6415749A3297A"
           },
-          "disableTextWrap": false,
-          "editorMode": "builder",
-          "exemplar": false,
-          "expr": "rate(http_server_response_size_bytes_count{exported_job=\"entry_node\", http_target=\"/v1/chat/completions\"}[1m]) * 60",
-          "format": "time_series",
-          "fullMetaSearch": false,
-          "includeNullMetadata": false,
-          "instant": false,
-          "interval": "",
-          "legendFormat": "{{http_status_code}}",
-          "range": true,
+          "query": "",
           "refId": "A",
-          "useBackend": false
+          "section": "clients",
+          "streaming": true,
+          "streamingCapacity": 1000,
+          "streamingInterval": 1000,
+          "type": "command"
         }
       ],
-      "title": "/v1/chat/completions",
+      "title": "Clients",
+      "transformations": [
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "client_recent_max_input_buffer": true,
+              "client_recent_max_output_buffer": true
+            },
+            "indexByName": {},
+            "renameByName": {
+              "blocked_clients": "Pending on a blocking call ",
+              "clients_in_timeout_table": "Clients in the timeout table",
+              "connected_clients": "Client connections",
+              "tracking_clients": "Clients being tracked"
+            }
+          }
+        }
+      ],
       "type": "timeseries"
     },
     {
       "datasource": {
-        "type": "prometheus",
-        "uid": "PBFA97CFB590B2093"
+        "type": "redis-datasource",
+        "uid": "PA7F6415749A3297A"
       },
       "fieldConfig": {
         "defaults": {
-          "color": {
-            "mode": "palette-classic"
-          },
-          "custom": {
-            "axisBorderShow": false,
-            "axisCenteredZero": false,
-            "axisColorMode": "text",
-            "axisLabel": "",
-            "axisPlacement": "auto",
-            "barAlignment": 0,
-            "drawStyle": "line",
-            "fillOpacity": 0,
-            "gradientMode": "none",
-            "hideFrom": {
-              "legend": false,
-              "tooltip": false,
-              "viz": false
-            },
-            "insertNulls": false,
-            "lineInterpolation": "linear",
-            "lineWidth": 1,
-            "pointSize": 5,
-            "scaleDistribution": {
-              "type": "linear"
-            },
-            "showPoints": "auto",
-            "spanNulls": false,
-            "stacking": {
-              "group": "A",
-              "mode": "none"
-            },
-            "thresholdsStyle": {
-              "mode": "off"
-            }
-          },
+          "decimals": 0,
           "mappings": [],
           "thresholds": {
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
+                "color": "dark-green",
                 "value": null
-              },
-              {
-                "color": "red",
-                "value": 80
               }
             ]
-          }
+          },
+          "unit": "s"
         },
         "overrides": []
       },
       "gridPos": {
-        "h": 5,
-        "w": 8,
-        "x": 8,
+        "h": 3,
+        "w": 3,
+        "x": 21,
         "y": 0
       },
-      "id": 4,
+      "id": 17,
       "options": {
-        "legend": {
-          "calcs": [],
-          "displayMode": "list",
-          "placement": "bottom",
-          "showLegend": true
+        "colorMode": "background",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "percentChangeColorMode": "standard",
+        "reduceOptions": {
+          "calcs": [
+            "mean"
+          ],
+          "fields": "/.*/",
+          "values": true
         },
-        "tooltip": {
-          "mode": "single",
-          "sort": "none"
-        }
+        "showPercentChange": false,
+        "textMode": "auto",
+        "wideLayout": true
       },
+      "pluginVersion": "11.1.0",
       "targets": [
         {
+          "command": "info",
           "datasource": {
-            "type": "prometheus",
-            "uid": "PBFA97CFB590B2093"
+            "type": "redis-datasource",
+            "uid": "PA7F6415749A3297A"
           },
-          "disableTextWrap": false,
-          "editorMode": "builder",
-          "expr": "rate(http_server_response_size_bytes_count{exported_job=\"entry_node\", http_target=\"/v1/text-to-image\"}[$__rate_interval])",
-          "fullMetaSearch": false,
-          "includeNullMetadata": false,
-          "instant": false,
-          "legendFormat": "{{http_status_code}}",
-          "range": true,
+          "query": "",
           "refId": "A",
-          "useBackend": false
+          "section": "server",
+          "streaming": true,
+          "streamingCapacity": 1,
+          "type": "command"
         }
       ],
-      "title": "/v1/text-to-image",
-      "type": "timeseries"
+      "title": "Uptime",
+      "transformations": [
+        {
+          "id": "filterFieldsByName",
+          "options": {
+            "include": {
+              "names": [
+                "uptime_in_seconds"
+              ]
+            }
+          }
+        }
+      ],
+      "type": "stat"
     },
     {
       "datasource": {
-        "type": "prometheus",
-        "uid": "PBFA97CFB590B2093"
+        "type": "redis-datasource",
+        "uid": "PA7F6415749A3297A"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "dark-green",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 3,
+        "w": 3,
+        "x": 21,
+        "y": 3
+      },
+      "id": 19,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "percentChangeColorMode": "standard",
+        "reduceOptions": {
+          "calcs": [
+            "mean"
+          ],
+          "fields": "/.*/",
+          "values": true
+        },
+        "showPercentChange": false,
+        "textMode": "auto",
+        "wideLayout": true
+      },
+      "pluginVersion": "11.1.0",
+      "targets": [
+        {
+          "command": "info",
+          "datasource": {
+            "type": "redis-datasource",
+            "uid": "PA7F6415749A3297A"
+          },
+          "query": "",
+          "refId": "A",
+          "section": "server",
+          "streaming": true,
+          "streamingCapacity": 1,
+          "type": "command"
+        }
+      ],
+      "title": "Version",
+      "transformations": [
+        {
+          "id": "filterFieldsByName",
+          "options": {
+            "include": {
+              "names": [
+                "redis_version"
+              ]
+            }
+          }
+        }
+      ],
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "redis-datasource",
+        "uid": "PA7F6415749A3297A"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "dark-green",
+                "value": null
+              }
+            ]
+          },
+          "unit": "none"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 3,
+        "w": 3,
+        "x": 21,
+        "y": 6
+      },
+      "id": 21,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "percentChangeColorMode": "standard",
+        "reduceOptions": {
+          "calcs": [
+            "mean"
+          ],
+          "fields": "/.*/",
+          "values": true
+        },
+        "showPercentChange": false,
+        "textMode": "auto",
+        "wideLayout": true
+      },
+      "pluginVersion": "11.1.0",
+      "targets": [
+        {
+          "command": "info",
+          "datasource": {
+            "type": "redis-datasource",
+            "uid": "PA7F6415749A3297A"
+          },
+          "query": "",
+          "refId": "A",
+          "section": "memory",
+          "streaming": true,
+          "streamingCapacity": 1,
+          "type": "command"
+        }
+      ],
+      "title": "Eviction Policy",
+      "transformations": [
+        {
+          "id": "filterFieldsByName",
+          "options": {
+            "include": {
+              "names": [
+                "maxmemory_policy"
+              ]
+            }
+          }
+        }
+      ],
+      "type": "stat"
+    },
+    {
+      "collapsed": false,
+      "datasource": {
+        "type": "redis-datasource",
+        "uid": "PA7F6415749A3297A"
+      },
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 9
+      },
+      "id": 13,
+      "panels": [],
+      "targets": [
+        {
+          "datasource": {
+            "type": "redis-datasource",
+            "uid": "PA7F6415749A3297A"
+          },
+          "refId": "A"
+        }
+      ],
+      "title": "Statistics",
+      "type": "row"
+    },
+    {
+      "datasource": {
+        "type": "redis-datasource",
+        "uid": "PA7F6415749A3297A"
       },
       "fieldConfig": {
         "defaults": {
@@ -240,7 +527,7 @@
             "axisPlacement": "auto",
             "barAlignment": 0,
             "drawStyle": "line",
-            "fillOpacity": 0,
+            "fillOpacity": 10,
             "gradientMode": "none",
             "hideFrom": {
               "legend": false,
@@ -254,7 +541,7 @@
             "scaleDistribution": {
               "type": "linear"
             },
-            "showPoints": "auto",
+            "showPoints": "never",
             "spanNulls": false,
             "stacking": {
               "group": "A",
@@ -277,153 +564,90 @@
                 "value": 80
               }
             ]
-          }
+          },
+          "unit": "decbytes"
         },
         "overrides": []
       },
       "gridPos": {
-        "h": 5,
-        "w": 8,
-        "x": 16,
-        "y": 0
-      },
-      "id": 5,
-      "options": {
-        "legend": {
-          "calcs": [],
-          "displayMode": "list",
-          "placement": "bottom",
-          "showLegend": true
-        },
-        "tooltip": {
-          "mode": "single",
-          "sort": "none"
-        }
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "PBFA97CFB590B2093"
-          },
-          "disableTextWrap": false,
-          "editorMode": "builder",
-          "expr": "rate(http_server_response_size_bytes_count{exported_job=\"entry_node\", http_target=\"/v1/image-to-image\"}[$__rate_interval])",
-          "fullMetaSearch": false,
-          "includeNullMetadata": false,
-          "instant": false,
-          "legendFormat": "{{http_status_code}}",
-          "range": true,
-          "refId": "A",
-          "useBackend": false
-        }
-      ],
-      "title": "/v1/image-to-image",
-      "type": "timeseries"
-    },
-    {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "PBFA97CFB590B2093"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "palette-classic"
-          },
-          "custom": {
-            "axisBorderShow": false,
-            "axisCenteredZero": false,
-            "axisColorMode": "text",
-            "axisLabel": "",
-            "axisPlacement": "auto",
-            "barAlignment": 0,
-            "drawStyle": "line",
-            "fillOpacity": 0,
-            "gradientMode": "none",
-            "hideFrom": {
-              "legend": false,
-              "tooltip": false,
-              "viz": false
-            },
-            "insertNulls": false,
-            "lineInterpolation": "linear",
-            "lineWidth": 1,
-            "pointSize": 5,
-            "scaleDistribution": {
-              "type": "linear"
-            },
-            "showPoints": "auto",
-            "spanNulls": false,
-            "stacking": {
-              "group": "A",
-              "mode": "none"
-            },
-            "thresholdsStyle": {
-              "mode": "off"
-            }
-          },
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              },
-              {
-                "color": "red",
-                "value": 80
-              }
-            ]
-          }
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 6,
+        "h": 10,
         "w": 12,
         "x": 0,
-        "y": 5
+        "y": 10
       },
       "id": 7,
       "options": {
         "legend": {
-          "calcs": [],
-          "displayMode": "list",
+          "calcs": [
+            "mean",
+            "lastNotNull"
+          ],
+          "displayMode": "table",
           "placement": "bottom",
           "showLegend": true
         },
         "tooltip": {
-          "mode": "single",
+          "mode": "multi",
           "sort": "none"
         }
       },
+      "pluginVersion": "7.1.3",
       "targets": [
         {
+          "command": "info",
           "datasource": {
-            "type": "prometheus",
-            "uid": "PBFA97CFB590B2093"
+            "type": "redis-datasource",
+            "uid": "PA7F6415749A3297A"
           },
-          "disableTextWrap": false,
-          "editorMode": "builder",
-          "expr": "rate(validator_control_node_synthetic_cycle_schedule_remaining_requests_count[$__rate_interval]) * 60",
-          "fullMetaSearch": false,
-          "includeNullMetadata": true,
-          "instant": false,
-          "legendFormat": "{{task}}",
-          "range": true,
+          "query": "",
           "refId": "A",
-          "useBackend": false
+          "section": "memory",
+          "streaming": true,
+          "streamingCapacity": 1000,
+          "streamingInterval": 1000,
+          "type": "command"
         }
       ],
-      "title": "Synthetic Remaining Requests",
+      "title": "Memory",
+      "transformations": [
+        {
+          "id": "filterFieldsByName",
+          "options": {
+            "include": {
+              "names": [
+                "time",
+                "used_memory",
+                "used_memory_rss",
+                "used_memory_peak",
+                "total_system_memory",
+                "used_memory_lua",
+                "maxmemory"
+              ]
+            }
+          }
+        },
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {},
+            "indexByName": {},
+            "renameByName": {
+              "maxmemory": "Memory Limit",
+              "total_system_memory": "Total System Memory",
+              "used_memory": "Used Memory",
+              "used_memory_lua": "Used Memory, LUA",
+              "used_memory_peak": "Used Memory, Peak",
+              "used_memory_rss": "Used Memory, RSS"
+            }
+          }
+        }
+      ],
       "type": "timeseries"
     },
     {
       "datasource": {
-        "type": "prometheus",
-        "uid": "PBFA97CFB590B2093"
+        "type": "redis-datasource",
+        "uid": "PA7F6415749A3297A"
       },
       "fieldConfig": {
         "defaults": {
@@ -438,7 +662,7 @@
             "axisPlacement": "auto",
             "barAlignment": 0,
             "drawStyle": "line",
-            "fillOpacity": 0,
+            "fillOpacity": 10,
             "gradientMode": "none",
             "hideFrom": {
               "legend": false,
@@ -452,7 +676,7 @@
             "scaleDistribution": {
               "type": "linear"
             },
-            "showPoints": "auto",
+            "showPoints": "never",
             "spanNulls": false,
             "stacking": {
               "group": "A",
@@ -475,54 +699,181 @@
                 "value": 80
               }
             ]
-          }
+          },
+          "unit": "KBs"
         },
         "overrides": []
       },
       "gridPos": {
-        "h": 6,
+        "h": 10,
         "w": 12,
         "x": 12,
-        "y": 5
+        "y": 10
       },
-      "id": 8,
+      "id": 5,
+      "options": {
+        "legend": {
+          "calcs": [
+            "mean",
+            "lastNotNull"
+          ],
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "7.1.3",
+      "targets": [
+        {
+          "command": "info",
+          "datasource": {
+            "type": "redis-datasource",
+            "uid": "PA7F6415749A3297A"
+          },
+          "query": "",
+          "refId": "A",
+          "section": "stats",
+          "streaming": true,
+          "streamingCapacity": 1000,
+          "streamingInterval": 1000,
+          "type": "command"
+        }
+      ],
+      "title": "Network",
+      "transformations": [
+        {
+          "id": "filterFieldsByName",
+          "options": {
+            "include": {
+              "names": [
+                "instantaneous_input_kbps",
+                "instantaneous_output_kbps",
+                "time"
+              ]
+            }
+          }
+        },
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {},
+            "indexByName": {},
+            "renameByName": {
+              "instantaneous_input_kbps": "Input",
+              "instantaneous_output_kbps": "Output"
+            }
+          }
+        }
+      ],
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "redis-datasource",
+        "uid": "PA7F6415749A3297A"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "min": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 20
+      },
+      "id": 9,
       "options": {
         "legend": {
           "calcs": [],
           "displayMode": "list",
           "placement": "bottom",
-          "showLegend": true
+          "showLegend": false
         },
         "tooltip": {
-          "mode": "single",
+          "mode": "multi",
           "sort": "none"
         }
       },
+      "pluginVersion": "7.1.3",
       "targets": [
         {
+          "command": "",
           "datasource": {
-            "type": "prometheus",
-            "uid": "PBFA97CFB590B2093"
+            "type": "redis-datasource",
+            "uid": "PA7F6415749A3297A"
           },
-          "disableTextWrap": false,
-          "editorMode": "builder",
-          "expr": "rate(validator_query_node_src_query_node_failed_tasks_sum[1m]) * 60",
-          "fullMetaSearch": false,
-          "includeNullMetadata": true,
-          "instant": false,
-          "legendFormat": "{{exported_job}}",
-          "range": true,
+          "query": "dbsize",
           "refId": "A",
-          "useBackend": false
+          "streaming": true,
+          "streamingCapacity": 1000,
+          "streamingInterval": 1000,
+          "type": "cli"
         }
       ],
-      "title": "Query Node Failed Tasks",
+      "title": "Number of Keys",
       "type": "timeseries"
     },
     {
       "datasource": {
-        "type": "prometheus",
-        "uid": "PBFA97CFB590B2093"
+        "type": "redis-datasource",
+        "uid": "PA7F6415749A3297A"
       },
       "fieldConfig": {
         "defaults": {
@@ -537,7 +888,7 @@
             "axisPlacement": "auto",
             "barAlignment": 0,
             "drawStyle": "line",
-            "fillOpacity": 0,
+            "fillOpacity": 10,
             "gradientMode": "none",
             "hideFrom": {
               "legend": false,
@@ -551,7 +902,7 @@
             "scaleDistribution": {
               "type": "linear"
             },
-            "showPoints": "auto",
+            "showPoints": "never",
             "spanNulls": false,
             "stacking": {
               "group": "A",
@@ -568,402 +919,112 @@
               {
                 "color": "green",
                 "value": null
-              }
-            ]
-          },
-          "unit": "none"
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 6,
-        "w": 12,
-        "x": 0,
-        "y": 11
-      },
-      "id": 9,
-      "options": {
-        "legend": {
-          "calcs": [
-            "count"
-          ],
-          "displayMode": "list",
-          "placement": "bottom",
-          "showLegend": true
-        },
-        "tooltip": {
-          "mode": "single",
-          "sort": "none"
-        }
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "PBFA97CFB590B2093"
-          },
-          "disableTextWrap": false,
-          "editorMode": "builder",
-          "expr": "rate(validator_query_node_image_success_sum{exported_job=\"entry_node\"}[1m]) * 60",
-          "fullMetaSearch": false,
-          "includeNullMetadata": false,
-          "instant": false,
-          "legendFormat": "{{http_target}}",
-          "range": true,
-          "refId": "A",
-          "useBackend": false
-        }
-      ],
-      "title": "Validator Image Success",
-      "type": "timeseries"
-    },
-    {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "PBFA97CFB590B2093"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "palette-classic"
-          },
-          "custom": {
-            "axisBorderShow": false,
-            "axisCenteredZero": false,
-            "axisColorMode": "text",
-            "axisLabel": "",
-            "axisPlacement": "auto",
-            "barAlignment": 0,
-            "drawStyle": "line",
-            "fillOpacity": 0,
-            "gradientMode": "none",
-            "hideFrom": {
-              "legend": false,
-              "tooltip": false,
-              "viz": false
-            },
-            "insertNulls": false,
-            "lineInterpolation": "linear",
-            "lineWidth": 1,
-            "pointSize": 5,
-            "scaleDistribution": {
-              "type": "linear"
-            },
-            "showPoints": "auto",
-            "spanNulls": false,
-            "stacking": {
-              "group": "A",
-              "mode": "none"
-            },
-            "thresholdsStyle": {
-              "mode": "off"
-            }
-          },
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
+              },
               {
-                "color": "green",
-                "value": null
+                "color": "red",
+                "value": 80
               }
             ]
           },
-          "unit": "none"
+          "unit": "short"
         },
         "overrides": []
       },
       "gridPos": {
-        "h": 6,
+        "h": 8,
         "w": 12,
         "x": 12,
-        "y": 11
-      },
-      "id": 10,
-      "options": {
-        "legend": {
-          "calcs": [
-            "count"
-          ],
-          "displayMode": "list",
-          "placement": "bottom",
-          "showLegend": true
-        },
-        "tooltip": {
-          "mode": "single",
-          "sort": "none"
-        }
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "PBFA97CFB590B2093"
-          },
-          "disableTextWrap": false,
-          "editorMode": "code",
-          "expr": "rate(validator_query_node_image_error_sum{exported_job=\"entry_node\"}[1m]) * 60",
-          "fullMetaSearch": false,
-          "includeNullMetadata": false,
-          "instant": false,
-          "legendFormat": "{{http_target}}",
-          "range": true,
-          "refId": "A",
-          "useBackend": false
-        }
-      ],
-      "title": "Validator Image Error",
-      "type": "timeseries"
-    },
-    {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "PBFA97CFB590B2093"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "palette-classic"
-          },
-          "custom": {
-            "axisBorderShow": false,
-            "axisCenteredZero": false,
-            "axisColorMode": "text",
-            "axisLabel": "",
-            "axisPlacement": "auto",
-            "barAlignment": 0,
-            "drawStyle": "line",
-            "fillOpacity": 0,
-            "gradientMode": "none",
-            "hideFrom": {
-              "legend": false,
-              "tooltip": false,
-              "viz": false
-            },
-            "insertNulls": false,
-            "lineInterpolation": "linear",
-            "lineWidth": 1,
-            "pointSize": 5,
-            "scaleDistribution": {
-              "type": "linear"
-            },
-            "showPoints": "auto",
-            "spanNulls": false,
-            "stacking": {
-              "group": "A",
-              "mode": "none"
-            },
-            "thresholdsStyle": {
-              "mode": "off"
-            }
-          },
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              }
-            ]
-          },
-          "unit": "none"
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 6,
-        "w": 12,
-        "x": 0,
-        "y": 17
+        "y": 20
       },
       "id": 11,
       "options": {
         "legend": {
           "calcs": [
-            "count"
+            "mean",
+            "lastNotNull"
           ],
-          "displayMode": "list",
+          "displayMode": "table",
           "placement": "bottom",
           "showLegend": true
         },
         "tooltip": {
-          "mode": "single",
+          "mode": "multi",
           "sort": "none"
         }
       },
+      "pluginVersion": "7.1.3",
       "targets": [
         {
+          "command": "info",
           "datasource": {
-            "type": "prometheus",
-            "uid": "PBFA97CFB590B2093"
+            "type": "redis-datasource",
+            "uid": "PA7F6415749A3297A"
           },
-          "disableTextWrap": false,
-          "editorMode": "code",
-          "expr": "rate(validator_query_node_text_success_sum{exported_job=\"entry_node\"}[1m]) * 60",
-          "fullMetaSearch": false,
-          "includeNullMetadata": false,
-          "instant": false,
-          "legendFormat": "{{http_target}}",
-          "range": true,
+          "query": "",
           "refId": "A",
-          "useBackend": false
+          "section": "stats",
+          "streaming": true,
+          "streamingCapacity": 1000,
+          "streamingInterval": 1000,
+          "type": "command"
         }
       ],
-      "title": "Validator Text Success",
-      "type": "timeseries"
-    },
-    {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "PBFA97CFB590B2093"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "palette-classic"
-          },
-          "custom": {
-            "axisBorderShow": false,
-            "axisCenteredZero": false,
-            "axisColorMode": "text",
-            "axisLabel": "",
-            "axisPlacement": "auto",
-            "barAlignment": 0,
-            "drawStyle": "line",
-            "fillOpacity": 0,
-            "gradientMode": "none",
-            "hideFrom": {
-              "legend": false,
-              "tooltip": false,
-              "viz": false
-            },
-            "insertNulls": false,
-            "lineInterpolation": "linear",
-            "lineWidth": 1,
-            "pointSize": 5,
-            "scaleDistribution": {
-              "type": "linear"
-            },
-            "showPoints": "auto",
-            "spanNulls": false,
-            "stacking": {
-              "group": "A",
-              "mode": "none"
-            },
-            "thresholdsStyle": {
-              "mode": "off"
+      "title": "Keys Statistics",
+      "transformations": [
+        {
+          "id": "filterFieldsByName",
+          "options": {
+            "include": {
+              "names": [
+                "expired_keys",
+                "evicted_keys",
+                "time"
+              ]
             }
-          },
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              }
-            ]
-          },
-          "unit": "none"
+          }
         },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 6,
-        "w": 12,
-        "x": 12,
-        "y": 17
-      },
-      "id": 12,
-      "options": {
-        "legend": {
-          "calcs": [
-            "count"
-          ],
-          "displayMode": "list",
-          "placement": "bottom",
-          "showLegend": true
-        },
-        "tooltip": {
-          "mode": "single",
-          "sort": "none"
-        }
-      },
-      "targets": [
         {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "PBFA97CFB590B2093"
-          },
-          "disableTextWrap": false,
-          "editorMode": "code",
-          "expr": "rate(validator_query_node_text_error_sum{exported_job=\"entry_node\"}[1m]) * 60",
-          "fullMetaSearch": false,
-          "includeNullMetadata": false,
-          "instant": false,
-          "legendFormat": "{{http_target}}",
-          "range": true,
-          "refId": "A",
-          "useBackend": false
+          "id": "organize",
+          "options": {
+            "excludeByName": {},
+            "indexByName": {},
+            "renameByName": {
+              "evicted_keys": "Evicted Keys",
+              "expired_keys": "Expired Keys"
+            }
+          }
         }
       ],
-      "title": "Validator Text Error",
       "type": "timeseries"
-    },
-    {
-      "datasource": {
-        "type": "loki",
-        "uid": "P8E80F9AEF21F6940"
-      },
-      "gridPos": {
-        "h": 9,
-        "w": 24,
-        "x": 0,
-        "y": 23
-      },
-      "id": 2,
-      "options": {
-        "dedupStrategy": "none",
-        "enableLogDetails": true,
-        "prettifyLogMessage": false,
-        "showCommonLabels": false,
-        "showLabels": false,
-        "showTime": true,
-        "sortOrder": "Descending",
-        "wrapLogMessage": false
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "loki",
-            "uid": "P8E80F9AEF21F6940"
-          },
-          "editorMode": "builder",
-          "expr": "{service_name=~\"control_node|entry_node|query_node\"} | label_format level=detected_level | line_format `{{.service_name }} - {{__line__}}`",
-          "legendFormat": "",
-          "queryType": "range",
-          "refId": "A"
-        }
-      ],
-      "title": "Validator Logs",
-      "type": "logs"
     }
   ],
-  "refresh": "5s",
+  "refresh": "",
   "schemaVersion": 39,
   "tags": [],
   "templating": {
     "list": []
   },
   "time": {
-    "from": "now-3h",
+    "from": "now-5m",
     "to": "now"
   },
-  "timepicker": {},
-  "timezone": "browser",
-  "title": "Validator General",
-  "uid": "ae1q8n928qc5ce",
-  "version": 7,
+  "timepicker": {
+    "refresh_intervals": [
+      "5s",
+      "10s",
+      "30s",
+      "1m",
+      "5m",
+      "15m",
+      "30m",
+      "1h",
+      "2h",
+      "1d"
+    ]
+  },
+  "timezone": "",
+  "title": "Redis (Real-time streaming)",
+  "uid": "_SGxCBNGk",
+  "version": 1,
   "weekStart": ""
 }

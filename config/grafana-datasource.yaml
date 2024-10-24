@@ -4,6 +4,7 @@ deleteDatasources:
   - name: Loki
   - name: Prometheus
   - name: Jaeger
+  - name: Redis
 
 datasources:
   - name: Loki
@@ -15,3 +16,6 @@ datasources:
   - name: Jaeger
     type: jaeger
     url: http://jaeger:16686
+  - name: Redis
+    type: redis-datasource
+    url: redis://redis:6379
