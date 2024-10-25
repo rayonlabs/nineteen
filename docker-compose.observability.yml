@@ -1,5 +1,6 @@
 services:
   grafana:
+    container_name: nineteen-grafana
     image: grafana/grafana
     restart: always
     environment:
@@ -18,12 +19,14 @@ services:
       - ${GRAFANA_PORT:-3000}:3000
 
   otel-collector:
+    container_name: nineteen-otel-collector
     image: otel/opentelemetry-collector-contrib:0.106.1
     restart: always
     volumes:
       - ./config/otel-config.yaml:/etc/otelcol-contrib/config.yaml
 
   jaeger:
+    container_name: nineteen-jaeger
     image: jaegertracing/all-in-one:1.59.0
     restart: always
     command:
@@ -35,6 +38,7 @@ services:
       - jaeger:/badger
 
   loki:
+    container_name: nineteen-loki
     image: grafana/loki:main
     restart: always
     volumes:
@@ -42,6 +46,7 @@ services:
       - ./config/loki-config.yaml:/etc/loki/local-config.yaml
 
   prometheus:
+    container_name: nineteen-prometheus
     image: prom/prometheus
     restart: always
     command:

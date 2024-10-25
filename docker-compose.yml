@@ -3,6 +3,7 @@ include:
 
 services:
   control_node:
+    container_name: nineteen-control-node
     build:
       context: .
       dockerfile: dockerfiles/control_node.dockerfile
@@ -26,6 +27,7 @@ services:
         condition: on-failure
 
   weight_setter:
+    container_name: nineteen-weight-setter
     build:
       context: .
       dockerfile: dockerfiles/control_node.dockerfile
@@ -44,6 +46,7 @@ services:
         condition: on-failure
 
   query_node:
+    container_name: nineteen-query-node
     build:
       context: .
       dockerfile: dockerfiles/query_node.dockerfile
@@ -77,6 +80,7 @@ services:
       - .vali.env
 
   entry_node:
+    container_name: nineteen-entry-node
     build:
       context: .
       dockerfile: dockerfiles/entry_node.dockerfile
@@ -111,6 +115,7 @@ services:
       - entry_node_profile
 
   postgresql:
+    container_name: nineteen-postgresql
     image: postgres:latest
     volumes:
       - postgres_data:/var/lib/postgresql/data
@@ -127,6 +132,7 @@ services:
       POSTGRES_HOST: ${POSTGRES_HOST}
 
   dbmate:
+    container_name: nineteen-dbmate
     image: amacneil/dbmate
     volumes:
       - ./validator/db:/db
@@ -138,6 +144,7 @@ services:
         condition: service_healthy
 
   redis:
+    container_name: nineteen-redis
     image: redis/redis-stack:latest
     deploy:
       restart_policy:
@@ -146,6 +153,7 @@ services:
   # if you want this, scale it to `1`
   adminer:
     scale: 0
+    container_name: nineteen-adminer
     image: adminer
     restart: always
     environment:
@@ -161,6 +169,7 @@ services:
   # if you want this, scale it to `1`
   redis-commander:
     scale: 0
+    container_name: nineteen-redis-commander
     image: ghcr.io/joeferner/redis-commander:latest
     restart: always
     environment:
@@ -173,6 +182,7 @@ services:
   # if you want this, scale it to `1`
   redis-proxy:
     scale: 0
+    container_name: nineteen-redis-proxy
     image: hpello/tcp-proxy
     command: redis 6379
     ports:
@@ -183,6 +193,7 @@ services:
   # if you want this, scale it to `1`
   postgres-proxy:
     scale: 0
+    container_name: nineteen-postgres-proxy
     image: hpello/tcp-proxy
     command: postgresql 5432
     ports:
