@@ -151,7 +151,6 @@ async def process_task(config: Config, message: rdc.QueryQueueMessage):
         COUNTER_FAILED_QUERIES.add(1, {
             "task": task,
             "synthetic_query": str(message.query_type == gcst.SYNTHETIC),
-            "error_message": f"Can't find the task {task}, please try again later",
         })
 
         return
@@ -181,9 +180,8 @@ async def process_task(config: Config, message: rdc.QueryQueueMessage):
             status_code=500,
             error_message=f"Error processing task {task}: {e}",
         )
+
         COUNTER_FAILED_QUERIES.add(1, {
             "task": task,
             "synthetic_query": str(message.query_type == gcst.SYNTHETIC),
-            "error_message": f"Error processing task {task}: {e}",
-            "status_code": 500
         })
