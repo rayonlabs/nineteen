@@ -6,7 +6,7 @@ tasks:
 
   set_weights:
     cmds:
-      - JUST_ONCE=true docker compose --env-file .vali.env -f docker-compose.yml run -e LOCALHOST=false --entrypoint "python src/set_weights/calculate_and_schedule_weights.py" weight_setter
+      -  docker compose --env-file .vali.env -f docker-compose.yml run -e LOCALHOST=false -e JUST_ONCE=true --entrypoint "python src/set_weights/calculate_and_schedule_weights.py" weight_setter
 
   show_stats:
     cmds:

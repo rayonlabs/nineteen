@@ -122,7 +122,7 @@ async def chat(
 
     try:
         text_generator = await make_stream_organic_query(
-            redis_db=config.redis_db, payload=payload.model_dump(), task=str(payload.model).replace("_", "-")
+            redis_db=config.redis_db, payload=payload.model_dump(), task=payload.model
         )
         logger.info("Here returning a response!")
         if chat_request.stream:

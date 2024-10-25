@@ -11,6 +11,7 @@ A cycle consists of
 """
 
 import asyncio
+from datetime import datetime
 from validator.control_node.src.control_config import Config
 from validator.control_node.src.cycle import (
     refresh_nodes,
@@ -26,6 +27,7 @@ from validator.models import Contender
 from validator.utils.post.nineteen import DataTypeToPost, ValidatorInfoPostBody, post_to_nineteen_ai
 from core.task_config import get_public_task_configs
 from core import constants as ccst
+from validator.db.src.sql.rewards_and_scores import delete_task_data_older_than_date
 
 logger = get_logger(__name__)
 
@@ -66,15 +68,17 @@ async def get_nodes_and_contenders(config: Config) -> list[Contender] | None:
     return contenders
 
 
+async def _remove_task_data(config: Config):
+    # NOTE: remove on next update
+    # For a short time after this update, delete task data since the NSFW flag has changed.
+    if datetime.now() < datetime(2024, 10, 14, 15):
+        async with await config.psql_db.connection() as connection:
+            await delete_task_data_older_than_date(connection, datetime.now())
+
+
 async def main(config: Config) -> None:
     time_to_sleep_if_no_contenders = 20
     contenders = await get_nodes_and_contenders(config)
-
-    # date_to_delete = datetime(2024, 10, 13, 30)
-    # async with await config.psql_db.connection() as connection:
-    #     await delete_task_data_older_than_date(connection, date_to_delete)
-    #     await delete_contender_history_older_than(connection, date_to_delete)
-    #     await delete_reward_data_older_than(connection, date_to_delete)
 
     if contenders is None or len(contenders) == 0:
         logger.info(
@@ -86,6 +90,7 @@ async def main(config: Config) -> None:
         tasks = [schedule_synthetics_until_done(config)]
 
     while True:
+        await _remove_task_data(config)
         await asyncio.gather(*tasks)
         contenders = await get_nodes_and_contenders(config)
         if contenders is None or len(contenders) == 0:

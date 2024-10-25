@@ -14,7 +14,7 @@ class ChatRequest(BaseModel):
     messages: list[utility_models.Message] = Field(...)
     temperature: float = Field(default=0.5, examples=[0.5, 0.4, 0.3], title="Temperature", description="Temperature for text generation.")
     max_tokens: int = Field(500, title="Max Tokens", description="Max tokens for text generation.")
-    model: str = Field(..., examples=["chat_llama_3_2_3b"], title="Model")
+    model: str = Field(..., examples=["chat-llama-3-2-3b"], title="Model")
     top_p: float = Field(default=1.0, title="Top P", description="Top P for text generation.")
     stream: bool = Field(default=True, title="Stream", description="Stream for text generation.")
     logprobs: bool = True
@@ -28,7 +28,7 @@ def chat_to_payload(chat_request: ChatRequest) -> payload_models.ChatPayload:
         messages=chat_request.messages,
         temperature=chat_request.temperature,
         max_tokens=chat_request.max_tokens,
-        model=chat_request.model,
+        model=chat_request.model.replace("_", "-"),
         top_p=chat_request.top_p,
         stream=True,
         logprobs=chat_request.logprobs,
