@@ -1,18 +1,9 @@
 services:
-  caddy:
-    image: caddy:2.8.4-alpine
-    restart: always
-    volumes:
-      - ./config/Caddyfile:/etc/caddy/Caddyfile
-    ports:
-      - ${SERVER_PORT:-80}:80
-
   grafana:
     image: grafana/grafana
     restart: always
     environment:
       # these are the defaults, you should probably change them in deployment
-      GF_SERVER_ROOT_URL: ${SERVER_BASE_URL:-http://localhost}:${SERVER_PORT:-80}/grafana
       GF_SECURITY_ADMIN_USER: ${GRAFANA_USERNAME:-admin}
       GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASSWORD:-admin}
       GF_INSTALL_PLUGINS: redis-datasource

@@ -95,8 +95,6 @@ def generate_validator_config(dev: bool = False) -> dict[str, Any]:
     grafana_password = os.getenv("GRAFANA_PASSWORD")
 
     config: dict[str, Any] = {}
-    config["SERVER_BASE_URL"] = "http://{}".format(get_external_ip())
-    config["SERVER_PORT"] = "80"
     config["GRAFANA_USERNAME"] = input("Enter grafana username (default: admin): ") or "admin"
     config["GRAFANA_PASSWORD"] = generate_secure_password() if not grafana_password else grafana_password
     config["POSTGRES_USER"] = "user"

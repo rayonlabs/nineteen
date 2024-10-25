@@ -12,18 +12,6 @@ is_valid_number() {
     esac
 }
 
-if [ -n "$SERVER_BASE_URL" ]; then
-  SERVER_BASE_URL=http://$(curl -qsSL icanhazip.com)
-  sed -i '/SERVER_BASE_URL/d' .vali.env
-  echo SERVER_BASE_URL=$SERVER_BASE_URL >> .vali.env
-fi
-
-if [ -n "$SERVER_PORT" ]; then
-  SERVER_PORT=80
-  sed -i '/SERVER_PORT/d' .vali.env
-  echo SERVER_PORT=$SERVER_PORT >> .vali.env
-fi
-
 if [ -n "$GRAFANA_USERNAME" ]; then
   GRAFANA_USERNAME=admin
   sed -i '/GRAFANA_USERNAME/d' .vali.env
