@@ -91,12 +91,9 @@ async def consume_generator(
         return False
 
     text_jsons, status_code = [], 200
-    # flag to check if we have _at least_ a valid first chunk
-    is_first_chunk = True
-    # on first chunk we want to set "role" = "assistant"
-    add_role = True
-    # need to check that at least one chunk has "finish_reason": "stop", if not, add it
-    chunk_with_finish_reason = False
+    success = False  # check if we have at least one valid chunk
+    add_role = True  # on first chunk we want to set "role" = "assistant"
+    chunk_with_finish_reason = False  # check at least one chunk has "finish_reason": "stop"
 
     try:
         async for text in async_chain(first_chunk, generator):
@@ -116,7 +113,7 @@ async def consume_generator(
                 for text_json in loaded_jsons:
                     if not isinstance(text_json, dict):
                         logger.debug(f"Invalid text_json because its not a dict?: {text_json}")
-                        is_first_chunk = True  # NOTE: Janky, but so we mark it as a fail
+                        success = False  # NOTE: Janky, but so we mark it as a fail
                         break
                     try:
                         _ = text_json["choices"][0]["delta"]["content"]
@@ -127,14 +124,14 @@ async def consume_generator(
                             chunk_with_finish_reason = True
                     except KeyError:
                         logger.debug(f"Invalid text_json because there's not delta content: {text_json}")
-                        is_first_chunk = True  # NOTE: Janky, but so we mark it as a fail
+                        success = False  # NOTE: Janky, but so we mark it as a fail
                         break
 
                     text_jsons.append(text_json)
                     dumped_payload = json.dumps(text_json)
 
-                    # we have at least one valid first chunk, so consider this run a "success"
-                    is_first_chunk = False
+                    # we have at least one valid first chunk, so this run is a "success" so far
+                    success = True
 
                     await _handle_event(
                         config,
@@ -161,7 +158,7 @@ async def consume_generator(
             await _handle_event(
                 config, content="data: [DONE]\n\n", synthetic_query=synthetic_query, job_id=job_id, status_code=200
             )
-            logger.info(f" 👀  Queried node: {node.node_id} for task: {task}. Success: {not first_message}.")
+            logger.info(f" 👀  Queried node: {node.node_id} for task: {task}. Success: {success}.")
 
         response_time = time.time() - start_time
         query_result = utility_models.QueryResult(
@@ -169,11 +166,10 @@ async def consume_generator(
             node_id=node.node_id,
             response_time=response_time,
             task=task,
-            success=not is_first_chunk,
+            success=success,
             node_hotkey=node.hotkey,
             status_code=200,
         )
-        success = not is_first_chunk
     except Exception as e:
         logger.error(f"Unexpected exception when querying node: {node.node_id} for task: {task}. Payload: {payload}. Error: {e}")
         query_result = construct_500_query_result(node, task)
@@ -184,7 +180,7 @@ async def consume_generator(
             await config.redis_db.expire(rcst.QUERY_RESULTS_KEY + ":" + job_id, 10)
 
     character_count = sum([len(text_json["choices"][0]["delta"]["content"]) for text_json in text_jsons])
-    logger.debug(f"Success: {success}; Node: {node.node_id}; Task: {task}; response_time: {response_time}; first_message: {is_first_chunk}; character_count: {character_count}")
+    logger.debug(f"Success: {success}; Node: {node.node_id}; Task: {task}; response_time: {response_time}; first_message: {success}; character_count: {character_count}")
     logger.info(f"Success: {success}")
     return success
 
