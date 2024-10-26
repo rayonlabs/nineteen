@@ -125,7 +125,7 @@ async def consume_generator(
                         if add_role:
                             chunk["choices"][0]["delta"]["role"] = "assistant"
                             add_role = False
-                        if chunk["choices"][0]["finish_reason"] == "stop":
+                        if chunk["choices"][0].get("finish_reason") == "stop":
                             chunk_with_finish_reason = True
                     except KeyError:
                         logger.debug(f"Invalid chunk: missing delta content '{chunk}'")
