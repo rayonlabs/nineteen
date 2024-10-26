@@ -95,7 +95,7 @@ async def consume_generator(
         return False
 
     response_time = None
-    text_jsons, status_code = [], 200
+    chunks, status_code = [], 200
     success = False  # check if we have at least one valid chunk
     add_role = True  # on first chunk we want to set "role" = "assistant"
     chunk_with_finish_reason = False  # check at least one chunk has "finish_reason": "stop"
@@ -115,47 +115,45 @@ async def consume_generator(
                     logger.warning(f"Error {e} when trying to load text: {text}")
                     break
 
-                for text_json in loaded_jsons:
-                    if not isinstance(text_json, dict):
-                        logger.debug(f"Invalid text_json because its not a dict?: {text_json}")
+                for chunk in loaded_jsons:
+                    if not isinstance(chunk, dict):
+                        logger.debug(f"Invalid text_json because its not a dict?: {chunk}")
                         success = False
                         break
                     try:
-                        _ = text_json["choices"][0]["delta"]["content"]
+                        _ = chunk["choices"][0]["delta"]["content"]
                         if add_role:
-                            text_json["choices"][0]["delta"]["role"] = "assistant"
+                            chunk["choices"][0]["delta"]["role"] = "assistant"
                             add_role = False
-                        if text_json["choices"][0]["finish_reason"] == "stop":
+                        if chunk["choices"][0]["finish_reason"] == "stop":
                             chunk_with_finish_reason = True
                     except KeyError:
-                        logger.debug(f"Invalid text_json because there's not delta content: {text_json}")
+                        logger.debug(f"Invalid text_json because there's not delta content: {chunk}")
                         success = False
                         break
 
-                    text_jsons.append(text_json)
-                    dumped_payload = json.dumps(text_json)
-
+                    chunks.append(chunk)
                     # we have at least one valid first chunk, so this run is a "success" so far
                     success = True
 
                     await _handle_event(
                         config,
-                        content=f"data: {dumped_payload}\n\n",
+                        content=f"data: {json.dumps(chunk)}\n\n",
                         synthetic_query=synthetic_query,
                         job_id=job_id,
                         status_code=200,
                     )
 
-        if len(text_jsons) > 0:
+        if len(chunks) > 0:
             if not chunk_with_finish_reason:
-                last_payload = {
+                last_chunk = {
                     "choices": [
                         {"delta": {"content": ""}, "finish_reason": "stop"}
                     ]
                 }
                 await _handle_event(
                     config,
-                    content=f"data: {json.dumps(last_payload)}\n\n",
+                    content=f"data: {json.dumps(last_chunk)}\n\n",
                     synthetic_query=synthetic_query,
                     job_id=job_id,
                     status_code=200
@@ -167,7 +165,7 @@ async def consume_generator(
 
         response_time = time.time() - start_time
         query_result = utility_models.QueryResult(
-            formatted_response=text_jsons if len(text_jsons) > 0 else None,
+            formatted_response=chunks if len(chunks) > 0 else None,
             node_id=node.node_id,
             response_time=response_time,
             task=task,
@@ -188,7 +186,7 @@ async def consume_generator(
                  f"Node: {node.node_id}; "
                  f"Task: {task}; "
                  f"response_time: {response_time}; "
-                 f"character_count: {count_characters(text_jsons)}")
+                 f"character_count: {count_characters(chunks)}")
     logger.info(f"Success: {success}")
     return success
 
