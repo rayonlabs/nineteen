@@ -45,8 +45,8 @@ async def _handle_event(
         )
 
 
-def count_characters(texts: List[Dict]) -> int:
-    return sum([len(text["choices"][0]["delta"]["content"]) for text in texts])
+def count_characters(chunks: List[Dict]) -> int:
+    return sum([len(chunk["choices"][0]["delta"]["content"]) for chunk in chunks])
 
 
 async def async_chain(first_chunk, async_gen):
@@ -106,18 +106,18 @@ async def consume_generator(
                 text = text.decode()
             if isinstance(text, str):
                 try:
-                    loaded_jsons = load_sse_jsons(text)
-                    if isinstance(loaded_jsons, dict):
-                        status_code = loaded_jsons.get(gcst.STATUS_CODE)  # noqa
+                    loaded_chunks = load_sse_jsons(text)
+                    if isinstance(loaded_chunks, dict):
+                        status_code = loaded_chunks.get(gcst.STATUS_CODE)  # noqa
                         break
 
                 except (IndexError, json.JSONDecodeError) as e:
-                    logger.warning(f"Error {e} when trying to load text: {text}")
+                    logger.warning(f"Error {e} when trying to load chunk: {text}")
                     break
 
-                for chunk in loaded_jsons:
+                for chunk in loaded_chunks:
                     if not isinstance(chunk, dict):
-                        logger.debug(f"Invalid text_json because its not a dict?: {chunk}")
+                        logger.debug(f"Invalid chunk: not a dict '{chunk}'")
                         success = False
                         break
                     try:
@@ -128,7 +128,7 @@ async def consume_generator(
                         if chunk["choices"][0]["finish_reason"] == "stop":
                             chunk_with_finish_reason = True
                     except KeyError:
-                        logger.debug(f"Invalid text_json because there's not delta content: {chunk}")
+                        logger.debug(f"Invalid chunk: missing delta content '{chunk}'")
                         success = False
                         break
 
