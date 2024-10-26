@@ -1,6 +1,6 @@
 import json
 import time
-from typing import AsyncGenerator
+from typing import AsyncGenerator, List, Dict
 
 import httpx
 from core.models import utility_models
@@ -43,6 +43,10 @@ async def _handle_event(
             f"{rcst.JOB_RESULTS}:{job_id}",
             generic_utils.get_error_event(job_id=job_id, error_message=error_message, status_code=status_code),
         )
+
+
+def count_characters(texts: List[Dict]) -> int:
+    return sum([len(text["choices"][0]["delta"]["content"]) for text in texts])
 
 
 async def async_chain(first_chunk, async_gen):
@@ -90,6 +94,7 @@ async def consume_generator(
         await utils.adjust_contender_from_result(config, query_result, contender, synthetic_query, payload=payload)
         return False
 
+    response_time = None
     text_jsons, status_code = [], 200
     success = False  # check if we have at least one valid chunk
     add_role = True  # on first chunk we want to set "role" = "assistant"
@@ -179,8 +184,11 @@ async def consume_generator(
             await utils.adjust_contender_from_result(config, query_result, contender, synthetic_query, payload=payload)
             await config.redis_db.expire(rcst.QUERY_RESULTS_KEY + ":" + job_id, 10)
 
-    character_count = sum([len(text_json["choices"][0]["delta"]["content"]) for text_json in text_jsons])
-    logger.debug(f"Success: {success}; Node: {node.node_id}; Task: {task}; response_time: {response_time}; first_message: {success}; character_count: {character_count}")
+    logger.debug(f"Success: {success}; "
+                 f"Node: {node.node_id}; "
+                 f"Task: {task}; "
+                 f"response_time: {response_time}; "
+                 f"character_count: {count_characters(text_jsons)}")
     logger.info(f"Success: {success}")
     return success
 
