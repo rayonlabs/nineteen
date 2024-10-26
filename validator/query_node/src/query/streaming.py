@@ -113,7 +113,7 @@ async def consume_generator(
                 for text_json in loaded_jsons:
                     if not isinstance(text_json, dict):
                         logger.debug(f"Invalid text_json because its not a dict?: {text_json}")
-                        success = False  # NOTE: Janky, but so we mark it as a fail
+                        success = False
                         break
                     try:
                         _ = text_json["choices"][0]["delta"]["content"]
@@ -124,7 +124,7 @@ async def consume_generator(
                             chunk_with_finish_reason = True
                     except KeyError:
                         logger.debug(f"Invalid text_json because there's not delta content: {text_json}")
-                        success = False  # NOTE: Janky, but so we mark it as a fail
+                        success = False
                         break
 
                     text_jsons.append(text_json)
