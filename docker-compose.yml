@@ -3,7 +3,7 @@ include:
 
 services:
   control_node:
-    container_name: nineteen-control-node
+    container_name: control_node
     build:
       context: .
       dockerfile: dockerfiles/control_node.dockerfile
@@ -27,7 +27,7 @@ services:
         condition: on-failure
 
   weight_setter:
-    container_name: nineteen-weight-setter
+    container_name: weight_setter
     build:
       context: .
       dockerfile: dockerfiles/control_node.dockerfile
@@ -46,7 +46,7 @@ services:
         condition: on-failure
 
   query_node:
-    container_name: nineteen-query-node
+    container_name: query_node
     build:
       context: .
       dockerfile: dockerfiles/query_node.dockerfile
@@ -80,7 +80,7 @@ services:
       - .vali.env
 
   entry_node:
-    container_name: nineteen-entry-node
+    container_name: entry_node
     build:
       context: .
       dockerfile: dockerfiles/entry_node.dockerfile
@@ -115,7 +115,7 @@ services:
       - entry_node_profile
 
   postgresql:
-    container_name: nineteen-postgresql
+    container_name: 0_postgresql
     image: postgres:latest
     volumes:
       - postgres_data:/var/lib/postgresql/data
@@ -132,7 +132,7 @@ services:
       POSTGRES_HOST: ${POSTGRES_HOST}
 
   dbmate:
-    container_name: nineteen-dbmate
+    container_name: 0_dbmate_nineteen
     image: amacneil/dbmate
     volumes:
       - ./validator/db:/db
@@ -144,7 +144,7 @@ services:
         condition: service_healthy
 
   redis:
-    container_name: nineteen-redis
+    container_name: 0_redis
     image: redis/redis-stack:latest
     deploy:
       restart_policy:
@@ -153,7 +153,7 @@ services:
   # if you want this, scale it to `1`
   adminer:
     scale: 0
-    container_name: nineteen-adminer
+    container_name: 0_adminer
     image: adminer
     restart: always
     environment:
@@ -169,7 +169,7 @@ services:
   # if you want this, scale it to `1`
   redis-commander:
     scale: 0
-    container_name: nineteen-redis-commander
+    container_name: 0_redis_commander
     image: ghcr.io/joeferner/redis-commander:latest
     restart: always
     environment:
@@ -182,7 +182,7 @@ services:
   # if you want this, scale it to `1`
   redis-proxy:
     scale: 0
-    container_name: nineteen-redis-proxy
+    container_name: 0_redis_proxy
     image: hpello/tcp-proxy
     command: redis 6379
     ports:
@@ -193,7 +193,7 @@ services:
   # if you want this, scale it to `1`
   postgres-proxy:
     scale: 0
-    container_name: nineteen-postgres-proxy
+    container_name: 0_postgres_proxy
     image: hpello/tcp-proxy
     command: postgresql 5432
     ports:
