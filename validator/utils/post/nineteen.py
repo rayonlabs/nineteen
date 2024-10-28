@@ -60,7 +60,7 @@ async def post_to_nineteen_ai(
         "x-signature": signed_timestamp,
         "x-public-key": public_address,
     }
-
+    resp = None
     async with httpx.AsyncClient(timeout=timeout) as client:
         try:
             resp = await client.post(
@@ -74,7 +74,7 @@ async def post_to_nineteen_ai(
             resp.raise_for_status()
             return resp
         except Exception as e:
-            if resp.status_code == 403:
+            if resp is not None and resp.status_code == 403:
                 logger.info(
                     f"403 when posting to {ccst.BASE_NINETEEN_API_URL} to store data for {data_type_to_post}. "
                     "Either you're on testnet, dont have enough stake, or this will resolve itself soon"
