@@ -163,10 +163,6 @@ async def schedule_synthetics_until_done(config: Config):
             logger.info(f"No more requests remaining for task {schedule.task}")
             continue
 
-        HIST_TOTAL_REQUESTS.record(schedule.total_requests, {"task": schedule.task})
-        HIST_SCHEDULE_REMAINING_REQUESTS.record(schedule.remaining_requests, {"task": schedule.task})
-        HIST_LATEST_REMAINING_REQUESTS.record(latest_remaining_requests, {"task": schedule.task})
-
         requests_to_skip = schedule.remaining_requests - latest_remaining_requests
         HIST_REQUESTS_TO_SKIP.record(requests_to_skip, {"task": schedule.task})
 
@@ -186,6 +182,10 @@ async def schedule_synthetics_until_done(config: Config):
             schedule.next_schedule_time = time.time() + schedule.interval
             schedule.remaining_requests = remaining_requests
 
+        HIST_TOTAL_REQUESTS.record(schedule.total_requests, {"task": schedule.task})
+        HIST_SCHEDULE_REMAINING_REQUESTS.record(schedule.remaining_requests, {"task": schedule.task})
+        HIST_LATEST_REMAINING_REQUESTS.record(latest_remaining_requests, {"task": schedule.task})
+        
         if schedule.remaining_requests > 0:
             heapq.heappush(task_schedules, schedule)
         else:
