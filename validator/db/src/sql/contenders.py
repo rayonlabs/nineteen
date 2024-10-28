@@ -166,8 +166,7 @@ async def get_contenders_for_organic_task(psql_db: PSQLDB, task: str, top_x: int
                     c.{dcst.CONTENDER_ID}, c.{dcst.NODE_HOTKEY}, c.{dcst.NODE_ID}, c.{dcst.TASK},
                     c.{dcst.RAW_CAPACITY}, c.{dcst.CAPACITY_TO_SCORE}, c.{dcst.CONSUMED_CAPACITY},
                     c.{dcst.TOTAL_REQUESTS_MADE}, c.{dcst.REQUESTS_429}, c.{dcst.REQUESTS_500}, 
-                    c.{dcst.CAPACITY}, c.{dcst.PERIOD_SCORE}, c.{dcst.NETUID},
-                    s.{dcst.COLUMN_NORMALISED_NET_SCORE}, s.{dcst.CREATED_AT}
+                    c.{dcst.CAPACITY}, c.{dcst.PERIOD_SCORE}, c.{dcst.NETUID}
                 FROM {dcst.CONTENDERS_TABLE} c
                 JOIN {dcst.NODES_TABLE} n ON c.{dcst.NODE_ID} = n.{dcst.NODE_ID} AND c.{dcst.NETUID} = n.{dcst.NETUID}
                 JOIN {dcst.CONTENDERS_WEIGHTS_STATS_TABLE} s ON c.{dcst.NODE_HOTKEY} = s.{dcst.NODE_HOTKEY} 
@@ -175,41 +174,39 @@ async def get_contenders_for_organic_task(psql_db: PSQLDB, task: str, top_x: int
                 WHERE c.{dcst.TASK} = $1 
                 AND c.{dcst.CAPACITY} > 0 
                 AND n.{dcst.SYMMETRIC_KEY_UUID} IS NOT NULL
-                ORDER BY c.{dcst.NODE_HOTKEY}, c.{dcst.TASK}, s.{dcst.CREATED_AT} DESC  -- recover the latest logged score for the contender
+                ORDER BY s.{dcst.COLUMN_NORMALISED_NET_SCORE} DESC, c.{dcst.NODE_HOTKEY}, c.{dcst.TASK}, s.{dcst.CREATED_AT} DESC
             )
             SELECT *
             FROM ranked_contenders
-            ORDER BY {dcst.COLUMN_NORMALISED_NET_SCORE} DESC
             """,
             task,
         )
     logger.debug(f"Number of valid contenders for task {task} for organic query : {len(rows)}")
+
+    contenders = [Contender(**row) for row in rows]
     
-    contenders_with_scores = [(Contender(**{key: row[key] for key in row.keys() if key != dcst.COLUMN_NORMALISED_NET_SCORE}), 
-                               row[dcst.COLUMN_NORMALISED_NET_SCORE]) for row in rows]
-    logger.debug(f"Contenders for task {task} with normalised net score : {contenders_with_scores}")
-    
-    if contenders_with_scores:
-        if len(contenders_with_scores) > top_x:
-            top_x_percent = contenders_with_scores[:max(1, int(gcst.ORGANIC_SELECT_CONTENDER_LOW_POURC * len(contenders_with_scores)))]  # top 75%
+    if contenders:
+        if len(contenders) > top_x:
+            top_x_percent = contenders[:max(1, int(gcst.ORGANIC_SELECT_CONTENDER_LOW_POURC * len(contenders)))]  # top 75%
             best_top_x_percent = top_x_percent[:max(1, int(gcst.ORGANIC_TOP_POURC * len(top_x_percent)))]  # top 25% within the top 75%
             remaining_top_x_percent = top_x_percent[len(best_top_x_percent):]
 
             best_top_x_weights = [gcst.ORGANIC_TOP_POURC_FACTOR / (len(top_x_percent) + 1) for _ in range(len(best_top_x_percent))]  # higher weight for top 25%
             remaining_top_x_weights = [1 / (len(top_x_percent) + 1) for _ in range(len(remaining_top_x_percent))]
             
-            combined_contenders = [contender_score[0] for contender_score in (best_top_x_percent + remaining_top_x_percent)]
+            combined_contenders = best_top_x_percent + remaining_top_x_percent
             combined_weights = best_top_x_weights + remaining_top_x_weights
             
             selected_contenders = random.choices(combined_contenders, weights=combined_weights, k=min(top_x, len(combined_contenders)))
             logger.debug(f"Selected contenders for task {task} : {selected_contenders}")
             return selected_contenders
         else:
-            logger.debug(f"Number of contenders ({len(contenders_with_scores)}) < top_x ({top_x}). Returning all contenders")
-            return [contender_score[0] for contender_score in contenders_with_scores]
+            logger.debug(f"Number of contenders ({len(contenders)}) < top_x ({top_x}). Returning all contenders")
+            return contenders
     else:
         logger.debug(f"Contenders selection for organic queries with task {task} yielded nothing (probably statistiques table is empty), falling back to synthetic queries logic.")
         return await get_contenders_for_synthetic_task(psql_db, task, top_x)
+
 
 
 async def get_contenders_for_task(psql_db: PSQLDB, task: str, top_x: int = 5, 
