@@ -179,34 +179,16 @@ async def get_contenders_for_organic_task(psql_db: PSQLDB, task: str, top_x: int
             )
             SELECT *
             FROM ranked_contenders
+            ORDER BY {dcst.COLUMN_NORMALISED_NET_SCORE} DESC
             """,
             task,
         )
     logger.debug(f"Number of valid contenders for task {task} for organic query : {len(rows)}")
-    rows_contenders = [
-        {
-            "node_hotkey": row[dcst.NODE_HOTKEY],
-            "node_id": row[dcst.NODE_ID],
-            "netuid": row[dcst.NETUID],
-            "task": row[dcst.TASK],
-            "raw_capacity": row[dcst.RAW_CAPACITY],
-            "capacity": row[dcst.CAPACITY],
-            "capacity_to_score": row[dcst.CAPACITY_TO_SCORE],
-            "consumed_capacity": row[dcst.CONSUMED_CAPACITY],
-            "total_requests_made": row[dcst.TOTAL_REQUESTS_MADE],
-            "requests_429": row[dcst.REQUESTS_429],
-            "requests_500": row[dcst.REQUESTS_500],
-            "period_score": row.get(dcst.PERIOD_SCORE, None),
-        }
-        for row in rows
-    ]
-
-    # sort contenders by net normalised scores
-    contenders = [Contender(**row) for row in rows_contenders]
-    contenders_with_scores = [(contender, row[dcst.COLUMN_NORMALISED_NET_SCORE]) for contender, row in zip(contenders, rows)]
-    contenders_with_scores.sort(key=lambda x: x[1], reverse=True)
+    
+    contenders_with_scores = [(Contender(**{key: row[key] for key in row.keys() if key != dcst.COLUMN_NORMALISED_NET_SCORE}), 
+                               row[dcst.COLUMN_NORMALISED_NET_SCORE]) for row in rows]
     logger.debug(f"Contenders for task {task} with normalised net score : {contenders_with_scores}")
-
+    
     if contenders_with_scores:
         if len(contenders_with_scores) > top_x:
             top_x_percent = contenders_with_scores[:max(1, int(gcst.ORGANIC_SELECT_CONTENDER_LOW_POURC * len(contenders_with_scores)))]  # top 75%
@@ -225,7 +207,6 @@ async def get_contenders_for_organic_task(psql_db: PSQLDB, task: str, top_x: int
         else:
             logger.debug(f"Number of contenders ({len(contenders_with_scores)}) < top_x ({top_x}). Returning all contenders")
             return [contender_score[0] for contender_score in contenders_with_scores]
-    # fall back in case of an issue
     else:
         logger.debug(f"Contenders selection for organic queries with task {task} yielded nothing (probably statistiques table is empty), falling back to synthetic queries logic.")
         return await get_contenders_for_synthetic_task(psql_db, task, top_x)
