@@ -34,7 +34,7 @@ def cli():
 )
 @click.option("--name", prompt="Name of the key for identification", help="The name for the API key.", default="No-Name")
 async def create_key(count, rate_limit_per_minute, name):
-    """Simple program that greets NAME for a total of COUNT times."""
+    """Create a new API key"""
     await config.psql_db.connect()
     balance = 100000000
     print("For now, the balance is set to 100,000,000 [will be improved soon]")
@@ -66,6 +66,7 @@ async def create_key(count, rate_limit_per_minute, name):
 )
 @click.option("--name", prompt="Name", help="The name to update.", default="")
 async def update_key(api_key, balance, rate_limit_per_minute, name):
+    """Update an existing API key"""
     await config.psql_db.connect()
     async with await config.psql_db.connection() as connection:
         if balance >= 0:
@@ -79,6 +80,7 @@ async def update_key(api_key, balance, rate_limit_per_minute, name):
 @cli.command()
 @click.option("--api-key", prompt="API Key", help="The API key to delete.", required=True)
 async def delete_key(api_key):
+    """Delete an existing API key"""
     await config.psql_db.connect()
     async with await config.psql_db.connection() as connection:
         await delete_api_key(connection, api_key)
@@ -86,6 +88,7 @@ async def delete_key(api_key):
 
 @cli.command()
 async def list_keys():
+    """List all API keys"""
     await config.psql_db.connect()
     async with await config.psql_db.connection() as connection:
         keys = await list_api_keys(connection)
@@ -116,6 +119,7 @@ async def list_keys():
 @cli.command()
 @click.option("--api-key", prompt="API Key", help="The API key to get logs for.", required=True)
 async def logs_for_key(api_key):
+    """Get logs for a specific API key - DISABLED RIGHT NOW"""
     await config.psql_db.connect()
     async with await config.psql_db.connection() as connection:
         logs = await get_logs_for_key(connection, api_key)
@@ -137,6 +141,7 @@ async def logs_for_key(api_key):
 
 @cli.command()
 async def logs_summary():
+    """Get a summary of all logs - DISABLED RIGHT NOW"""
     await config.psql_db.connect()
     async with await config.psql_db.connection() as connection:
         keys = await list_api_keys(connection)
