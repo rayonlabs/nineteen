@@ -20,6 +20,7 @@ from validator.utils.query.query_utils import load_sse_jsons
 
 logger = get_logger(__name__)
 
+BASELINE_CHUNKING_PERCENTAGE_PENALTY = 0.5
 
 def _get_formatted_payload(content: str, first_message: bool, add_finish_reason: bool = False) -> str:
     delta_payload = {"content": content}
@@ -107,6 +108,9 @@ async def consume_generator(
 
     text_jsons, status_code, first_message =  [], 200, True
     try:
+
+        total_chunks = 0.0
+        effective_bundled_chunks = 0.0
         async for text in async_chain(first_chunk, generator):
             if isinstance(text, bytes):
                 text = text.decode()
@@ -127,7 +131,18 @@ async def consume_generator(
                         first_message = True  # NOTE: Janky, but so we mark it as a fail
                         break
                     try:
-                        _ = text_json["choices"][0]["delta"]["content"]
+                        chunk = text_json["choices"][0]["delta"]["content"]
+                        total_chunks += 1
+
+                        split = chunk.split(" ")
+                        if len(split) > 20:
+                            effective_bundled_chunks += 5 * (len(split)//20 + 1)
+                        if len(split) > 10:
+                            effective_bundled_chunks += 3
+                        elif len(split) > 5:
+                            effective_bundled_chunks += 2
+                        elif len(split) > 2:
+                            effective_bundled_chunks += 1
                     except KeyError:
                         logger.debug(f"Invalid text_json because there's not delta content: {text_json}")
                         first_message = True  # NOTE: Janky, but so we mark it as a fail
@@ -155,6 +170,10 @@ async def consume_generator(
             logger.info(f" 👀  Queried node: {node.node_id} for task: {task}. Success: {not first_message}.")
 
         response_time = time.time() - start_time
+
+        # Assigning a penalty to response time for trying for chunk with >1 token 
+        response_time += BASELINE_CHUNKING_PERCENTAGE_PENALTY * (effective_bundled_chunks / total_chunks) * response_time
+
         query_result = utility_models.QueryResult(
             formatted_response=text_jsons if len(text_jsons) > 0 else None,
             node_id=node.node_id,
