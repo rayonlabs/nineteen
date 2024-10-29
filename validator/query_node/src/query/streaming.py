@@ -120,7 +120,17 @@ async def consume_generator(
                     if isinstance(loaded_jsons, dict):
                         status_code = loaded_jsons.get(gcst.STATUS_CODE)  # noqa
                         break
+                    total_chunks += 1
 
+                    if len(loaded_jsons) > 20:
+                        effective_bundled_chunks += 5 * (len(loaded_jsons)//20 + 1)
+                    elif len(loaded_jsons) > 10:
+                        effective_bundled_chunks += 3
+                    elif len(loaded_jsons) > 5:
+                        effective_bundled_chunks += 2
+                    elif len(loaded_jsons) > 2:
+                        effective_bundled_chunks += 1
+                
                 except (IndexError, json.JSONDecodeError) as e:
                     logger.warning(f"Error {e} when trying to load text: {text}")
                     break
@@ -131,18 +141,7 @@ async def consume_generator(
                         first_message = True  # NOTE: Janky, but so we mark it as a fail
                         break
                     try:
-                        chunk = text_json["choices"][0]["delta"]["content"]
-                        total_chunks += 1
-
-                        split = chunk.split(" ")
-                        if len(split) > 20:
-                            effective_bundled_chunks += 5 * (len(split)//20 + 1)
-                        if len(split) > 10:
-                            effective_bundled_chunks += 3
-                        elif len(split) > 5:
-                            effective_bundled_chunks += 2
-                        elif len(split) > 2:
-                            effective_bundled_chunks += 1
+                        _ = text_json["choices"][0]["delta"]["content"]
                     except KeyError:
                         logger.debug(f"Invalid text_json because there's not delta content: {text_json}")
                         first_message = True  # NOTE: Janky, but so we mark it as a fail
