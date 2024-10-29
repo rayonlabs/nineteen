@@ -2,23 +2,162 @@ import asyncio
 import random
 import sys
 from typing import Any
-
+from redis.asyncio import Redis
+import json
+from nltk.tokenize import sent_tokenize, word_tokenize
 from core.models import utility_models
+from validator.db.src.database import PSQLDB
 from validator.utils.synthetic import synthetic_constants as scst
 from core import task_config as tcfg
 from core.models import payload_models
 from PIL import Image
 import io
+import numpy as np
 import base64
 import markovify
 import datasets
 import diskcache
 from functools import lru_cache
+import traceback
 from fiber.logging_utils import get_logger
 from validator.utils.synthetic import synthetic_utils as sutils
+from validator.control_node.src.control_config import load_config
 import binascii
 
 logger = get_logger(__name__)
+
+try:
+    with open("assets/synth_corpus.json", "r") as fh:
+        synth_corpus = json.load(fh)
+except FileNotFoundError:
+    with open("validator/control_node/assets/synth_corpus.json", "r") as fh:
+        synth_corpus = json.load(fh)
+
+
+def split_sentences(text):
+    fragments = sent_tokenize(text)
+    return [frag for frag in fragments if len(frag.split()) > 2]  
+
+async def generate_text(corpus, n_words, redis_db):
+    generated_text_parts = []
+    current_word_count = 0
+
+    # get random text from queue
+    queue_name = 'random_text_queue'
+    first_category_text = await redis_db.lpop(queue_name)
+
+    if first_category_text:
+        first_category_text = first_category_text.decode('utf-8')
+        non_empty_sentences = [sent for sent in first_category_text.split('.') if len(word_tokenize(sent)) > 2]
+        if non_empty_sentences:
+            sentence_part = random.choice(non_empty_sentences)
+            sentence_word_count = len(word_tokenize(sentence_part))
+
+            if current_word_count + sentence_word_count > n_words:
+                remaining_words = n_words - current_word_count
+                truncated_part = ' '.join(sentence_part.split()[:remaining_words])
+                generated_text_parts.append(truncated_part)
+                current_word_count += remaining_words
+            else:
+                generated_text_parts.append(sentence_part)
+                current_word_count += sentence_word_count
+
+    categories = random.sample(list(corpus.keys()), 3)
+    while current_word_count < n_words:
+        for category in categories:
+            valid_sentences = [sent for sent in corpus[category] if len(word_tokenize(sent)) > 2]
+            if not valid_sentences:
+                continue 
+            sentence_part = random.choice(valid_sentences)
+            sentence_word_count = len(word_tokenize(sentence_part))
+            if current_word_count + sentence_word_count > n_words:
+                remaining_words = n_words - current_word_count
+                truncated_part = ' '.join(sentence_part.split()[:remaining_words])
+                generated_text_parts.append(truncated_part)
+                current_word_count += remaining_words
+                break
+            else:
+                generated_text_parts.append(sentence_part)
+                current_word_count += sentence_word_count
+            if current_word_count >= n_words:
+                break
+
+    merged_text = ' '.join(generated_text_parts).strip()
+    if merged_text and random.choice([True, False]):
+        possible_endings = ['.', '!', '?', '...']
+        if merged_text[-1] not in possible_endings:
+            merged_text += random.choice(possible_endings)
+
+    return merged_text
+
+
+def sampling(size=1, gamma_mean=1000, max_value=8000, gamma_shape=0.5, gaussian_mean=1000, gaussian_weight=0.3, gaussian_std=850):
+    gamma_scale = gamma_mean / gamma_shape
+    gamma_samples = np.random.gamma(gamma_shape, gamma_scale, size)
+    gaussian_samples = np.random.normal(gaussian_mean, gaussian_std, size)
+    combined_samples = gaussian_weight * gaussian_samples + (1 - gaussian_weight) * gamma_samples
+    combined_samples = combined_samples[combined_samples < max_value]
+    return combined_samples
+
+async def generate_chat_synthetic(model: str, redis_db: Redis) -> payload_models.ChatPayload:
+    try:
+        total_n_words = int(sampling(size=1)[0])
+        total_messages = random.randint(2, 10)
+        n_words_per_message = total_n_words // total_messages
+
+        messages = [
+            utility_models.Message(content=await generate_text(synth_corpus, n_words_per_message, redis_db), role=utility_models.Role.system),
+            utility_models.Message(content=await generate_text(synth_corpus, n_words_per_message, redis_db), role=utility_models.Role.user)
+        ]
+        
+        alternate_roles = [utility_models.Role.assistant, utility_models.Role.user]
+
+        messages += [
+            utility_models.Message(content=await generate_text(synth_corpus, n_words_per_message, redis_db), role=alternate_roles[i % 2])
+            for i in range(total_messages - 2)
+        ]
+        
+        return payload_models.ChatPayload(
+            messages=messages,
+            temperature=round(random.random(), 1),
+            max_tokens=random.randint(900, 1024),
+            seed=random.randint(1, scst.MAX_SEED),
+            model=model,
+            top_p=1,
+        )
+    except Exception as e:
+        logger.error("Error in new version of generate_chat_synthetic: %s", e)
+        logger.error(traceback.format_exc())
+        logger.error("Rolling back to the old method")
+        return await generate_chat_synthetic_old(model)
+
+
+async def generate_chat_synthetic_old(model: str) -> payload_models.ChatPayload:
+    user_content = await _get_markov_sentence(max_words=140)
+    messages = [utility_models.Message(content=user_content, role=utility_models.Role.user)]
+
+    if random.random() < 0.1:
+        messages.append(
+            utility_models.Message(
+                content=await _get_markov_sentence(max_words=140),
+                role=utility_models.Role.assistant,
+            )
+        )
+        messages.append(
+            utility_models.Message(
+                content=await _get_markov_sentence(max_words=140),
+                role=utility_models.Role.user,
+            )
+        )
+    return payload_models.ChatPayload(
+        messages=messages,
+        temperature=round(random.random(), 1),
+        max_tokens=1024,
+        seed=random.randint(1, scst.MAX_SEED),
+        model=model,
+        top_p=1,
+    )
+
 
 
 # NOTE: any danger here of massively growing cache?
@@ -121,33 +260,6 @@ def alter_image(
 
     new_image = pil_to_base64(pil_image)
     return new_image
-
-
-async def generate_chat_synthetic(model: str) -> payload_models.ChatPayload:
-    user_content = await _get_markov_sentence(max_words=140)
-    messages = [utility_models.Message(content=user_content, role=utility_models.Role.user)]
-
-    if random.random() < 0.1:
-        messages.append(
-            utility_models.Message(
-                content=await _get_markov_sentence(max_words=140),
-                role=utility_models.Role.assistant,
-            )
-        )
-        messages.append(
-            utility_models.Message(
-                content=await _get_markov_sentence(max_words=140),
-                role=utility_models.Role.user,
-            )
-        )
-    return payload_models.ChatPayload(
-        messages=messages,
-        temperature=round(random.random(), 1),
-        max_tokens=1024,
-        seed=random.randint(1, scst.MAX_SEED),
-        model=model,
-        top_p=1,
-    )
 
 
 async def generate_text_to_image_synthetic(
@@ -260,12 +372,12 @@ async def generate_avatar_synthetic() -> payload_models.AvatarPayload:
         init_image=init_image,
     )
 
-
-async def generate_synthetic_data(task: str) -> Any:
+async def generate_synthetic_data(task: str, redis_db: Redis) -> Any:
     """
     Gets task config and dynamically calls the synthetic generation function
     Not super clean, but it works
     """
+
     task_config = tcfg.get_enabled_task_config(task)
     if task_config is None:
         return
@@ -280,5 +392,9 @@ async def generate_synthetic_data(task: str) -> Any:
 
     func = getattr(sys.modules[__name__], generative_function_name)
     kwargs = task_config.synthetic_generation_config.kwargs
+
+    if func == generate_chat_synthetic and redis_db is not None:
+        kwargs["redis_db"] = redis_db
+
 
     return await func(**kwargs)
