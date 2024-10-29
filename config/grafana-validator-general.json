@@ -603,8 +603,8 @@
             "uid": "PBFA97CFB590B2093"
           },
           "disableTextWrap": false,
-          "editorMode": "builder",
-          "expr": "rate(validator_query_node_image_success_sum{exported_job=\"entry_node\"}[1m]) * 60",
+          "editorMode": "code",
+          "expr": "rate(validator_entry_node_image_success_total{exported_job=\"entry_node\"}[1m]) * 60",
           "fullMetaSearch": false,
           "includeNullMetadata": false,
           "instant": false,
@@ -702,11 +702,11 @@
           },
           "disableTextWrap": false,
           "editorMode": "code",
-          "expr": "rate(validator_query_node_image_error_sum{exported_job=\"entry_node\"}[1m]) * 60",
+          "expr": "rate(validator_entry_node_image_error_total{exported_job=\"entry_node\"}[1m]) * 60",
           "fullMetaSearch": false,
           "includeNullMetadata": false,
           "instant": false,
-          "legendFormat": "{{http_target}}",
+          "legendFormat": "{{reason}}",
           "range": true,
           "refId": "A",
           "useBackend": false
@@ -800,7 +800,7 @@
           },
           "disableTextWrap": false,
           "editorMode": "code",
-          "expr": "rate(validator_query_node_text_success_sum{exported_job=\"entry_node\"}[1m]) * 60",
+          "expr": "rate(validator_entry_node_text_success_total{exported_job=\"entry_node\"}[1m]) * 60",
           "fullMetaSearch": false,
           "includeNullMetadata": false,
           "instant": false,
@@ -898,7 +898,7 @@
           },
           "disableTextWrap": false,
           "editorMode": "code",
-          "expr": "rate(validator_query_node_text_error_sum{exported_job=\"entry_node\"}[1m]) * 60",
+          "expr": "rate(validator_entry_node_text_error_total{exported_job=\"entry_node\"}[1m]) * 60",
           "fullMetaSearch": false,
           "includeNullMetadata": false,
           "instant": false,
@@ -957,13 +957,13 @@
     "list": []
   },
   "time": {
-    "from": "now-3h",
+    "from": "now-1h",
     "to": "now"
   },
   "timepicker": {},
   "timezone": "browser",
   "title": "Validator General",
   "uid": "ae1q8n928qc5ce",
-  "version": 7,
+  "version": 2,
   "weekStart": ""
 }

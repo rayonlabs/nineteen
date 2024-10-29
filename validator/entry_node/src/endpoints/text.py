@@ -104,6 +104,7 @@ async def make_stream_organic_query(
         raise HTTPException(status_code=500, detail="Unable to process request")
 
     if first_chunk is None:
+        COUNTER_TEXT_GENERATION_ERROR.add(1, {"task": task, "kind": "first_chunk_missing", "status_code": 500})
         raise HTTPException(status_code=500, detail="Unable to process request")
     return _stream_results(pubsub, job_id, task, first_chunk)
 
@@ -144,6 +145,7 @@ async def chat(
             return await _handle_no_stream(text_generator)
 
     except HTTPException as http_exc:
+        COUNTER_TEXT_GENERATION_ERROR.add(1, {"task": payload.model, "kind": type(http_exc).__name__, "status_code": 500})
         logger.info(f"HTTPException in chat endpoint: {str(http_exc)}")
         raise http_exc
 

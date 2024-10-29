@@ -96,7 +96,7 @@ services:
       - redis
       - postgresql
     ports:
-      - "${ORGANIC_SERVER_PORT:-8091}:${ORGANIC_SERVER_PORT:-8091}"  # TODO: Remove this, go via the caddy server
+      - "${ORGANIC_SERVER_PORT:-8091}:${ORGANIC_SERVER_PORT:-8091}"
     entrypoint: ["opentelemetry-instrument", "--logs_exporter", "otlp", "--traces_exporter", "otlp", "--metrics_exporter", "otlp", "--service_name", "entry_node", "python", "-u", "/app/validator/entry_node/src/server.py"]
     environment:
       OTEL_EXPORTER_OTLP_PROTOCOL: "http/protobuf"
