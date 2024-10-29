@@ -25,6 +25,7 @@ from validator.control_node.src.control_config import load_config
 import binascii
 
 logger = get_logger(__name__)
+global_config = load_config()
 
 try:
     with open("assets/synth_corpus.json", "r") as fh:
@@ -38,13 +39,13 @@ def split_sentences(text):
     fragments = sent_tokenize(text)
     return [frag for frag in fragments if len(frag.split()) > 2]  
 
-async def generate_text(corpus, n_words, redis_db):
+async def generate_text(corpus, n_words):
     generated_text_parts = []
     current_word_count = 0
 
     # get random text from queue
     queue_name = 'random_text_queue'
-    first_category_text = await redis_db.lpop(queue_name)
+    first_category_text = await global_config.redis_db.lpop(queue_name)
 
     if first_category_text:
         first_category_text = first_category_text.decode('utf-8')
