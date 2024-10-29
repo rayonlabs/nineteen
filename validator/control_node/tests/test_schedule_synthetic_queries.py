@@ -5,10 +5,8 @@ from validator.db.src.database import PSQLDB
 from validator.db.src import sql
 from validator.models import Contender
 from validator.utils.redis import redis_constants as rcst
-from validator.control_node.src.synthetics.refresh_synthetic_data import (
-    Config,
-    schedule_synthetics_until_done,
-)
+from validator.control_node.src.cycle.schedule_synthetic_queries import Config, schedule_synthetics_until_done
+
 
 
 class TestSyntheticSchedulerFunctional(unittest.IsolatedAsyncioTestCase):

@@ -1,7 +1,6 @@
 import asyncio
 import random
 import sys
-from typing import Any
 
 from core.models import utility_models
 from validator.utils.synthetic import synthetic_constants as scst
@@ -12,11 +11,11 @@ import io
 import base64
 import markovify
 import datasets
-import diskcache
 from functools import lru_cache
 from fiber.logging_utils import get_logger
 from validator.utils.synthetic import synthetic_utils as sutils
 import binascii
+from redis.asyncio import Redis
 
 logger = get_logger(__name__)
 
@@ -38,11 +37,6 @@ def get_cached_markov_model():
 async def markov_model_factory():
     return await asyncio.to_thread(get_cached_markov_model)
 
-
-@lru_cache(maxsize=1)
-def image_cache_factory() -> diskcache.Cache:
-    cache = diskcache.Cache("./cache/image_cache")
-    return cache
 
 
 async def _get_markov_sentence(max_words: int = 10) -> str:
@@ -123,7 +117,7 @@ def alter_image(
     return new_image
 
 
-async def generate_chat_synthetic(model: str) -> payload_models.ChatPayload:
+async def generate_chat_synthetic(model: str, redis_db: Redis) -> payload_models.ChatPayload:
     user_content = await _get_markov_sentence(max_words=140)
     messages = [utility_models.Message(content=user_content, role=utility_models.Role.user)]
 
@@ -152,6 +146,7 @@ async def generate_chat_synthetic(model: str) -> payload_models.ChatPayload:
 
 async def generate_text_to_image_synthetic(
     model: str,
+    redis_db: Redis,
 ) -> payload_models.TextToImagePayload:
     prompt = await _get_markov_sentence(max_words=20)
     negative_prompt = await _get_markov_sentence(max_words=20)
@@ -178,8 +173,8 @@ async def generate_text_to_image_synthetic(
 
 async def generate_image_to_image_synthetic(
     model: str,
+    redis_db: Redis,
 ) -> payload_models.ImageToImagePayload:
-    cache = image_cache_factory()
 
     prompt = await _get_markov_sentence(max_words=20)
     negative_prompt = await _get_markov_sentence(max_words=20)
@@ -193,7 +188,7 @@ async def generate_image_to_image_synthetic(
     steps = 8
     image_strength = 0.5
 
-    init_image = await sutils.get_random_image_b64(cache)
+    init_image = await sutils.get_random_image_b64(redis_db)
 
     return payload_models.ImageToImagePayload(
         prompt=prompt,
@@ -209,13 +204,15 @@ async def generate_image_to_image_synthetic(
     )
 
 
-async def generate_inpaint_synthetic() -> payload_models.InpaintPayload:
-    cache = image_cache_factory()
+async def generate_inpaint_synthetic(
+    redis_db: Redis,
+) -> payload_models.InpaintPayload:
+
     prompt = await _get_markov_sentence(max_words=20)
     negative_prompt = await _get_markov_sentence(max_words=20)
     seed = random.randint(1, scst.MAX_SEED)
 
-    init_image = await sutils.get_random_image_b64(cache)
+    init_image = await sutils.get_random_image_b64(redis_db)
     mask_image = sutils.generate_mask_with_circle(init_image)
 
     return payload_models.InpaintPayload(
@@ -231,7 +228,7 @@ async def generate_inpaint_synthetic() -> payload_models.InpaintPayload:
     )
 
 
-async def generate_avatar_synthetic() -> payload_models.AvatarPayload:
+async def generate_avatar_synthetic(redis_db: Redis) -> payload_models.AvatarPayload:
     prompt = await _get_markov_sentence(max_words=20)
     negative_prompt = await _get_markov_sentence(max_words=20)
     seed = random.randint(1, scst.MAX_SEED)
@@ -261,14 +258,21 @@ async def generate_avatar_synthetic() -> payload_models.AvatarPayload:
     )
 
 
-async def generate_synthetic_data(task: str) -> Any:
+async def generate_synthetic_data(task: str, redis_db: Redis) -> (
+    payload_models.ChatPayload |
+    payload_models.TextToImagePayload |
+    payload_models.ImageToImagePayload |
+    payload_models.InpaintPayload |
+    payload_models.AvatarPayload |
+    None
+):
     """
     Gets task config and dynamically calls the synthetic generation function
     Not super clean, but it works
     """
     task_config = tcfg.get_enabled_task_config(task)
     if task_config is None:
-        return
+        return None
     generative_function_name = task_config.synthetic_generation_config.func
 
     if generative_function_name not in sys.modules[__name__].__dict__:
@@ -280,5 +284,6 @@ async def generate_synthetic_data(task: str) -> Any:
 
     func = getattr(sys.modules[__name__], generative_function_name)
     kwargs = task_config.synthetic_generation_config.kwargs
+    kwargs['redis_db'] = redis_db # synthetic generation funcs need redis_db injected
 
     return await func(**kwargs)

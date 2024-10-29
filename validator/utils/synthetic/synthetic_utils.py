@@ -1,25 +1,13 @@
 import random
-from typing import Any
-
-from core import task_config as tcfg
-from validator.utils.redis import (
-    redis_utils as rutils,
-    redis_constants as rcst,
-)
-from validator.utils.synthetic import synthetic_constants as scst
-from redis.asyncio import Redis
-from core.models import config_models as cmodels
-
 import base64
 from io import BytesIO
-
 import aiohttp
-import diskcache
 from PIL import Image
 import uuid
 import numpy as np
 from fiber.logging_utils import get_logger
-
+from validator.utils.synthetic import synthetic_constants as scst
+from redis.asyncio import Redis
 
 logger = get_logger(__name__)
 
@@ -109,22 +97,48 @@ async def _get_random_picsum_image(x_dim: int, y_dim: int) -> str:
     return img_b64
 
 
-async def get_random_image_b64(cache: diskcache.Cache) -> str:
-    for key in cache.iterkeys():
-        image_b64: str | None = cache.get(key, None)  # type: ignore
-        if image_b64 is None:
-            cache.delete(key)
-            continue
+async def _get_random_cached_image(redis_db: Redis, cache_key: str) -> str | None:
+    if await redis_db.scard(cache_key) > 0:
+        random_key = await redis_db.srandmember(cache_key)
+        return await redis_db.get(random_key)
+    return None
 
-        if random.random() < 0.01:
-            cache.delete(key)
-        return image_b64
+async def _remove_random_cached_image(redis_db: Redis, cache_key: str) -> None:
+    if await redis_db.scard(cache_key) > 0:
+        random_key = await redis_db.srandmember(cache_key)
+        await redis_db.srem(cache_key, random_key)
+        await redis_db.delete(random_key)
 
+async def _add_image_to_cache(redis_db: Redis, cache_key: str, image_b64: str) -> None:
+    new_key = str(uuid.uuid4())
+    await redis_db.set(new_key, image_b64)
+    await redis_db.sadd(cache_key, new_key)
+
+async def _manage_cache_size(redis_db: Redis, cache_key: str, cache_size: int) -> None:
+    if await redis_db.scard(cache_key) >= cache_size:
+        await _remove_random_cached_image(redis_db, cache_key)
+
+async def get_random_image_b64(redis_db: Redis) -> str:
+    cache_key = scst.IMAGE_CACHE_KEY
+    cache_size = scst.IMAGE_CACHE_SIZE
+
+    logger.debug(f"Starting get_random_image_b64. Cache key: {cache_key}, Cache size: {cache_size}")
+
+    if random.random() < 0.01:
+        await _remove_random_cached_image(redis_db, cache_key)
+    else:
+        cached_image = await _get_random_cached_image(redis_db, cache_key)
+        if cached_image:
+            return cached_image
+
+    # If cache is empty or we decided to get a new image
     random_picsum_image = await _get_random_picsum_image(1024, 1024)
-    cache.add(key=str(uuid.uuid4()), value=random_picsum_image)
+    await _manage_cache_size(redis_db, cache_key, cache_size)
+    await _add_image_to_cache(redis_db, cache_key, random_picsum_image)
     return random_picsum_image
 
 
+# TODO: Pass image size instead of image b64 to avoid decoding each time. Or cache the mask if randomization is not needed.
 def generate_mask_with_circle(image_b64: str) -> str:
     image = Image.open(BytesIO(base64.b64decode(image_b64)))
 
@@ -144,33 +158,5 @@ def generate_mask_with_circle(image_b64: str) -> str:
     return mask_b64
 
 
-def construct_synthetic_data_task_key(task: str) -> str:
-    return rcst.SYNTHETIC_DATA_KEY + ":" + task
 
 
-async def get_synthetic_data_version(redis_db: Redis, task: str) -> float | None:
-    version = await redis_db.hget(rcst.SYNTHETIC_DATA_VERSIONS_KEY, task)  # type: ignore
-    if version is not None:
-        return float(version.decode("utf-8"))  # type: ignore
-    return None
-
-
-# Takes anywhere from 1ms to 10ms
-async def fetch_synthetic_data_for_task(redis_db: Redis, task: str) -> dict[str, Any]:
-    synthetic_data = await rutils.json_load_from_redis(redis_db, key=construct_synthetic_data_task_key(task), default=None)
-    if synthetic_data is None:
-        raise ValueError(f"No synthetic data found for task: {task}")
-    task_config = tcfg.get_enabled_task_config(task)
-    if task_config is None:
-        raise ValueError(f"No task config found for task: {task}")
-    task_type = task_config.task_type
-    if task_type == cmodels.TaskType.IMAGE:
-        synthetic_data[scst.SEED] = random.randint(1, 1_000_000_000)
-        synthetic_data[scst.TEXT_PROMPTS] = _get_random_text_prompt()
-    elif task_type == cmodels.TaskType.TEXT:
-        synthetic_data[scst.SEED] = random.randint(1, 1_000_000_000)
-        synthetic_data[scst.TEMPERATURE] = round(random.uniform(0, 1), 2)
-    else:
-        raise ValueError(f"Unknown task type: {task_type}")
-
-    return synthetic_data

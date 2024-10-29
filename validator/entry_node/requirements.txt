@@ -8,7 +8,6 @@ uvicorn
 aiocache==0.12.2
 scalar-fastapi==1.0.3
 python-dotenv~=1.0
-diskcache~=5.6
 
 
 

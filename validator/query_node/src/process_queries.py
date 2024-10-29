@@ -6,7 +6,6 @@ from validator.models import Contender
 from validator.query_node.src.query_config import Config
 from core import task_config as tcfg
 from validator.utils.generic import generic_utils as gutils
-from validator.utils.contender import contender_utils as putils
 from validator.utils.redis import redis_constants as rcst
 from fiber.logging_utils import get_logger
 from validator.utils.redis import redis_dataclasses as rdc
@@ -14,6 +13,7 @@ from validator.query_node.src.query import nonstream, streaming
 from validator.db.src.sql.contenders import get_contenders_for_task
 from validator.db.src.sql.nodes import get_node
 from validator.utils.generic import generic_constants as gcst
+from validator.utils.synthetic import synthetic_generation_funcs as sgen
 
 logger = get_logger(__name__)
 
@@ -124,7 +124,18 @@ async def process_task(config: Config, message: rdc.QueryQueueMessage):
         logger.debug(f"Successfully acknowledged job id : {message.job_id} ✅")
         await _decrement_requests_remaining(config.redis_db, task)
     else:
-        message.query_payload = await putils.get_synthetic_payload(config.redis_db, task)
+        synthetic_data = await sgen.generate_synthetic_data(task, config.redis_db)
+        if synthetic_data is None:
+            logger.error(f"Failed to generate synthetic data for task: {task}")
+            await _handle_error(
+                config=config,
+                synthetic_query=message.query_type == gcst.SYNTHETIC,
+                job_id=message.job_id,
+                status_code=500,
+                error_message=f"Failed to generate synthetic data for task: {task}",
+            )
+            return
+        message.query_payload = synthetic_data.model_dump()
 
     task_config = tcfg.get_enabled_task_config(task)
     if task_config is None:
@@ -147,7 +158,7 @@ async def process_task(config: Config, message: rdc.QueryQueueMessage):
 
     try:
         if stream:
-            return await _handle_stream_query(config, message, contenders_to_query)
+            return await _handle_stream_query(config=config, message=message, contenders_to_query=contenders_to_query)
         else:
             return await _handle_nonstream_query(config=config, message=message, contenders_to_query=contenders_to_query)
     except Exception as e:

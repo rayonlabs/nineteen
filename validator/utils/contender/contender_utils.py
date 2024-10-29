@@ -41,6 +41,3 @@ async def load_query_queue(redis_db: Redis) -> list[str]:
 async def load_synthetic_scheduling_queue(redis_db: Redis) -> list[str]:
     return await rutils.get_sorted_set(redis_db, rcst.SYNTHETIC_SCHEDULING_QUEUE_KEY)
 
-
-async def get_synthetic_payload(redis_db: Redis, task: str) -> dict:
-    return await rutils.json_load_from_redis(redis_db, rcst.SYNTHETIC_DATA_KEY + ":" + task, default={})

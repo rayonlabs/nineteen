@@ -3,3 +3,6 @@ python-dotenv~=1.0
 redis~=5.0
 asyncpg==0.29.0
 colorama==0.4.6
+markovify==0.9.4
+pillow==10.4.0
+datasets==2.20.0
