@@ -37,7 +37,7 @@ async def update_tasks_synthetic_data(redis_db: Redis, slow_sync: bool = True, f
         now = datetime.datetime.now().timestamp()
         synthetic_data_version = await sutils.get_synthetic_data_version(redis_db, fixed_task)
         if synthetic_data_version is None or now - synthetic_data_version > scst.SYNTHETIC_DATA_EXPIRATION_TIME:
-            new_synthetic_data = await synthetic_generation_funcs.generate_synthetic_data(fixed_task, redis_db)
+            new_synthetic_data = await synthetic_generation_funcs.generate_synthetic_data(fixed_task)
             if new_synthetic_data is not None:
                 await _store_synthetic_data_in_redis(redis_db, fixed_task, new_synthetic_data)
 
@@ -47,7 +47,7 @@ async def update_tasks_synthetic_data(redis_db: Redis, slow_sync: bool = True, f
             now = datetime.datetime.now().timestamp()
             synthetic_data_version = await sutils.get_synthetic_data_version(redis_db, task)
             if synthetic_data_version is None or now - synthetic_data_version > scst.SYNTHETIC_DATA_EXPIRATION_TIME:
-                new_synthetic_data = await synthetic_generation_funcs.generate_synthetic_data(task, redis_db)
+                new_synthetic_data = await synthetic_generation_funcs.generate_synthetic_data(task)
                 if new_synthetic_data is not None:
                     await _store_synthetic_data_in_redis(redis_db, task, new_synthetic_data)
             if slow_sync:

@@ -372,7 +372,7 @@ async def generate_avatar_synthetic() -> payload_models.AvatarPayload:
         init_image=init_image,
     )
 
-async def generate_synthetic_data(task: str, redis_db: Redis) -> Any:
+async def generate_synthetic_data(task: str) -> Any:
     """
     Gets task config and dynamically calls the synthetic generation function
     Not super clean, but it works
@@ -393,8 +393,8 @@ async def generate_synthetic_data(task: str, redis_db: Redis) -> Any:
     func = getattr(sys.modules[__name__], generative_function_name)
     kwargs = task_config.synthetic_generation_config.kwargs
 
-    if func == generate_chat_synthetic and redis_db is not None:
-        kwargs["redis_db"] = redis_db
+    #if func == generate_chat_synthetic and redis_db is not None:
+    #    kwargs["redis_db"] = redis_db
 
 
     return await func(**kwargs)
