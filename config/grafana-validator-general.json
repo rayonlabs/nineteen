@@ -328,41 +328,6 @@
       },
       "fieldConfig": {
         "defaults": {
-          "color": {
-            "mode": "palette-classic"
-          },
-          "custom": {
-            "axisBorderShow": false,
-            "axisCenteredZero": false,
-            "axisColorMode": "text",
-            "axisLabel": "",
-            "axisPlacement": "auto",
-            "barAlignment": 0,
-            "drawStyle": "line",
-            "fillOpacity": 0,
-            "gradientMode": "none",
-            "hideFrom": {
-              "legend": false,
-              "tooltip": false,
-              "viz": false
-            },
-            "insertNulls": false,
-            "lineInterpolation": "linear",
-            "lineWidth": 1,
-            "pointSize": 5,
-            "scaleDistribution": {
-              "type": "linear"
-            },
-            "showPoints": "auto",
-            "spanNulls": false,
-            "stacking": {
-              "group": "A",
-              "mode": "none"
-            },
-            "thresholdsStyle": {
-              "mode": "off"
-            }
-          },
           "mappings": [],
           "thresholds": {
             "mode": "absolute",
@@ -376,29 +341,36 @@
                 "value": 80
               }
             ]
-          }
+          },
+          "unit": "short"
         },
         "overrides": []
       },
       "gridPos": {
-        "h": 6,
+        "h": 7,
         "w": 12,
         "x": 0,
         "y": 5
       },
       "id": 7,
       "options": {
-        "legend": {
-          "calcs": [],
-          "displayMode": "list",
-          "placement": "bottom",
-          "showLegend": true
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "percentChangeColorMode": "standard",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
         },
-        "tooltip": {
-          "mode": "single",
-          "sort": "none"
-        }
+        "showPercentChange": false,
+        "textMode": "auto",
+        "wideLayout": true
       },
+      "pluginVersion": "11.1.0",
       "targets": [
         {
           "datasource": {
@@ -407,7 +379,7 @@
           },
           "disableTextWrap": false,
           "editorMode": "builder",
-          "expr": "rate(validator_control_node_synthetic_cycle_schedule_remaining_requests_count[$__rate_interval]) * 60",
+          "expr": "rate(validator_control_node_synthetic_cycle_schedule_remaining_requests_count{exported_job=\"control_node\"}[$__rate_interval]) * 60",
           "fullMetaSearch": false,
           "includeNullMetadata": true,
           "instant": false,
@@ -418,7 +390,7 @@
         }
       ],
       "title": "Synthetic Remaining Requests",
-      "type": "timeseries"
+      "type": "stat"
     },
     {
       "datasource": {
@@ -480,7 +452,7 @@
         "overrides": []
       },
       "gridPos": {
-        "h": 6,
+        "h": 7,
         "w": 12,
         "x": 12,
         "y": 5
@@ -506,7 +478,7 @@
           },
           "disableTextWrap": false,
           "editorMode": "builder",
-          "expr": "rate(validator_query_node_src_query_node_failed_tasks_sum[1m]) * 60",
+          "expr": "rate(validator_query_node_process_failed_queries_total{exported_job=\"query_node\"}[1m]) * 60",
           "fullMetaSearch": false,
           "includeNullMetadata": true,
           "instant": false,
@@ -579,7 +551,7 @@
         "h": 6,
         "w": 12,
         "x": 0,
-        "y": 11
+        "y": 12
       },
       "id": 9,
       "options": {
@@ -677,7 +649,7 @@
         "h": 6,
         "w": 12,
         "x": 12,
-        "y": 11
+        "y": 12
       },
       "id": 10,
       "options": {
@@ -775,7 +747,7 @@
         "h": 6,
         "w": 12,
         "x": 0,
-        "y": 17
+        "y": 18
       },
       "id": 11,
       "options": {
@@ -873,7 +845,7 @@
         "h": 6,
         "w": 12,
         "x": 12,
-        "y": 17
+        "y": 18
       },
       "id": 12,
       "options": {
@@ -920,7 +892,7 @@
         "h": 9,
         "w": 24,
         "x": 0,
-        "y": 23
+        "y": 24
       },
       "id": 2,
       "options": {
@@ -964,6 +936,6 @@
   "timezone": "browser",
   "title": "Validator General",
   "uid": "ae1q8n928qc5ce",
-  "version": 2,
+  "version": 5,
   "weekStart": ""
 }
