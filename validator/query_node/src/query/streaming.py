@@ -15,12 +15,13 @@ from validator.utils.generic import generic_constants as gcst, generic_utils
 from validator.utils.redis import redis_constants as rcst
 
 from fiber.logging_utils import get_logger
-
+import statistics
 from validator.utils.query.query_utils import load_sse_jsons
 
 logger = get_logger(__name__)
 
 BASELINE_CHUNKING_PERCENTAGE_PENALTY = 0.5
+SPORADIC_CHUNKING_PERCENTAGE_PENALTY = 0.3
 
 def _get_formatted_payload(content: str, first_message: bool, add_finish_reason: bool = False) -> str:
     delta_payload = {"content": content}
@@ -183,8 +184,21 @@ async def consume_generator(
 
         response_time = time.time() - start_time
 
-        # Assigning a penalty to response time for trying for chunk with >1 token 
-        response_time += BASELINE_CHUNKING_PERCENTAGE_PENALTY * (effective_bundled_chunks / total_chunks) * response_time
+        # Penalize for inconsistent interval between chunks
+        if len(time_between_chunks) > 0:
+            mean_interval = sum(time_between_chunks) / len(time_between_chunks)
+            std_dev_interval = statistics.stdev(time_between_chunks, mean_interval)
+            
+            # Assign penalty for bundling different LLM tokens in single output chunk
+            response_time += BASELINE_CHUNKING_PERCENTAGE_PENALTY * (effective_bundled_chunks / total_chunks) * response_time
+
+            # Assign penalty if either/both: (i) at least one chunk is outside 2 standard deviation of the mean (ii) presence of extreme outliers
+            total_scaled_deviation = sum(
+                (abs(interval - mean_interval) / mean_interval) for interval in time_between_chunks
+            )
+            sporadic_count = sum(1 for interval in time_between_chunks if abs(interval - mean_interval) > 2 * std_dev_interval)
+            sporadic_penalty_factor = SPORADIC_CHUNKING_PERCENTAGE_PENALTY * (sporadic_count / len(time_between_chunks))
+            response_time += response_time * sporadic_penalty_factor * max(total_scaled_deviation - len(time_between_chunks), 0)
 
         query_result = utility_models.QueryResult(
             formatted_response=text_jsons if len(text_jsons) > 0 else None,
