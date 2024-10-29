@@ -106,11 +106,17 @@ async def consume_generator(
         await utils.adjust_contender_from_result(config, query_result, contender, synthetic_query, payload=payload)
         return False
 
+    time_to_first_chunk = time.time() - start_time
+    last_chunk_time = time.time()
+
     text_jsons, status_code, first_message =  [], 200, True
     try:
 
         total_chunks = 0.0
         effective_bundled_chunks = 0.0
+        time_between_chunks = []
+
+        latest_counter = None
         async for text in async_chain(first_chunk, generator):
             if isinstance(text, bytes):
                 text = text.decode()
@@ -158,6 +164,13 @@ async def consume_generator(
                         status_code=200,
                     )
 
+            if latest_counter is not None:
+                time_between_chunks.append(time.time() - latest_counter)
+                latest_counter = time.time()
+            else:
+                time_between_chunks.append(time.time() - time_to_first_chunk)
+                latest_counter = time.time()
+        
         if len(text_jsons) > 0:
             last_payload = _get_formatted_payload("", False, add_finish_reason=True)
             await _handle_event(
