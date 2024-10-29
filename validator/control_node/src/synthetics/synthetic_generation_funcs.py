@@ -42,34 +42,16 @@ def split_sentences(text):
 async def generate_text(corpus, n_words):
     generated_text_parts = []
     current_word_count = 0
-
-    # get random text from queue
-    queue_name = 'random_text_queue'
-    #first_category_text = await global_config.redis_db.lpop(queue_name)
-    first_category_text = None
-    if first_category_text:
-        first_category_text = first_category_text.decode('utf-8')
-        non_empty_sentences = [sent for sent in first_category_text.split('.') if len(word_tokenize(sent)) > 2]
-        if non_empty_sentences:
-            sentence_part = random.choice(non_empty_sentences)
-            sentence_word_count = len(word_tokenize(sentence_part))
-
-            if current_word_count + sentence_word_count > n_words:
-                remaining_words = n_words - current_word_count
-                truncated_part = ' '.join(sentence_part.split()[:remaining_words])
-                generated_text_parts.append(truncated_part)
-                current_word_count += remaining_words
-            else:
-                generated_text_parts.append(sentence_part)
-                current_word_count += sentence_word_count
-
+    # randomly choose 3 categories from the corpus
     categories = random.sample(list(corpus.keys()), 3)
+    # randomly select sentences from the 3 categories while respecting n_words
     while current_word_count < n_words:
         for category in categories:
-            valid_sentences = [sent for sent in corpus[category] if len(word_tokenize(sent)) > 2]
-            if not valid_sentences:
-                continue 
-            sentence_part = random.choice(valid_sentences)
+            sentence = random.choice(corpus[category]).strip()
+            sentences_in_category = split_sentences(sentence)
+            if not sentences_in_category:
+                continue
+            sentence_part = random.choice(sentences_in_category)
             sentence_word_count = len(word_tokenize(sentence_part))
             if current_word_count + sentence_word_count > n_words:
                 remaining_words = n_words - current_word_count
@@ -77,16 +59,15 @@ async def generate_text(corpus, n_words):
                 generated_text_parts.append(truncated_part)
                 current_word_count += remaining_words
                 break
-            else:
-                generated_text_parts.append(sentence_part)
-                current_word_count += sentence_word_count
+            generated_text_parts.append(sentence_part)
+            current_word_count += sentence_word_count
             if current_word_count >= n_words:
                 break
-
-    merged_text = ' '.join(generated_text_parts).strip()
-    if merged_text and random.choice([True, False]):
+    merged_text = ' '.join(generated_text_parts)
+    # randomly end with a random punctuation
+    if random.choice([True, False]):
         possible_endings = ['.', '!', '?', '...']
-        if merged_text[-1] not in possible_endings:
+        if not merged_text[-1] in possible_endings:
             merged_text += random.choice(possible_endings)
 
     return merged_text
