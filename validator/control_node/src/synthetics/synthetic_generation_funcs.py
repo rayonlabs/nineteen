@@ -100,21 +100,21 @@ def sampling(size=1, gamma_mean=1000, max_value=8000, gamma_shape=0.5, gaussian_
     combined_samples = combined_samples[combined_samples < max_value]
     return combined_samples
 
-async def generate_chat_synthetic(model: str, redis_db: Redis) -> payload_models.ChatPayload:
+async def generate_chat_synthetic(model: str) -> payload_models.ChatPayload:
     try:
         total_n_words = int(sampling(size=1)[0])
         total_messages = random.randint(2, 10)
         n_words_per_message = total_n_words // total_messages
 
         messages = [
-            utility_models.Message(content=await generate_text(synth_corpus, n_words_per_message, redis_db), role=utility_models.Role.system),
-            utility_models.Message(content=await generate_text(synth_corpus, n_words_per_message, redis_db), role=utility_models.Role.user)
+            utility_models.Message(content=await generate_text(synth_corpus, n_words_per_message), role=utility_models.Role.system),
+            utility_models.Message(content=await generate_text(synth_corpus, n_words_per_message), role=utility_models.Role.user)
         ]
         
         alternate_roles = [utility_models.Role.assistant, utility_models.Role.user]
 
         messages += [
-            utility_models.Message(content=await generate_text(synth_corpus, n_words_per_message, redis_db), role=alternate_roles[i % 2])
+            utility_models.Message(content=await generate_text(synth_corpus, n_words_per_message), role=alternate_roles[i % 2])
             for i in range(total_messages - 2)
         ]
         
@@ -393,9 +393,5 @@ async def generate_synthetic_data(task: str) -> Any:
 
     func = getattr(sys.modules[__name__], generative_function_name)
     kwargs = task_config.synthetic_generation_config.kwargs
-
-    #if func == generate_chat_synthetic and redis_db is not None:
-    #    kwargs["redis_db"] = redis_db
-
 
     return await func(**kwargs)
