@@ -62,6 +62,8 @@ async def generate_text(corpus, n_words):
         for i, category in enumerate(categories):
             sentence = random.choice(corpus[category]).strip()
             sentences_in_category = split_sentences(sentence)
+            if not sentences_in_category:
+                continue
             if i > 0 and i%3 == 0:
                 sentence_part = await get_random_text_from_file()
             else:    
@@ -80,7 +82,7 @@ async def generate_text(corpus, n_words):
             if current_word_count >= n_words:
                 break
         if not generated_text_parts:
-            raise ValueError("Unable to generate text. Check corpus contents.")
+            raise ValueError("Unable to generate text, problem with corpus?")
     merged_text = ' '.join(generated_text_parts).strip()
     possible_endings = ['.', '!', '?', '...']
     if merged_text and merged_text[-1] not in possible_endings:
