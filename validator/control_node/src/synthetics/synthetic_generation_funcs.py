@@ -41,9 +41,22 @@ def split_sentences(text):
     return [frag for frag in fragments if len(frag.split()) > 2]
 
 async def generate_text(corpus, n_words):
+    random.seed(time()%10000)
     generated_text_parts = []
-    current_word_count = 0
+
+    file_path = 'random_text_queue.txt'
+    with open(file_path, 'r+') as file:
+        first_line = file.readline().strip()
+        if first_line:
+            generated_text_parts.append(first_line)
+        remaining_data = file.read()
+        file.seek(0)  
+        file.write(remaining_data) 
+        file.truncate()
+
+    current_word_count = sum(len(line.split()) for line in generated_text_parts)
     categories = list(corpus.keys())
+
 
     while current_word_count < n_words:
         random.shuffle(categories)
@@ -69,7 +82,8 @@ async def generate_text(corpus, n_words):
     merged_text = ' '.join(generated_text_parts).strip()
     possible_endings = ['.', '!', '?', '...']
     if merged_text and merged_text[-1] not in possible_endings:
-        merged_text += random.choice(possible_endings)
+        if random.choice([True, False]):
+            merged_text += random.choice(possible_endings)
     return merged_text
 
 

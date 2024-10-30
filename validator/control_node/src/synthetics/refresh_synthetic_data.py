@@ -64,24 +64,27 @@ async def fetch_random_text():
         raise logger.error(f"Failed to fetch text from metaphorpsum.com: {response.status_code}")
 
 async def get_save_random_text(redis_db) -> None:
-    queue_name = 'random_text_queue'
+    file_path = 'random_text_queue.txt'
     while True:
         try:
-            queue_size = await redis_db.llen(queue_name)
+            with open(file_path, 'r') as file:
+                lines = file.readlines()
+            queue_size = len(lines)
             if queue_size < 500:
                 text, n_paragraphes, n_sentences = await fetch_random_text()
                 n_words = len(text.split())
-                await redis_db.rpush(queue_name, text)
-                logger.debug(f"Pushed text with {n_words} words, {n_paragraphes} paragraphs, and {n_sentences} sentences to Redis queue '{queue_name}'")
+                with open(file_path, 'a') as file:
+                    file.write(text + '\n')
+                logger.debug(f"Pushed text with {n_words} words, {n_paragraphes} paragraphs, and {n_sentences} sentences to text file '{file_path}'")
             else:
-                logger.debug(f"Redis queue '{queue_name}' is full. Skipping text insertion.")
+                logger.debug(f"Text file '{file_path}' is full. Skipping text insertion.")
             await asyncio.sleep(20)
         except Exception as e:
             logger.error(f"Error fetching and saving synthetic data: {e}")
 
 async def continuously_fetch_synthetic_data_for_tasks(redis_db: Redis) -> None:
+    asyncio.create_task(get_save_random_text(redis_db))
     await update_tasks_synthetic_data(redis_db, slow_sync=False)
-    #asyncio.create_task(get_save_random_text(redis_db))
     while True:
         await update_tasks_synthetic_data(redis_db, slow_sync=True)
 
