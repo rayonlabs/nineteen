@@ -20,19 +20,19 @@ from opentelemetry import metrics
 
 logger = get_logger(__name__)
 
-HIST_REQUESTS_TO_SKIP = metrics.get_meter(__name__).create_histogram(
+GAUGE_REQUESTS_TO_SKIP = metrics.get_meter(__name__).create_gauge(
     "validator.control_node.synthetic.cycle.requests_to_skip",
     description="Number of synthetic requests to skip for scheduled task"
 )
-HIST_SCHEDULE_REMAINING_REQUESTS = metrics.get_meter(__name__).create_histogram(
+GAUGE_SCHEDULE_REMAINING_REQUESTS = metrics.get_meter(__name__).create_gauge(
     "validator.control_node.synthetic.cycle.schedule_remaining_requests",
     description="Number of remaining synthetic requests for scheduled task"
 )
-HIST_LATEST_REMAINING_REQUESTS = metrics.get_meter(__name__).create_histogram(
+GAUGE_LATEST_REMAINING_REQUESTS = metrics.get_meter(__name__).create_gauge(
     "validator.control_node.synthetic.cycle.latest_remaining_requests",
     description="Number of latest remaining synthetic requests for scheduled task"
 )
-HIST_TOTAL_REQUESTS = metrics.get_meter(__name__).create_histogram(
+GAUGE_TOTAL_REQUESTS = metrics.get_meter(__name__).create_gauge(
     "validator.control_node.synthetic.cycle.total_requests",
     description="Number of total synthetic requests to be scheduled for the task in current cycle"
 )
@@ -164,7 +164,7 @@ async def schedule_synthetics_until_done(config: Config):
             continue
 
         requests_to_skip = schedule.remaining_requests - latest_remaining_requests
-        HIST_REQUESTS_TO_SKIP.record(requests_to_skip, {"task": schedule.task})
+        GAUGE_REQUESTS_TO_SKIP.set(requests_to_skip, {"task": schedule.task})
 
         if requests_to_skip > 0:
             logger.info(f"Skipping {requests_to_skip} requests for task {schedule.task}")
@@ -182,9 +182,9 @@ async def schedule_synthetics_until_done(config: Config):
             schedule.next_schedule_time = time.time() + schedule.interval
             schedule.remaining_requests = remaining_requests
 
-        HIST_TOTAL_REQUESTS.record(schedule.total_requests, {"task": schedule.task})
-        HIST_SCHEDULE_REMAINING_REQUESTS.record(schedule.remaining_requests, {"task": schedule.task})
-        HIST_LATEST_REMAINING_REQUESTS.record(latest_remaining_requests, {"task": schedule.task})
+        GAUGE_TOTAL_REQUESTS.set(schedule.total_requests, {"task": schedule.task})
+        GAUGE_SCHEDULE_REMAINING_REQUESTS.set(schedule.remaining_requests, {"task": schedule.task})
+        GAUGE_LATEST_REMAINING_REQUESTS.set(latest_remaining_requests, {"task": schedule.task})
         
         if schedule.remaining_requests > 0:
             heapq.heappush(task_schedules, schedule)

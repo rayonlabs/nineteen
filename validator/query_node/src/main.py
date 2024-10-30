@@ -21,7 +21,7 @@ logger = get_logger(__name__)
 
 MAX_CONCURRENT_TASKS = 100
 
-QUERY_NODE_REQUESTS_PROCESSING_HIST = metrics.get_meter(__name__).create_histogram(
+QUERY_NODE_REQUESTS_PROCESSING_GAUGE = metrics.get_meter(__name__).create_gauge(
     name="validator.query_node.src.concurrent_queries_processing",
     description="concurrent number of requests currently being processed by query node's `listen_for_tasks`",
     unit="1"
@@ -89,7 +89,7 @@ async def listen_for_tasks(config: Config):
         for t in done:
             await t
 
-        QUERY_NODE_REQUESTS_PROCESSING_HIST.record(len(tasks))
+        QUERY_NODE_REQUESTS_PROCESSING_GAUGE.set(len(tasks))
         while len(tasks) < MAX_CONCURRENT_TASKS:
             message_json = await config.redis_db.blpop(rcst.QUERY_QUEUE_KEY, timeout=1)  # type: ignore
 
