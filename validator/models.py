@@ -7,7 +7,6 @@ from datetime import datetime
 
 task_data = defaultdict(lambda: defaultdict(list))
 
-
 class PeriodScore(BaseModel):
     hotkey: str
     task: str
@@ -34,6 +33,7 @@ class Contender(BaseModel):
     def id(self) -> str:
         contender_id = self.node_hotkey + "-" + self.task
         return contender_id
+
 
 
 def calculate_period_score(

@@ -156,10 +156,10 @@ async def set_weights_periodically(config: Config, just_once: bool = False) -> N
 
         consecutive_failures += 1
         if just_once:
-            logger.info("Failed to set weights, will try again...")
+            logger.info("Failed to set weights, will try again in 1 block...")
             await asyncio.sleep(12 * 1)
         else:
-            logger.info(f"Failed to set weights {consecutive_failures} times in a row - sleeping for a bit...")
+            logger.info(f"Failed to set weights {consecutive_failures} times in a row - sleeping for 25 blocks...")
             await asyncio.sleep(12 * 25)  # Try again in 25 blocks
 
         if consecutive_failures == 1 or updated < 3000:
