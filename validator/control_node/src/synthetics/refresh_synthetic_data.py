@@ -81,7 +81,7 @@ async def get_save_random_text(redis_db) -> None:
 
 async def continuously_fetch_synthetic_data_for_tasks(redis_db: Redis) -> None:
     await update_tasks_synthetic_data(redis_db, slow_sync=False)
-    asyncio.create_task(get_save_random_text(redis_db))
+    #asyncio.create_task(get_save_random_text(redis_db))
     while True:
         await update_tasks_synthetic_data(redis_db, slow_sync=True)
 
