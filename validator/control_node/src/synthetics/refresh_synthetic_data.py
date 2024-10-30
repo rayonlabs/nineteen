@@ -6,6 +6,7 @@ import datetime
 import json
 import nltk
 import time
+import fcntl
 from pydantic import BaseModel
 from core import task_config as tcfg
 from redis.asyncio import Redis
@@ -78,7 +79,9 @@ async def get_save_random_text() -> None:
                 text, n_paragraphes, n_sentences = await fetch_random_text()
                 n_words = len(text.split())
                 with open(file_path, 'a') as file:
+                    fcntl.flock(file, fcntl.LOCK_EX)
                     file.write(text + '\n')
+                    fcntl.flock(file, fcntl.LOCK_UN)
                 logger.debug(f"Pushed text with {n_words} words, {n_paragraphes} paragraphs, and {n_sentences} sentences to text file '{file_path}'")
             else:
                 logger.debug(f"Text file '{file_path}' is full. Skipping text insertion.")

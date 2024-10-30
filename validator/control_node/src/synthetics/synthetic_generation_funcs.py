@@ -3,15 +3,14 @@ import random
 from time import time
 import sys
 from typing import Any
-from redis.asyncio import Redis
 import json
 from nltk.tokenize import sent_tokenize, word_tokenize
 from core.models import utility_models
-from validator.db.src.database import PSQLDB
 from validator.utils.synthetic import synthetic_constants as scst
 from core import task_config as tcfg
 from core.models import payload_models
 from PIL import Image
+import fcntl
 import io
 import numpy as np
 import base64
@@ -22,7 +21,6 @@ from functools import lru_cache
 import traceback
 from fiber.logging_utils import get_logger
 from validator.utils.synthetic import synthetic_utils as sutils
-from validator.control_node.src.control_config import load_config
 import binascii
 
 logger = get_logger(__name__)
@@ -40,19 +38,21 @@ def split_sentences(text):
     fragments = sent_tokenize(text)
     return [frag for frag in fragments if len(frag.split()) > 2]
 
-async def generate_text(corpus, n_words):
-    random.seed(time()%10000)
-    generated_text_parts = []
-
+async def get_random_row(): 
     file_path = 'random_text_queue.txt'
     with open(file_path, 'r+') as file:
+        fcntl.flock(file, fcntl.LOCK_EX)
         first_line = file.readline().strip()
-        if first_line:
-            generated_text_parts.append(first_line)
         remaining_data = file.read()
         file.seek(0)  
         file.write(remaining_data) 
         file.truncate()
+        fcntl.flock(file, fcntl.LOCK_UN)
+    return first_line
+
+async def generate_text(corpus, n_words):
+    random.seed(time()%10000)
+    generated_text_parts = []
 
     current_word_count = sum(len(line.split()) for line in generated_text_parts)
     categories = list(corpus.keys())
