@@ -65,7 +65,7 @@ async def generate_text(corpus, n_words):
             if not sentences_in_category:
                 continue
             if i > 0 and i%3 == 0:
-                sentence_part = await get_random_text_from_file()
+                sentence_part = await get_random_text_from_file() # what happens if we dont have text
             else:    
                 sentence_part = random.choice(sentences_in_category)
             if not sentence_part:
@@ -89,8 +89,6 @@ async def generate_text(corpus, n_words):
         if random.choice([True, False]):
             merged_text += random.choice(possible_endings)
     return merged_text
-
-
 
 def sampling(size=1, gamma_mean=1000, max_value=8000, gamma_shape=0.5, gaussian_mean=1000, gaussian_weight=0.3, gaussian_std=850):
     gamma_scale = gamma_mean / gamma_shape
@@ -117,9 +115,7 @@ async def generate_chat_synthetic(model: str) -> payload_models.ChatPayload:
             utility_models.Message(content=await generate_text(synth_corpus, n_words_per_message), role=utility_models.Role.system),
             utility_models.Message(content=await generate_text(synth_corpus, n_words_per_message), role=utility_models.Role.user)
         ]
-        
         alternate_roles = [utility_models.Role.assistant, utility_models.Role.user]
-
         messages += [
             utility_models.Message(content=await generate_text(synth_corpus, n_words_per_message), role=alternate_roles[i % 2])
             for i in range(total_messages - 2)
@@ -129,9 +125,7 @@ async def generate_chat_synthetic(model: str) -> payload_models.ChatPayload:
                 content=await generate_text(synth_corpus, 10),
                 role=utility_models.Role.user
             ))
-
-        logger.debug(f"Generated {total_n_words} words chat synth in {round(time()-start, 3)}s")
-        return payload_models.ChatPayload(
+        payload = payload_models.ChatPayload(
             messages=messages,
             temperature=round(random.random(), 1),
             max_tokens=random.randint(900, 1024),
@@ -139,14 +133,16 @@ async def generate_chat_synthetic(model: str) -> payload_models.ChatPayload:
             model=model,
             top_p=1,
         )
+        logger.debug(f"Generated {total_n_words} words chat synth in {round(time()-start, 3)}s - payload : {payload}")
+        return payload
     except Exception as e:
         logger.error("Error in new version of generate_chat_synthetic: %s", e)
         logger.error(traceback.format_exc())
         logger.error("Rolling back to the old method")
-        return await generate_chat_synthetic_old(model)
+        return await generate_chat_synthetic_markov(model)
 
 
-async def generate_chat_synthetic_old(model: str) -> payload_models.ChatPayload:
+async def generate_chat_synthetic_markov(model: str) -> payload_models.ChatPayload:
     user_content = await _get_markov_sentence(max_words=140)
     messages = [utility_models.Message(content=user_content, role=utility_models.Role.user)]
 
@@ -171,8 +167,6 @@ async def generate_chat_synthetic_old(model: str) -> payload_models.ChatPayload:
         model=model,
         top_p=1,
     )
-
-
 
 # NOTE: any danger here of massively growing cache?
 @lru_cache(maxsize=1)
