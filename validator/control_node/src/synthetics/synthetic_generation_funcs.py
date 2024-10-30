@@ -86,6 +86,7 @@ async def generate_chat_synthetic(model: str) -> payload_models.ChatPayload:
     start = time()
     try:
         total_n_words = int(sampling(size=1)[0])
+        total_n_words = total_n_words if total_n_words > 0 else 20
         total_messages = random.randint(2, 10)
         n_words_per_message = total_n_words // total_messages
 
