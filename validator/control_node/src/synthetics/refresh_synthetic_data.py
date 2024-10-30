@@ -92,7 +92,6 @@ async def continuously_fetch_synthetic_data_for_tasks(redis_db: Redis) -> None:
     while True:
         await update_tasks_synthetic_data(redis_db, slow_sync=True)
 
-
 async def main(config: Config):
     nltk.download('punkt_tab')
     await continuously_fetch_synthetic_data_for_tasks(config.redis_db)

@@ -99,8 +99,13 @@ def sampling(size=1, gamma_mean=1000, max_value=8000, gamma_shape=0.5, gaussian_
 async def generate_chat_synthetic(model: str) -> payload_models.ChatPayload:
     start = time()
     try:
-        total_n_words = int(sampling(size=1)[0])
+        total_n_words = sampling(size=1)
+        if total_n_words.size == 0:
+            total_n_words = 1000 
+        else:
+            total_n_words = int(total_n_words[0])
         total_n_words = total_n_words if total_n_words > 0 else 20
+
         total_messages = random.randint(2, 10)
         n_words_per_message = total_n_words // total_messages
 
@@ -115,6 +120,12 @@ async def generate_chat_synthetic(model: str) -> payload_models.ChatPayload:
             utility_models.Message(content=await generate_text(synth_corpus, n_words_per_message), role=alternate_roles[i % 2])
             for i in range(total_messages - 2)
         ]
+        if messages[-1].role != utility_models.Role.user:
+            messages[-1] = utility_models.Message(
+                content=await generate_text(synth_corpus, 10),
+                role=utility_models.Role.user
+            )
+
         logger.debug(f"Generated {total_n_words} words chat synth in {round(time()-start, 3)}s")
         return payload_models.ChatPayload(
             messages=messages,
