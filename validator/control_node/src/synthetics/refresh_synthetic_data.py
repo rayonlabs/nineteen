@@ -55,7 +55,7 @@ async def update_tasks_synthetic_data(redis_db: Redis, slow_sync: bool = True, f
                 await asyncio.sleep(0.1)
 
 async def fetch_random_text():
-    n_paragraphes = random.randint(1, 3)
+    n_paragraphes = random.randint(2, 4)
     n_sentences = random.randint(1, 6)
     url = f'http://metaphorpsum.com/paragraphs/{n_paragraphes}/{n_sentences}'
     response = requests.get(url)
@@ -82,7 +82,7 @@ async def get_save_random_text() -> None:
                 logger.debug(f"Pushed text with {n_words} words, {n_paragraphes} paragraphs, and {n_sentences} sentences to text file '{file_path}'")
             else:
                 logger.debug(f"Text file '{file_path}' is full. Skipping text insertion.")
-            await asyncio.sleep(20)
+            await asyncio.sleep(2)
         except Exception as e:
             logger.error(f"Error fetching and saving synthetic data: {e}")
 
