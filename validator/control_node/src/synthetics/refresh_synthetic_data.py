@@ -82,9 +82,10 @@ async def get_save_random_text() -> None:
                 logger.debug(f"Pushed text with {n_words} words, {n_paragraphes} paragraphs, and {n_sentences} sentences to text file '{file_path}'")
             else:
                 logger.debug(f"Text file '{file_path}' is full. Skipping text insertion.")
-            await asyncio.sleep(2)
+            await asyncio.sleep(1)
         except Exception as e:
-            logger.error(f"Error fetching and saving synthetic data: {e}")
+            await asyncio.sleep(60)
+            logger.error(f"Error fetching and saving synthetic data: {e} - sleeping for 60s")
 
 async def continuously_fetch_synthetic_data_for_tasks(redis_db: Redis) -> None:
     asyncio.create_task(get_save_random_text())
