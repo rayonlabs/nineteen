@@ -56,16 +56,19 @@ async def generate_text(corpus, n_words):
 
     current_word_count = sum(len(line.split()) for line in generated_text_parts)
     categories = list(corpus.keys())
-
+    random_quote = await get_random_row()
 
     while current_word_count < n_words:
         random.shuffle(categories)
-        for category in categories:
+        for i, category in enumerate(categories):
             sentence = random.choice(corpus[category]).strip()
             sentences_in_category = split_sentences(sentence)
             if not sentences_in_category:
                 continue
-            sentence_part = random.choice(sentences_in_category)
+            if i == 1:
+                sentence_part = random.choice(sentences_in_category+[random_quote])
+            else:    
+                sentence_part = random.choice(sentences_in_category)
             sentence_word_count = len(word_tokenize(sentence_part))
             if current_word_count + sentence_word_count > n_words:
                 remaining_words = n_words - current_word_count
