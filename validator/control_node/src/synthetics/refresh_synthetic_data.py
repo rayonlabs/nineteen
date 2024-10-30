@@ -85,7 +85,7 @@ async def get_save_random_text() -> None:
                     finally:
                         fcntl.flock(file, fcntl.LOCK_UN)
             else:
-                logger.debug(f"Text file '{scst.RANDOM_TEXT_FILE}' is full. Skipping text insertion.")                
+                logger.debug(f"Text file '{scst.RANDOM_TEXT_FILE}' is full. Skipping text insertion")                
             await asyncio.sleep(1)
             
         except Exception as e:
