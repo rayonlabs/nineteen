@@ -24,7 +24,6 @@ from validator.utils.synthetic import synthetic_utils as sutils
 import binascii
 
 logger = get_logger(__name__)
-#global_config = load_config()
 
 try:
     with open("assets/synth_corpus.json", "r") as fh:
@@ -36,20 +35,20 @@ except FileNotFoundError:
 
 def split_sentences(text):
     fragments = sent_tokenize(text)
-    return [frag for frag in fragments if len(frag.split()) > 2]
+    return [frag for frag in fragments if len(frag.split()) > 4]
 
-async def get_random_row(): 
+async def get_random_text_from_file(): 
+    first_line = None
     file_path = 'random_text_queue.txt'
     with open(file_path, 'r+') as file:
-        fcntl.flock(file, fcntl.LOCK_EX)        
-        first_line = file.readline().strip()
-        remaining_data = file.read()
-        file.seek(0)  
-        file.write(remaining_data)
-        file.truncate() 
-        fcntl.flock(file, fcntl.LOCK_UN)
+        lines = file.readlines()
+        if lines:
+            first_line = lines[0].strip()
+        with open(file_path, 'w') as file:
+            fcntl.flock(file, fcntl.LOCK_EX)     
+            file.writelines(lines[1:])
+            fcntl.flock(file, fcntl.LOCK_UN)
     return first_line
-
 
 async def generate_text(corpus, n_words):
     random.seed(time()%10000)
@@ -57,19 +56,18 @@ async def generate_text(corpus, n_words):
 
     current_word_count = sum(len(line.split()) for line in generated_text_parts)
     categories = list(corpus.keys())
-    random_quote = await get_random_row()
 
     while current_word_count < n_words:
         random.shuffle(categories)
         for i, category in enumerate(categories):
             sentence = random.choice(corpus[category]).strip()
             sentences_in_category = split_sentences(sentence)
-            if not sentences_in_category:
-                continue
             if i > 0 and i%3 == 0:
-                sentence_part = await get_random_row()
+                sentence_part = await get_random_text_from_file()
             else:    
                 sentence_part = random.choice(sentences_in_category)
+            if not sentence_part:
+                continue
             sentence_word_count = len(word_tokenize(sentence_part))
             if current_word_count + sentence_word_count > n_words:
                 remaining_words = n_words - current_word_count
