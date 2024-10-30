@@ -13,8 +13,6 @@ from redis.asyncio import Redis
 from validator.control_node.src.control_config import Config
 from validator.utils.redis import redis_constants as rcst
 from validator.utils.synthetic import synthetic_constants as scst
-from validator.db.src.database import PSQLDB
-from validator.utils.database import database_constants as dcst
 from validator.utils.synthetic import synthetic_utils as sutils
 from validator.control_node.src.synthetics import synthetic_generation_funcs
 from fiber.logging_utils import get_logger
