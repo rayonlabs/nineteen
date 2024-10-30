@@ -54,6 +54,17 @@ def calculate_work(
         if character_count == 0:
             return 1
 
-        return _calculate_work_text(character_count)
+        reward_factor = 1.
+        if len(formatted_response) == 1:
+            # TODO: figure out proper reward factor
+            # TODO: factor in number of words in each response to calculate reward factor
+            # EC1: One word response - nothing else to be streamed
+            # We have only one chunk as a response - penalise worker by decreasing reward_factor
+            # Potentially _calculate_work_text can be modified to include penalisation
+            reward_factor = 0.5
+
+        logger.info(f"Reward factor: {reward_factor}")
+
+        return _calculate_work_text(character_count) * reward_factor
     else:
         raise ValueError(f"Task {task_config.task} not found for work bonus calculation")
