@@ -66,27 +66,26 @@ async def fetch_random_text():
         raise logger.error(f"Failed to fetch text from metaphorpsum.com: {response.status_code}")
 
 async def get_save_random_text() -> None:
-    file_path = 'random_text_queue.txt'    
-    if not os.path.exists(file_path):
-        open(file_path, 'w').close()
+    if not os.path.exists(scst.RANDOM_TEXT_FILE):
+        open(scst.RANDOM_TEXT_FILE, 'w').close()
         
     while True:
         try:
-            with open(file_path, 'r') as file:
+            with open(scst.RANDOM_TEXT_FILE, 'r') as file:
                 lines = file.readlines()
             queue_size = len(lines)            
             if queue_size < 500:
                 text, n_paragraphes, n_sentences = await fetch_random_text()
                 n_words = len(text.split())                
-                with open(file_path, 'a') as file:
+                with open(scst.RANDOM_TEXT_FILE, 'a') as file:
                     try:
                         fcntl.flock(file, fcntl.LOCK_EX)
                         file.write(text + '\n')
-                        logger.debug(f"Pushed text with {n_words} words, {n_paragraphes} paragraphs, and {n_sentences} sentences to text file '{file_path}'")
+                        logger.debug(f"Pushed random metaphorpsum.com text with {n_words} words, {n_paragraphes} paragraphs, and {n_sentences} sentences to text file")
                     finally:
                         fcntl.flock(file, fcntl.LOCK_UN)
             else:
-                logger.debug(f"Text file '{file_path}' is full. Skipping text insertion.")                
+                logger.debug(f"Text file '{scst.RANDOM_TEXT_FILE}' is full. Skipping text insertion.")                
             await asyncio.sleep(1)
             
         except Exception as e:

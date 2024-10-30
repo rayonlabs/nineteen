@@ -39,12 +39,11 @@ def split_sentences(text):
 
 async def get_random_text_from_file(): 
     first_line = None
-    file_path = 'random_text_queue.txt'
-    with open(file_path, 'r+') as file:
+    with open(scst.RANDOM_TEXT_FILE, 'r+') as file:
         lines = file.readlines()
         if lines:
             first_line = lines[0].strip()
-        with open(file_path, 'w') as file:
+        with open(scst.RANDOM_TEXT_FILE, 'w') as file:
             fcntl.flock(file, fcntl.LOCK_EX)     
             file.writelines(lines[1:])
             fcntl.flock(file, fcntl.LOCK_UN)
