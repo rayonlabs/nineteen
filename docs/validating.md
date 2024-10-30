@@ -48,6 +48,7 @@ If you are in a container, run these:
 ```bash
 sudo -E ./bootstrap.sh
 source $HOME/.bashrc
+source $HOME/.venv/bin/activate
 ```
 Your server will now automatically be running - but it wont work until the config has been created
 
