@@ -41,14 +41,15 @@ def split_sentences(text):
 async def get_random_row(): 
     file_path = 'random_text_queue.txt'
     with open(file_path, 'r+') as file:
-        fcntl.flock(file, fcntl.LOCK_EX)
+        fcntl.flock(file, fcntl.LOCK_EX)        
         first_line = file.readline().strip()
         remaining_data = file.read()
         file.seek(0)  
-        file.write(remaining_data) 
-        file.truncate()
+        file.write(remaining_data)
+        file.truncate() 
         fcntl.flock(file, fcntl.LOCK_UN)
     return first_line
+
 
 async def generate_text(corpus, n_words):
     random.seed(time()%10000)
