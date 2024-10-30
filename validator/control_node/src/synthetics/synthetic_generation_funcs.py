@@ -35,7 +35,7 @@ except FileNotFoundError:
 
 def split_sentences(text):
     fragments = sent_tokenize(text)
-    return [frag for frag in fragments if len(frag.split()) > 4]
+    return [frag for frag in fragments if len(frag.split()) > 2]
 
 async def get_random_text_from_file(): 
     first_line = None
