@@ -1,5 +1,6 @@
 import asyncio
 import random
+from time import time
 import sys
 from typing import Any
 from redis.asyncio import Redis
@@ -37,15 +38,15 @@ except FileNotFoundError:
 
 def split_sentences(text):
     fragments = sent_tokenize(text)
-    return [frag for frag in fragments if len(frag.split()) > 2]  
+    return [frag for frag in fragments if len(frag.split()) > 2]
 
 async def generate_text(corpus, n_words):
     generated_text_parts = []
     current_word_count = 0
-    # randomly choose 3 categories from the corpus
-    categories = random.sample(list(corpus.keys()), 3)
-    # randomly select sentences from the 3 categories while respecting n_words
+    categories = list(corpus.keys())
+
     while current_word_count < n_words:
+        random.shuffle(categories)
         for category in categories:
             sentence = random.choice(corpus[category]).strip()
             sentences_in_category = split_sentences(sentence)
@@ -63,14 +64,14 @@ async def generate_text(corpus, n_words):
             current_word_count += sentence_word_count
             if current_word_count >= n_words:
                 break
-    merged_text = ' '.join(generated_text_parts)
-    # randomly end with a random punctuation
-    if random.choice([True, False]):
-        possible_endings = ['.', '!', '?', '...']
-        if not merged_text[-1] in possible_endings:
-            merged_text += random.choice(possible_endings)
-
+        if not generated_text_parts:
+            raise ValueError("Unable to generate text. Check corpus contents.")
+    merged_text = ' '.join(generated_text_parts).strip()
+    possible_endings = ['.', '!', '?', '...']
+    if merged_text and merged_text[-1] not in possible_endings:
+        merged_text += random.choice(possible_endings)
     return merged_text
+
 
 
 def sampling(size=1, gamma_mean=1000, max_value=8000, gamma_shape=0.5, gaussian_mean=1000, gaussian_weight=0.3, gaussian_std=850):
@@ -82,6 +83,7 @@ def sampling(size=1, gamma_mean=1000, max_value=8000, gamma_shape=0.5, gaussian_
     return combined_samples
 
 async def generate_chat_synthetic(model: str) -> payload_models.ChatPayload:
+    start = time()
     try:
         total_n_words = int(sampling(size=1)[0])
         total_messages = random.randint(2, 10)
@@ -98,7 +100,7 @@ async def generate_chat_synthetic(model: str) -> payload_models.ChatPayload:
             utility_models.Message(content=await generate_text(synth_corpus, n_words_per_message), role=alternate_roles[i % 2])
             for i in range(total_messages - 2)
         ]
-        
+        logger.debug(f"Generated {total_n_words} words chat synth in {round(time()-start, 3)}s")
         return payload_models.ChatPayload(
             messages=messages,
             temperature=round(random.random(), 1),
