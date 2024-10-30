@@ -133,7 +133,7 @@ async def generate_chat_synthetic(model: str) -> payload_models.ChatPayload:
             model=model,
             top_p=1,
         )
-        logger.debug(f"Generated {total_n_words} words chat synth in {round(time()-start, 3)}s - payload : {payload}")
+        logger.debug(f"Generated {total_n_words} words chat synth in {round(time()-start, 3)}s")
         return payload
     except Exception as e:
         logger.error("Error in new version of generate_chat_synthetic: %s", e)
