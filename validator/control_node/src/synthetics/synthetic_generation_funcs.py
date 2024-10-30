@@ -65,8 +65,8 @@ async def generate_text(corpus, n_words):
             sentences_in_category = split_sentences(sentence)
             if not sentences_in_category:
                 continue
-            if i == 1:
-                sentence_part = random.choice(sentences_in_category+[random_quote])
+            if i > 0 and i%3 == 0:
+                sentence_part = await get_random_row()
             else:    
                 sentence_part = random.choice(sentences_in_category)
             sentence_word_count = len(word_tokenize(sentence_part))
@@ -124,10 +124,10 @@ async def generate_chat_synthetic(model: str) -> payload_models.ChatPayload:
             for i in range(total_messages - 2)
         ]
         if messages[-1].role != utility_models.Role.user:
-            messages[-1] = utility_models.Message(
+            messages.append(utility_models.Message(
                 content=await generate_text(synth_corpus, 10),
                 role=utility_models.Role.user
-            )
+            ))
 
         logger.debug(f"Generated {total_n_words} words chat synth in {round(time()-start, 3)}s")
         return payload_models.ChatPayload(
