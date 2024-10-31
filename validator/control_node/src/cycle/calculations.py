@@ -43,11 +43,6 @@ def _get_metric_bonuses(metric_scores: dict[str, float]) -> dict[str, float]:
 
 
 async def _get_reward_datas(psql_db: PSQLDB, task: str, netuid: int) -> list[RewardData]:
-    # Flow is:
-    # Get all possible hotkeys
-    # Get reward data for this task - as much as possible
-    # If there are not enough, then get the remaining from other tasks that hotkey has done
-
     all_nodes = await get_nodes(psql_db, netuid=netuid)
     all_hotkeys = [node.hotkey for node in all_nodes]
     reward_datas = []
@@ -64,11 +59,12 @@ async def _get_period_scores(psql_db: PSQLDB, task: str, node_hotkey: str) -> li
     return period_scores
 
 
-async def _calculate_metrics_and_quality_score(psql_db: PSQLDB, task: str, netuid: int) -> tuple[dict[str, float], dict[str, float]]:
+async def _calculate_metrics_and_quality_score(psql_db: PSQLDB, task: str, netuid: int) -> tuple[dict[str, list[float]], dict[str, list[float]], dict[str, list[float]]]:
     reward_datas: list[RewardData] = await _get_reward_datas(psql_db, task, netuid)
 
     metrics = {}
     quality_scores = {}
+    response_time_penalty_multipliers = {}
     for reward_data in reward_datas:
         if reward_data.metric is None or reward_data.quality_score is None:
             logger.warning(
@@ -78,14 +74,20 @@ async def _calculate_metrics_and_quality_score(psql_db: PSQLDB, task: str, netui
             continue
         metrics[reward_data.node_hotkey] = metrics.get(reward_data.node_hotkey, []) + [reward_data.metric / reward_data.response_time_penalty_multiplier]
         quality_scores[reward_data.node_hotkey] = quality_scores.get(reward_data.node_hotkey, []) + [reward_data.quality_score]
-    return metrics, quality_scores
+        response_time_penalty_multipliers[reward_data.node_hotkey] = response_time_penalty_multipliers.get(reward_data.node_hotkey, []) + [reward_data.response_time_penalty_multiplier]
+    return metrics, quality_scores, response_time_penalty_multipliers
 
 
-async def _calculate_metric_bonuses(metrics: dict[str, float]) -> dict[str, float]:
+async def _calculate_metric_bonuses(metrics: dict[str, list[float]]) -> dict[str, float]:    
     metric_scores = {node_hotkey: _get_metric_score(scores) for node_hotkey, scores in metrics.items()}
     metric_bonuses = _get_metric_bonuses(metric_scores)
     return metric_bonuses
 
+
+async def _calculate_response_time_penalty_multipliers(response_time_penalty_multipliers: dict[str, list[float]]) -> dict[str, float]:
+    for node_hotkey in response_time_penalty_multipliers.keys():
+        response_time_penalty_multipliers[node_hotkey] = sum(response_time_penalty_multipliers[node_hotkey])
+    return response_time_penalty_multipliers
 
 async def _calculate_normalised_period_score(psql_db: PSQLDB, task: str, node_hotkey: str) -> tuple[float, float]:
     period_scores = await _get_period_scores(psql_db, task, node_hotkey)
@@ -128,16 +130,17 @@ def _calculate_hotkey_effective_volume_for_task(
 ) -> float:
     return combined_quality_score * normalised_period_score * volume
 
-async def _process_quality_scores(psql_db: PSQLDB, task: str, netuid: int) -> tuple[dict[str, float], dict[str, float], dict[str, float]]:
-    metrics, quality_scores = await _calculate_metrics_and_quality_score(psql_db, task, netuid)
+async def _process_quality_scores(psql_db: PSQLDB, task: str, netuid: int) -> tuple[dict[str, float], dict[str, float], tuple[dict[str, float] , dict[str, float] ]]:
+    metrics, quality_scores, response_time_penalty_multipliers = await _calculate_metrics_and_quality_score(psql_db, task, netuid)
     average_weighted_quality_scores = {
         node_hotkey: sum(score**1.5 for score in scores) / len(scores) for node_hotkey, scores in quality_scores.items()
     }
     metric_bonuses = await _calculate_metric_bonuses(metrics)
+    average_response_time_penalty_multipliers = await _calculate_response_time_penalty_multipliers(response_time_penalty_multipliers)
     combined_quality_scores = {
         node_hotkey: average_weighted_quality_scores[node_hotkey] * (1 + metric_bonuses[node_hotkey]) for node_hotkey in metrics
     }
-    return combined_quality_scores, average_weighted_quality_scores, metric_bonuses
+    return combined_quality_scores, average_weighted_quality_scores, (metric_bonuses , average_response_time_penalty_multipliers)
 
 async def _calculate_effective_volumes_for_task(psql_db: PSQLDB, contenders: list[Contender], task: str, combined_quality_scores: dict[str, float]) -> tuple[dict[str, float], dict[str, float], dict[str, float]]:
     hotkey_to_effective_volumes: dict[str, float] = {}
@@ -199,7 +202,8 @@ async def calculate_scores_for_settings_weights(
         task_weight = config.weight
         logger.debug(f"Processing task: {task}, weight: {task_weight}\n")
 
-        combined_quality_scores, average_quality_scores, metric_bonuses = await _process_quality_scores(psql_db, task, netuid)
+        combined_quality_scores, average_quality_scores, metric_scores = await _process_quality_scores(psql_db, task, netuid)
+        metric_bonuses , average_response_time_penalty_multipliers = metric_scores
         effective_volumes, normalised_period_scores, period_score_multipliers = await _calculate_effective_volumes_for_task(psql_db, contenders, task, combined_quality_scores)
     
         normalised_scores_for_task = await _normalise_effective_volumes_for_task(effective_volumes)
@@ -219,6 +223,7 @@ async def calculate_scores_for_settings_weights(
                     task=task,
                     average_quality_score=average_quality_scores.get(hotkey, 0),
                     metric_bonus=metric_bonuses.get(hotkey, 0),
+                    average_response_time_penalty_multiplier=average_response_time_penalty_multipliers.get(hotkey, 1),
                     combined_quality_score=combined_quality_scores.get(hotkey, 0),
                     period_score_multiplier=period_score_multipliers.get(hotkey, 0),
                     normalised_period_score=normalised_period_scores.get(hotkey, 0),
