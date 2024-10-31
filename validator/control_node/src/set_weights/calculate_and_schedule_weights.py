@@ -162,7 +162,7 @@ async def set_weights_periodically(config: Config, just_once: bool = False) -> N
             logger.info(f"Failed to set weights {consecutive_failures} times in a row - sleeping for 25 blocks...")
             await asyncio.sleep(12 * 25)  # Try again in 25 blocks
 
-        if consecutive_failures == 1 or updated < 3000:
+        if not just_once and (consecutive_failures == 1 or updated < 3000):
             continue
 
         if just_once or config.set_metagraph_weights_with_high_updated_to_not_dereg:
