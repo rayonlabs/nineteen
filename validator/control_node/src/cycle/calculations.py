@@ -76,7 +76,7 @@ async def _calculate_metrics_and_quality_score(psql_db: PSQLDB, task: str, netui
                 f" Metric: {reward_data.metric}, quality_score: {reward_data.quality_score}"
             )
             continue
-        metrics[reward_data.node_hotkey] = metrics.get(reward_data.node_hotkey, []) + [reward_data.metric]
+        metrics[reward_data.node_hotkey] = metrics.get(reward_data.node_hotkey, []) + [reward_data.metric / reward_data.response_time_penalty_multiplier]
         quality_scores[reward_data.node_hotkey] = quality_scores.get(reward_data.node_hotkey, []) + [reward_data.quality_score]
     return metrics, quality_scores
 

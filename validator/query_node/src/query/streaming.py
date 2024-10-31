@@ -75,6 +75,7 @@ def construct_500_query_result(node: Node, task: str) -> utility_models.QueryRes
         success=False,
         node_hotkey=node.hotkey,
         formatted_response=None,
+        response_time_penalty_multiplier=1,
         status_code=500,
         response_time=None,
     )
@@ -184,13 +185,14 @@ async def consume_generator(
 
         response_time = time.time() - start_time
 
+        response_time_penalty_multiplier = 1
         # Penalize for inconsistent interval between chunks
         if len(time_between_chunks) > 0:
             mean_interval = sum(time_between_chunks) / len(time_between_chunks)
             std_dev_interval = statistics.stdev(time_between_chunks, mean_interval)
             
             # Assign penalty for bundling different LLM tokens in single output chunk
-            response_time += BASELINE_CHUNKING_PERCENTAGE_PENALTY * (effective_bundled_chunks / total_chunks) * response_time
+            response_time_penalty_multiplier += BASELINE_CHUNKING_PERCENTAGE_PENALTY * (effective_bundled_chunks / total_chunks)
 
             # Assign penalty if either/both: (i) at least one chunk is outside 2 standard deviation of the mean (ii) presence of extreme outliers
             total_scaled_deviation = sum(
@@ -198,12 +200,13 @@ async def consume_generator(
             )
             sporadic_count = sum(1 for interval in time_between_chunks if abs(interval - mean_interval) > 2 * std_dev_interval)
             sporadic_penalty_factor = SPORADIC_CHUNKING_PERCENTAGE_PENALTY * (sporadic_count / len(time_between_chunks))
-            response_time += response_time * sporadic_penalty_factor * max(total_scaled_deviation - len(time_between_chunks), 0)
+            response_time_penalty_multiplier = response_time_penalty_multiplier * (1 + sporadic_penalty_factor * max(total_scaled_deviation - len(time_between_chunks), 0) )
 
         query_result = utility_models.QueryResult(
             formatted_response=text_jsons if len(text_jsons) > 0 else None,
             node_id=node.node_id,
             response_time=response_time,
+            response_time_penalty_multiplier = response_time_penalty_multiplier,
             task=task,
             success=not first_message,
             node_hotkey=node.hotkey,

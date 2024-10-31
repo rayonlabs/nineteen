@@ -24,6 +24,7 @@ def _get_500_query_result(node_id: int, contender: Contender) -> utility_models.
         node_id=node_id,
         node_hotkey=contender.node_hotkey,
         response_time=None,
+        response_time_penalty_multiplier=1,
         task=contender.task,
         status_code=500,
         success=False,

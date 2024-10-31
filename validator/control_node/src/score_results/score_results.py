@@ -138,6 +138,7 @@ async def _process_and_store_score(
             node_hotkey=node_hotkey,
             synthetic_query=synthetic_query,
             response_time=result["response_time"],
+            response_time_penalty_multiplier=result["response_time_penalty_multiplier"],
             volume=volume,
             metric=metric,
             created_at=result["created_at"],

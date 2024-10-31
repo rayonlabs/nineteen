@@ -111,8 +111,9 @@ async def fetch_recent_most_rewards(
             synthetic_query=row[6],
             metric=row[7],
             response_time=row[8],
-            volume=row[9],
-            created_at=row[10],
+            response_time_penalty_multiplier=row[9],
+            volume=row[10],
+            created_at=row[11],
         )
         for row in priority_results + fill_results
     ]

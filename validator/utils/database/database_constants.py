@@ -135,6 +135,7 @@ COLUMN_VALIDATOR_HOTKEY = "validator_hotkey"
 COLUMN_SYNTHETIC_QUERY = "synthetic_query"
 COLUMN_METRIC = "metric"
 COLUMN_RESPONSE_TIME = "response_time"
+COLUMN_RESPONSE_TIME_PENALTY_MULTIPLIER = "response_time_penalty_multiplier"
 COLUMN_VOLUME = "volume"
 
 # UID record columns
