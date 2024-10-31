@@ -90,7 +90,7 @@ async def make_stream_organic_query(
             f"Query node down? No confirmation received for job {job_id} within timeout period. Task: {task}, model: {payload['model']}"
         )
         COUNTER_TEXT_GENERATION_ERROR.add(1, {"task": task, "kind": "redis_acknowledgement_timeout", "status_code": 500})
-        raise HTTPException(status_code=500, detail="Unable to process request")
+        raise HTTPException(status_code=500, detail="Unable to process request ; redis_acknowledgement_timeout")
 
     await pubsub.subscribe(f"{rcst.JOB_RESULTS}:{job_id}")
     logger.info("Here waiting for a message!")
@@ -101,11 +101,11 @@ async def make_stream_organic_query(
             f"Query node down? Timed out waiting for the first chunk of results for job {job_id}. Task: {task}, model: {payload['model']}"
         )
         COUNTER_TEXT_GENERATION_ERROR.add(1, {"task": task, "kind": "first_chunk_timeout", "status_code": 500})
-        raise HTTPException(status_code=500, detail="Unable to process request")
+        raise HTTPException(status_code=500, detail="Unable to process request ; first_chunk_timeout")
 
     if first_chunk is None:
         COUNTER_TEXT_GENERATION_ERROR.add(1, {"task": task, "kind": "first_chunk_missing", "status_code": 500})
-        raise HTTPException(status_code=500, detail="Unable to process request")
+        raise HTTPException(status_code=500, detail="Unable to process request ; first_chunk_missing")
     return _stream_results(pubsub, job_id, task, first_chunk)
 
 
