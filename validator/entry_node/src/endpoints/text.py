@@ -54,18 +54,24 @@ async def _stream_results(redis_db: Redis, job_id: str) -> AsyncGenerator[str, N
             if result is None:
                 logger.error(f"Timeout waiting for response in queue {response_queue}")
                 break
-                
             _, data = result
-            content = json.loads(data.decode())
-            
-            if gcst.STATUS_CODE in content and content[gcst.STATUS_CODE] >= 400:
-                raise HTTPException(status_code=content[gcst.STATUS_CODE], 
-                                 detail=content[gcst.ERROR_MESSAGE])
-
-            yield content[gcst.CONTENT]
-            
-            if "[DONE]" in content[gcst.CONTENT]:
-                break
+            try:
+                if not data:
+                    continue
+                content = json.loads(data.decode())
+                if gcst.STATUS_CODE in content and content[gcst.STATUS_CODE] >= 400:
+                    raise HTTPException(status_code=content[gcst.STATUS_CODE], 
+                                     detail=content.get(gcst.ERROR_MESSAGE, "Unknown error"))
+                if gcst.CONTENT not in content:
+                    logger.warning(f"Malformed message received: {content}")
+                    continue
+                yield content[gcst.CONTENT]
+                
+                if "[DONE]" in content[gcst.CONTENT]:
+                    break
+            except json.JSONDecodeError as e:
+                logger.error(f"Failed to decode message '{data}': {e}")
+                continue
     finally:
         await _cleanup_queues(redis_db, job_id)
 

@@ -48,18 +48,18 @@ async def _handle_event(
     if content is not None:
         if isinstance(content, dict):
             content = json.dumps(content)
-        event_data = {
+        event_data = json.dumps({
             gcst.CONTENT: content,
             gcst.STATUS_CODE: status_code
-        }
+        })
     else:
-        event_data = {
+        event_data = json.dumps({
             gcst.ERROR_MESSAGE: error_message,
             gcst.STATUS_CODE: status_code
-        }
+        })
     
-    await config.redis_db.rpush(response_queue, json.dumps(event_data))
-
+    await config.redis_db.rpush(response_queue, event_data)
+    
 async def async_chain(first_chunk, async_gen):
     yield first_chunk  # manually yield the first chunk
     async for item in async_gen:
