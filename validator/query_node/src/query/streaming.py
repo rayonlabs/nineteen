@@ -20,8 +20,7 @@ from validator.utils.query.query_utils import load_sse_jsons
 
 logger = get_logger(__name__)
 
-BASELINE_CHUNKING_PERCENTAGE_PENALTY = 0.5
-SPORADIC_CHUNKING_PERCENTAGE_PENALTY = 0.3
+CHUNKING_PERCENTAGE_PENALTY_FACTOR = 1.2
 
 def _get_formatted_payload(content: str, first_message: bool, add_finish_reason: bool = False) -> str:
     delta_payload = {"content": content}
@@ -109,13 +108,12 @@ async def consume_generator(
         return False
 
     time_to_first_chunk = time.time() - start_time
-    last_chunk_time = time.time()
 
     text_jsons, status_code, first_message =  [], 200, True
     try:
 
-        total_chunks = 0.0
-        effective_bundled_chunks = 0.0
+        total_chunks = 0
+        bundled_chunks = 0
         time_between_chunks = []
 
         latest_counter = None
@@ -130,14 +128,8 @@ async def consume_generator(
                         break
                     total_chunks += 1
 
-                    if len(loaded_jsons) > 20:
-                        effective_bundled_chunks += 5 * (len(loaded_jsons)//20 + 1)
-                    elif len(loaded_jsons) > 10:
-                        effective_bundled_chunks += 3
-                    elif len(loaded_jsons) > 5:
-                        effective_bundled_chunks += 2
-                    elif len(loaded_jsons) > 2:
-                        effective_bundled_chunks += 1
+                    if len(loaded_jsons) > 1:
+                        bundled_chunks += 1
                 
                 except (IndexError, json.JSONDecodeError) as e:
                     logger.warning(f"Error {e} when trying to load text: {text}")
@@ -166,7 +158,7 @@ async def consume_generator(
                         status_code=200,
                     )
 
-            if latest_counter is not None:
+            if latest_counter:
                 time_between_chunks.append(time.time() - latest_counter)
                 latest_counter = time.time()
             else:
@@ -191,16 +183,13 @@ async def consume_generator(
             mean_interval = sum(time_between_chunks) / len(time_between_chunks)
             std_dev_interval = statistics.stdev(time_between_chunks, mean_interval)
             
-            # Assign penalty for bundling different LLM tokens in single output chunk
-            response_time_penalty_multiplier += BASELINE_CHUNKING_PERCENTAGE_PENALTY * (effective_bundled_chunks / total_chunks)
-
-            # Assign penalty if either/both: (i) at least one chunk is outside 2 standard deviation of the mean (ii) presence of extreme outliers
-            total_scaled_deviation = sum(
-                (abs(interval - mean_interval) / mean_interval) for interval in time_between_chunks
-            )
             sporadic_count = sum(1 for interval in time_between_chunks if abs(interval - mean_interval) > 2 * std_dev_interval)
-            sporadic_penalty_factor = SPORADIC_CHUNKING_PERCENTAGE_PENALTY * (sporadic_count / len(time_between_chunks))
-            response_time_penalty_multiplier = response_time_penalty_multiplier * (1 + sporadic_penalty_factor * max(total_scaled_deviation - len(time_between_chunks), 0) )
+
+            # Assign penalty for inconsistent streaming, i.e, if either or both: 
+            # (i) streaming interval of at least one chunk is outside 2 standard deviation of the mean 
+            # (ii) presence of at least one bundled chunk during streaming
+            if bundled_chunks > 0 or  sporadic_count > 0:
+                response_time_penalty_multiplier = CHUNKING_PERCENTAGE_PENALTY_FACTOR
 
         query_result = utility_models.QueryResult(
             formatted_response=text_jsons if len(text_jsons) > 0 else None,
