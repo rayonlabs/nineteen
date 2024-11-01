@@ -13,6 +13,7 @@ from validator.utils.redis import redis_constants as rcst
 from validator.utils.generic import generic_constants as gcst
 from validator.entry_node.src.models import request_models
 from validator.utils.query.query_utils import load_sse_jsons
+import time
 
 logger = get_logger(__name__)
 
@@ -26,11 +27,17 @@ async def _construct_organic_message(payload: dict, job_id: str, task: str) -> s
 
 async def _wait_for_acknowledgement(redis_db: Redis, job_id: str, timeout: float = 2.0) -> bool:
     ack_key = rcst.get_ack_key(job_id)
-    try:
-        ack = await asyncio.wait_for(redis_db.get(ack_key), timeout=timeout)
-        return ack is not None
-    except asyncio.TimeoutError:
-        return False
+    start_time = time.time()
+    while (time.time() - start_time) < timeout:
+        try:
+            ack = await redis_db.get(ack_key)
+            if ack is not None:
+                return True
+            await asyncio.sleep(0.1)
+        except asyncio.TimeoutError:
+            break
+    return False
+
 
 async def _cleanup_queues(redis_db: Redis, job_id: str):
     response_queue = rcst.get_response_queue_key(job_id)
@@ -70,11 +77,7 @@ async def make_stream_organic_query(
     job_id = rcst.generate_job_id()
     organic_message = await _construct_organic_message(payload=payload, job_id=job_id, task=task)
 
-    # create response queue with TTL
-    response_queue = rcst.get_response_queue_key(job_id)
-    await redis_db.expire(response_queue, rcst.RESPONSE_QUEUE_TTL)
-    
-    # push query to queue
+    # push query to queue first
     await redis_db.lpush(rcst.QUERY_QUEUE_KEY, organic_message)
 
     # wait for acknowledgment
@@ -83,7 +86,9 @@ async def make_stream_organic_query(
         await _cleanup_queues(redis_db, job_id)
         raise HTTPException(status_code=500, detail="Unable to process request")
 
+    # queue is created by query node in acknowledgment
     return _stream_results(redis_db, job_id)
+
 
 async def _handle_no_stream(text_generator: AsyncGenerator[str, None]) -> JSONResponse:
     all_content = ""

@@ -27,9 +27,16 @@ async def _decrement_requests_remaining(redis_db: Redis, task: str):
 
 async def _acknowledge_job(redis_db: Redis, job_id: str):
     logger.debug(f"Acknowledging job id : {job_id}")
-    ack_key = rcst.get_ack_key(job_id)
-    await redis_db.setex(ack_key, rcst.RESPONSE_QUEUE_TTL, "1")
+    response_queue = rcst.get_response_queue_key(job_id)
+    ack_key = rcst.get_ack_key(job_id)    
+    async with redis_db.pipeline(transaction=True) as pipe:
+        await pipe.setex(response_queue, rcst.RESPONSE_QUEUE_TTL, "")
+        await pipe.setex(ack_key, rcst.RESPONSE_QUEUE_TTL, "1")
+        await pipe.execute()
+        
     logger.debug(f"Successfully acknowledged job id : {job_id} ✅")
+
+
 
 async def _handle_stream_query(config: Config, message: rdc.QueryQueueMessage, contenders_to_query: list[Contender]) -> bool:
     success = False
