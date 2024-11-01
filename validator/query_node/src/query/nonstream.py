@@ -55,7 +55,7 @@ def _extract_response(response: Response, response_model: type[ImageResponse]) -
 
         return formatted_response
     except ValidationError as e:
-        logger.debug(f"Failed to deserialize for some reason: {e}")
+        logger.error(f"Failed to deserialize for some reason: {e}")
         return None
 
 

@@ -51,7 +51,7 @@ async def _collect_single_result(redis_db: Redis, job_id: str, timeout: float) -
         if result is None:
             logger.error(f"Timeout waiting for response in queue {response_queue}")
             return None
-
+        logger.info(f'recieved : {result}')
         _, data = result
         if not data:
             return None
