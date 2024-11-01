@@ -106,8 +106,19 @@ async def consume_generator(
         return False
 
     text_jsons, status_code, first_message =  [], 200, True
+    time_between_tokens = []
+    time_of_last_token = None
     try:
         async for text in async_chain(first_chunk, generator):
+            time_of_current_token = time.time()
+            
+            # If this is not the first token, then we'll track
+            # the time elapsed since the last token arrived
+            if time_of_last_token is not None:
+                time_between_tokens.append(time_of_last_token - time_of_current_token)
+
+            time_of_last_token = time_of_current_token
+
             if isinstance(text, bytes):
                 text = text.decode()
             if isinstance(text, str):
@@ -143,6 +154,23 @@ async def consume_generator(
                         job_id=job_id,
                         status_code=200,
                     )
+
+        
+        # We'll default to a penalty of zero and only penalize
+        # Miners if the absolute value of the time between tokens
+        # exceeds a threshold value, thereby indicating a change
+        # in the pace at which tokens are being streamed to the
+        # Validator
+        smooth_streaming_penalty = 0
+
+        # If there is only one entry, then it means we only 
+        # received 2 tokens, and there's no way to calculate
+        # whether or not the stream was smooth since we need
+        # at least 3 tokens in order to calculate a change in
+        # pace, and so we'll leave the penalty at 0
+        if len(time_between_tokens) > 1:
+            smooth_streaming_penalty = max(time_between_tokens)
+
 
         if len(text_jsons) > 0:
             last_payload = _get_formatted_payload("", False, add_finish_reason=True)
