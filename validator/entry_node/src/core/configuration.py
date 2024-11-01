@@ -39,7 +39,7 @@ async def factory_config() -> Config:
         host=redis_host,
         max_connections=20,
         timeout=5,
-        retry_on_timeout=True
+        retry_on_timeout=True,
         decode_responses=True
     )
     redis_db = Redis(connection_pool=pool)
