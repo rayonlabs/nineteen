@@ -71,7 +71,11 @@ async def _collect_single_result(redis_db: Redis, job_id: str, timeout: float) -
                     logger.warning(f"Malformed content received: {content}")
                     continue
                     
-                return GenericResponse(**content)
+                return GenericResponse(
+                    job_id=job_id,
+                    content=content[gcst.CONTENT],
+                    status_code=content.get(gcst.STATUS_CODE, 200)
+                )
                 
             except json.JSONDecodeError as e:
                 logger.error(f"Failed to decode response data: {e}")

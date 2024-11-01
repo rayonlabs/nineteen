@@ -77,17 +77,21 @@ async def handle_nonstream_event(
             content = json.dumps(content)
         event_data = json.dumps({
             gcst.CONTENT: content,
-            gcst.STATUS_CODE: status_code
+            gcst.STATUS_CODE: status_code,
+            gcst.JOB_ID: job_id  # Include job_id in response
         })
-        logger.debug(f"Pushing success content to queue {response_queue}")
     else:
         event_data = json.dumps({
-            gcst.ERROR_MESSAGE: error_message,
-            gcst.STATUS_CODE: status_code
+            gcst.ERROR_MESSAGE: error_message or "Failed to process request",
+            gcst.STATUS_CODE: status_code or 500,
+            gcst.JOB_ID: job_id  # Include job_id in error response
         })
         logger.error(f"Pushing error to queue {response_queue}: {error_message}")
     
-    await config.redis_db.rpush(response_queue, event_data)
+    try:
+        await config.redis_db.rpush(response_queue, event_data)
+    except Exception as e:
+        logger.error(f"Failed to push response to queue: {e}")
 
 async def query_nonstream(
     config: Config,
