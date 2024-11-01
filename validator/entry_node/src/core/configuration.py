@@ -41,7 +41,7 @@ async def factory_config() -> Config:
         retry_on_timeout=True,
         decode_responses=True
     )
-    redis_db = Redis(connection_pool=pool)
+    redis_db = Redis(host=redis_host)
 
     prod = bool(os.getenv("ENV", "prod").lower() == "prod")
 
