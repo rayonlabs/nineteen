@@ -47,6 +47,16 @@ async def _collect_single_result(redis_db: Redis, job_id: str, timeout: float) -
     response_queue = rcst.get_response_queue_key(job_id)
     try:
         # use BLPOP with timeout
+        start_time = time.time()
+        while (time.time() - start_time) < timeout:
+            try:
+                result = await redis_db.blpop(response_queue, timeout=timeout)
+                if result is not None and result[1] is not None:
+                    break
+                await asyncio.sleep(0.01)
+            except asyncio.TimeoutError:
+                break
+
         result = await redis_db.blpop(response_queue, timeout=timeout)
         if result is None:
             logger.error(f"Timeout waiting for response in queue {response_queue}")
