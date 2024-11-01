@@ -22,9 +22,7 @@ class Config:
     prod: bool
     httpx_client: httpx.AsyncClient
 
-
-@cached(ttl=None)
-async def factory_config() -> Config:
+async def create_config() -> Config:
     localhost = bool(os.getenv("LOCALHOST", "false").lower() == "true")
     if localhost:
         redis_host = "localhost"
@@ -57,3 +55,11 @@ async def factory_config() -> Config:
         prod=prod,
         httpx_client=httpx.AsyncClient(),
     )
+
+_config = None
+
+async def factory_config() -> Config:
+    global _config 
+    if not _config:
+        _config = await create_config()
+    return _config
