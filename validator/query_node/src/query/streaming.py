@@ -115,7 +115,7 @@ async def consume_generator(
             # If this is not the first token, then we'll track
             # the time elapsed since the last token arrived
             if time_of_last_token is not None:
-                time_between_tokens.append(time_of_last_token - time_of_current_token)
+                time_between_tokens.append(time_of_current_token - time_of_last_token)
 
             time_of_last_token = time_of_current_token
 
