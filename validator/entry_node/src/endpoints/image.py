@@ -46,63 +46,65 @@ async def _wait_for_acknowledgement(redis_db: Redis, job_id: str, timeout: float
 async def _collect_single_result(redis_db: Redis, job_id: str, timeout: float) -> GenericResponse | None:
     response_queue = rcst.get_response_queue_key(job_id)
     try:
-        # use BLPOP with timeout
-        result = None
         start_time = time.time()
         while (time.time() - start_time) < timeout:
+            # use BLPOP with shorter timeout for polling
+            result = await redis_db.blpop(response_queue, timeout=1)
+            if result is None:
+                continue
+
+            _, data = result
+            if not data:
+                continue
+
             try:
-                result = await redis_db.blpop(response_queue, timeout=timeout)
-                if result is not None and result[1] is not None and result[1] != '':
-                    break
-                await asyncio.sleep(0.01)
-            except asyncio.TimeoutError:
-                break
-        if result is None:
-            logger.error(f"Timeout waiting for response in queue {response_queue}")
-            return None
-        logger.info(f'recieved : {result}')
-        _, data = result
-        if not data:
-            return None
-        try:
-            content = json.loads(data.decode())
-            if gcst.STATUS_CODE in content and content[gcst.STATUS_CODE] >= 400:
-                raise HTTPException(
-                    status_code=content[gcst.STATUS_CODE],
-                    detail=content.get(gcst.ERROR_MESSAGE, "Unknown error")
-                )
-            return GenericResponse(**content)
-        except json.JSONDecodeError as e:
-            logger.error(f"Failed to decode response data: {e}")
-            return None
+                content = json.loads(data.decode())
+                logger.debug(f"Received content: {content}")
+                
+                if gcst.STATUS_CODE in content and content[gcst.STATUS_CODE] >= 400:
+                    raise HTTPException(
+                        status_code=content[gcst.STATUS_CODE],
+                        detail=content.get(gcst.ERROR_MESSAGE, "Unknown error")
+                    )
+                    
+                if gcst.CONTENT not in content:
+                    logger.warning(f"Malformed content received: {content}")
+                    continue
+                    
+                return GenericResponse(**content)
+                
+            except json.JSONDecodeError as e:
+                logger.error(f"Failed to decode response data: {e}")
+                continue
+
+        logger.error(f"Timeout waiting for response in queue {response_queue}")
+        raise HTTPException(status_code=500, detail="Request timed out")
             
     finally:
         await rcst.ensure_queue_clean(redis_db, job_id)
 
 
 async def make_non_stream_organic_query(
-    redis_db: Redis,
-    payload: dict[str, Any],
-    task: str,
+    redis_db: Redis, 
+    payload: dict[str, Any], 
+    task: str, 
     timeout: float
 ) -> GenericResponse | None:
     job_id = rcst.generate_job_id()
     organic_message = _construct_organic_message(payload=payload, job_id=job_id, task=task)
 
-    # ensure queues are clean
+    # Ensure queues are clean before starting
     await rcst.ensure_queue_clean(redis_db, job_id)
     
-    # push query to queue
+    # Push query to queue
     await redis_db.lpush(rcst.QUERY_QUEUE_KEY, organic_message)
 
-    # wait for acknowledgment
+    # Wait for acknowledgment first
     if not await _wait_for_acknowledgement(redis_db, job_id):
         logger.error(f"No acknowledgment received for job {job_id}")
         await rcst.ensure_queue_clean(redis_db, job_id)
-        raise HTTPException(
-            status_code=500,
-            detail=f"Unable to process task: {task}, please try again later."
-        )
+        raise HTTPException(status_code=500, detail="Unable to process request")
+
     return await _collect_single_result(redis_db, job_id, timeout)
 
 
