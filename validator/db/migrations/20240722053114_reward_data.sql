@@ -9,7 +9,6 @@ CREATE TABLE IF NOT EXISTS reward_data (
     synthetic_query BOOLEAN NOT NULL,
     speed_scoring_factor FLOAT,
     response_time FLOAT,
-    response_time_penalty_multiplier FLOAT NOT NULL,
     volume FLOAT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );

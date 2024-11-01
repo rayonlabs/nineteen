@@ -10,7 +10,6 @@ CREATE TABLE IF NOT EXISTS contenders_weights_stats (
     task TEXT NOT NULL,
     average_quality_score FLOAT NOT NULL,
     metric_bonus FLOAT NOT NULL,
-    average_response_time_penalty_multiplier FLOAT NOT NULL,
     combined_quality_score FLOAT NOT NULL,
     period_score_multiplier FLOAT NOT NULL,
     normalised_period_score FLOAT NOT NULL,
