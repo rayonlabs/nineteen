@@ -38,7 +38,6 @@ async def factory_config() -> Config:
     pool = ConnectionPool(
         host=redis_host,
         max_connections=20,
-        timeout=5,
         retry_on_timeout=True,
         decode_responses=True
     )
