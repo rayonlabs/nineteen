@@ -46,6 +46,7 @@ async def _cleanup_queues(redis_db: Redis, job_id: str):
 
 async def _stream_results(redis_db: Redis, job_id: str) -> AsyncGenerator[str, None]:
     response_queue = rcst.get_response_queue_key(job_id)
+    received_done = False
     
     try:
         while True:
@@ -64,23 +65,31 @@ async def _stream_results(redis_db: Redis, job_id: str) -> AsyncGenerator[str, N
                 
                 if gcst.STATUS_CODE in content and content[gcst.STATUS_CODE] >= 400:
                     logger.error(f"Error response received: {content}")
-                    error_msg = content.get(gcst.ERROR_MESSAGE, "Unknown error")
-                    raise HTTPException(status_code=content[gcst.STATUS_CODE], detail=error_msg)
+                    raise HTTPException(
+                        status_code=content[gcst.STATUS_CODE],
+                        detail=content.get(gcst.ERROR_MESSAGE, "Unknown error")
+                    )
 
                 if gcst.CONTENT not in content:
                     logger.warning(f"Malformed message received: {content}")
                     continue
 
-                yield content[gcst.CONTENT]
+                content_str = content[gcst.CONTENT]
+                yield content_str
 
-                if "[DONE]" in content[gcst.CONTENT]:
+                if "[DONE]" in content_str:
+                    received_done = True
                     break
 
             except json.JSONDecodeError as e:
                 logger.error(f"Failed to decode message '{data}': {e}")
                 raise HTTPException(status_code=500, detail="Invalid response format")
+
     finally:
         await _cleanup_queues(redis_db, job_id)
+        if not received_done:
+            logger.error(f"Stream ended without [DONE] marker for job {job_id}")
+            raise HTTPException(status_code=500, detail="Incomplete response")
 
 async def make_stream_organic_query(
     redis_db: Redis,
