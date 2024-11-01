@@ -89,11 +89,15 @@ async def consume_generator(
     payload: dict,
     start_time: float,
     debug: bool = False,
+    smooth_interval_threshold: float = 0.5,
+    penalty_factor: float = 0.8,
+    min_reward: float = 0.1
 ) -> bool:
     assert job_id
     task = contender.task
     query_result = None
 
+    # get first chunk from generator
     try:
         first_chunk = await generator.__anext__()
     except (StopAsyncIteration, httpx.ConnectError, httpx.ReadError, httpx.HTTPError, httpx.ReadTimeout, Exception) as e:
@@ -106,8 +110,22 @@ async def consume_generator(
         return False
 
     text_jsons, status_code, first_message =  [], 200, True
+    # Track last token's time for smothness evaluation; set to none so
+    # we only start tracking smoothness after the first token
+    last_token_time = None
+    smooth_intervals = 0
+    penalized_intervals = 0
     try:
         async for text in async_chain(first_chunk, generator):
+            current_time = time.time()
+            if last_token_time:
+                interval = current_time - last_token_time
+                if interval <= smooth_interval_threshold:
+                    smooth_intervals += 1
+                else:
+                    penalized_intervals += 2
+            last_token_time = current_time
+
             if isinstance(text, bytes):
                 text = text.decode()
             if isinstance(text, str):
@@ -154,7 +172,18 @@ async def consume_generator(
             )
             logger.info(f" 👀  Queried node: {node.node_id} for task: {task}. Success: {not first_message}.")
 
+        adjusted_reward = min_reward
         response_time = time.time() - start_time
+        if len(text_jsons) > 0:
+            if len(text_jsons) == 1:
+                response_time = time.time() - start_time
+                adjusted_reward = max((1 / response_time), min_reward)
+            else:
+                smoothness_ratio = smooth_intervals / (smooth_intervals + penalized_intervals) if (smooth_intervals + penalized_intervals) > 1 else 1.0
+                reward_adjustment = (penalty_factor ** (1 - smoothness_ratio)) if smoothness_ratio < 1.0 else 1.0
+                adjusted_reward = max((len(text_jsons) / response_time) * reward_adjustment, min_reward)
+                print(f"adjusted reward is {adjusted_reward}")
+
         query_result = utility_models.QueryResult(
             formatted_response=text_jsons if len(text_jsons) > 0 else None,
             node_id=node.node_id,
@@ -163,6 +192,7 @@ async def consume_generator(
             success=not first_message,
             node_hotkey=node.hotkey,
             status_code=200,
+            reward=adjusted_reward
         )
         success = not first_message
     except Exception as e:

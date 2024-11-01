@@ -30,6 +30,7 @@ class QueryResult(BaseModel):
     task: str
     status_code: Optional[int]
     success: bool
+    reward: Optional[float]  # store reward to be used in
     created_at: datetime = Field(default_factory=datetime.now)
 
 
