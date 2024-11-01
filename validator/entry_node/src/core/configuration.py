@@ -33,19 +33,7 @@ async def create_config() -> Config:
     psql_db = PSQLDB()
     await psql_db.connect()
 
-    pool = ConnectionPool(
-        host=redis_host,
-        max_connections=32,
-        retry_on_timeout=True,
-        decode_responses=True,
-        socket_timeout=5.0,
-        socket_connect_timeout=5.0,
-        socket_keepalive=True,
-        health_check_interval=30,
-        retry_on_error=[ConnectionError, TimeoutError]
-    )
-
-    redis_db = Redis(connection_pool=pool)
+    redis_db = Redis(host=redis_host)
 
     prod = bool(os.getenv("ENV", "prod").lower() == "prod")
 
