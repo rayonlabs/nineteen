@@ -169,7 +169,10 @@ async def consume_generator(
         # at least 3 tokens in order to calculate a change in
         # pace, and so we'll leave the penalty at 0
         if len(time_between_tokens) > 1:
-            smooth_streaming_penalty = max(time_between_tokens)
+            avg_latency = sum(time_between_tokens) / len(time_between_tokens)
+            max_latency = max(time_between_tokens)
+            min_latency = min(time_between_tokens)
+            smooth_streaming_penalty = (max_latency - avg_latency) + (avg_latency - min_latency)
 
 
         if len(text_jsons) > 0:
