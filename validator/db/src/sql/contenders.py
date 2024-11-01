@@ -171,7 +171,7 @@ async def get_contenders_for_organic_task(connection: Connection, task: str, top
                 AND c.{dcst.TASK} = s.{dcst.TASK}
             WHERE c.{dcst.TASK} = $1 
             AND c.{dcst.CAPACITY} > 0 
-            AND c.{dcst.REQUESTS_500} < 0.25 * c.{dcst.TOTAL_REQUESTS_MADE}
+            AND c.{dcst.REQUESTS_500} < 0.01 * c.{dcst.TOTAL_REQUESTS_MADE}
             AND n.{dcst.SYMMETRIC_KEY_UUID} IS NOT NULL
             ORDER BY c.{dcst.NODE_HOTKEY}, c.{dcst.TASK}, s.{dcst.COLUMN_NORMALISED_NET_SCORE} DESC, s.{dcst.CREATED_AT} DESC
         )
