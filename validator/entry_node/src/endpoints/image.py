@@ -52,7 +52,7 @@ async def _collect_single_result(redis_db: Redis, job_id: str, timeout: float) -
         while (time.time() - start_time) < timeout:
             try:
                 result = await redis_db.blpop(response_queue, timeout=timeout)
-                if result is not None and result[1] is not None:
+                if result is not None and result[1] is not None and result[1] != '':
                     break
                 await asyncio.sleep(0.01)
             except asyncio.TimeoutError:
