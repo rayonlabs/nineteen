@@ -106,18 +106,18 @@ async def consume_generator(
         return False
 
     text_jsons, status_code, first_message =  [], 200, True
-    time_between_tokens = []
-    time_of_last_token = None
+    time_between_chunks = []
+    time_of_last_chunk = None
     try:
         async for text in async_chain(first_chunk, generator):
-            time_of_current_token = time.time()
+            time_of_current_chunk = time.time()
             
             # If this is not the first token, then we'll track
             # the time elapsed since the last token arrived
-            if time_of_last_token is not None:
-                time_between_tokens.append(time_of_current_token - time_of_last_token)
+            if time_of_last_chunk is not None:
+                time_between_chunks.append(time_of_current_chunk - time_of_last_chunk)
 
-            time_of_last_token = time_of_current_token
+            time_of_last_token = time_of_current_chunk
 
             if isinstance(text, bytes):
                 text = text.decode()
@@ -168,12 +168,15 @@ async def consume_generator(
         # whether or not the stream was smooth since we need
         # at least 3 tokens in order to calculate a change in
         # pace, and so we'll leave the penalty at 0
-        if len(time_between_tokens) > 1:
-            avg_latency = sum(time_between_tokens) / len(time_between_tokens)
-            max_latency = max(time_between_tokens)
-            min_latency = min(time_between_tokens)
+        if len(time_between_chunks) > 1:
+            avg_latency = sum(time_between_chunks) / len(time_between_chunks)
+            max_latency = max(time_between_chunks)
+            min_latency = min(time_between_chunks)
             smooth_streaming_penalty = (max_latency - avg_latency) + (avg_latency - min_latency)
 
+        # Note: We would add the smooth-streaming penalty by persisting it in Redis 
+        # and then sending it along to Miner in a subsequent request as the penalty 
+        # from the previous request
 
         if len(text_jsons) > 0:
             last_payload = _get_formatted_payload("", False, add_finish_reason=True)
