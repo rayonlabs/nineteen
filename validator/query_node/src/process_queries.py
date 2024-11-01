@@ -29,12 +29,15 @@ async def _acknowledge_job(redis_db: Redis, job_id: str):
     logger.debug(f"Acknowledging job id : {job_id}")
     response_queue = rcst.get_response_queue_key(job_id)
     ack_key = rcst.get_ack_key(job_id)    
+    await rcst.ensure_queue_clean(redis_db, job_id)
     async with redis_db.pipeline(transaction=True) as pipe:
-        await pipe.setex(response_queue, rcst.RESPONSE_QUEUE_TTL, "")
+        await pipe.rpush(response_queue, "")
         await pipe.setex(ack_key, rcst.RESPONSE_QUEUE_TTL, "1")
+        await pipe.expire(response_queue, rcst.RESPONSE_QUEUE_TTL)
         await pipe.execute()
-        
+    
     logger.debug(f"Successfully acknowledged job id : {job_id} ✅")
+
 
 
 

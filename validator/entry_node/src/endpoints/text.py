@@ -77,17 +77,21 @@ async def make_stream_organic_query(
     job_id = rcst.generate_job_id()
     organic_message = await _construct_organic_message(payload=payload, job_id=job_id, task=task)
 
-    # push query to queue first
+    # Ensure queues are clean before starting
+    await rcst.ensure_queue_clean(redis_db, job_id)
+    
+    # Push query to queue
     await redis_db.lpush(rcst.QUERY_QUEUE_KEY, organic_message)
 
-    # wait for acknowledgment
+    # Wait for acknowledgment
     if not await _wait_for_acknowledgement(redis_db, job_id):
         logger.error(f"No acknowledgment received for job {job_id}")
         await _cleanup_queues(redis_db, job_id)
         raise HTTPException(status_code=500, detail="Unable to process request")
 
-    # queue is created by query node in acknowledgment
     return _stream_results(redis_db, job_id)
+
+
 
 
 async def _handle_no_stream(text_generator: AsyncGenerator[str, None]) -> JSONResponse:

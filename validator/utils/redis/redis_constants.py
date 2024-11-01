@@ -1,5 +1,6 @@
 from typing import Optional
 import uuid
+from redis.asyncio import Redis
 
 # REDIS KEYS
 SYNTHETIC_DATA_KEY = "SYNTHETIC_DATA"
@@ -44,3 +45,9 @@ def get_ack_key(job_id: str) -> str:
 
 def generate_job_id() -> str:
     return uuid.uuid4().hex
+
+async def ensure_queue_clean(redis_db: Redis, job_id: str) -> None:
+    response_queue = get_response_queue_key(job_id)
+    ack_key = get_ack_key(job_id)
+    await redis_db.delete(response_queue, ack_key)
+
