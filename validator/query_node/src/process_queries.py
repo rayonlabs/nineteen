@@ -27,23 +27,27 @@ async def _decrement_requests_remaining(redis_db: Redis, task: str):
 
 async def _acknowledge_job(redis_db: Redis, job_id: str):
     logger.debug(f"Acknowledging job id : {job_id}")
-    await redis_db.publish(f"{gcst.ACKNLOWEDGED}:{job_id}", json.dumps({gcst.ACKNLOWEDGED: True}))
-
+    ack_key = rcst.get_ack_key(job_id)
+    await redis_db.setex(ack_key, rcst.RESPONSE_QUEUE_TTL, "1")
+    logger.debug(f"Successfully acknowledged job id : {job_id} ✅")
 
 async def _handle_stream_query(config: Config, message: rdc.QueryQueueMessage, contenders_to_query: list[Contender]) -> bool:
     success = False
+    response_queue = rcst.get_response_queue_key(message.job_id)
+    await config.redis_db.expire(response_queue, rcst.RESPONSE_QUEUE_TTL)
+
     for contender in contenders_to_query[:5]:
         node = await get_node(config.psql_db, contender.node_id, config.netuid)
         if node is None:
             logger.error(f"Node {contender.node_id} not found in database for netuid {config.netuid}")
             continue
+            
         logger.debug(f"Querying node {contender.node_id} for task {contender.task} with payload: {message.query_payload}")
         start_time = time.time()
         generator = await streaming.query_node_stream(
             config=config, contender=contender, payload=message.query_payload, node=node
         )
 
-        # TODO: Make sure we still punish if generator is None
         if generator is None:
             continue
 
@@ -109,10 +113,9 @@ async def _handle_nonstream_query(config: Config, message: rdc.QueryQueueMessage
 
 async def _handle_error(config: Config, synthetic_query: bool, job_id: str, status_code: int, error_message: str) -> None:
     if not synthetic_query:
-        await config.redis_db.publish(
-            f"{rcst.JOB_RESULTS}:{job_id}",
-            gutils.get_error_event(job_id=job_id, error_message=error_message, status_code=status_code),
-        )
+        response_queue = rcst.get_response_queue_key(job_id)
+        error_event = gutils.get_error_event(job_id=job_id, error_message=error_message, status_code=status_code)
+        await config.redis_db.rpush(response_queue, error_event)
 
 
 async def process_task(config: Config, message: rdc.QueryQueueMessage):
