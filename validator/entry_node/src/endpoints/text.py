@@ -33,7 +33,7 @@ async def _wait_for_acknowledgement(redis_db: Redis, job_id: str, timeout: float
             ack = await redis_db.get(ack_key)
             if ack is not None:
                 return True
-            await asyncio.sleep(0.1)
+            await asyncio.sleep(0.01)
         except asyncio.TimeoutError:
             break
     return False
@@ -49,29 +49,36 @@ async def _stream_results(redis_db: Redis, job_id: str) -> AsyncGenerator[str, N
     
     try:
         while True:
-            # use BLPOP with timeout to avoid infinite blocking
             result = await redis_db.blpop(response_queue, timeout=5)
             if result is None:
                 logger.error(f"Timeout waiting for response in queue {response_queue}")
-                break
+                raise HTTPException(status_code=500, detail="Request timed out")
+
             _, data = result
             try:
                 if not data:
                     continue
+
                 content = json.loads(data.decode())
+                logger.debug(f"Received content from queue: {content}")
+                
                 if gcst.STATUS_CODE in content and content[gcst.STATUS_CODE] >= 400:
-                    raise HTTPException(status_code=content[gcst.STATUS_CODE], 
-                                     detail=content.get(gcst.ERROR_MESSAGE, "Unknown error"))
+                    logger.error(f"Error response received: {content}")
+                    error_msg = content.get(gcst.ERROR_MESSAGE, "Unknown error")
+                    raise HTTPException(status_code=content[gcst.STATUS_CODE], detail=error_msg)
+
                 if gcst.CONTENT not in content:
                     logger.warning(f"Malformed message received: {content}")
                     continue
+
                 yield content[gcst.CONTENT]
-                
+
                 if "[DONE]" in content[gcst.CONTENT]:
                     break
+
             except json.JSONDecodeError as e:
                 logger.error(f"Failed to decode message '{data}': {e}")
-                continue
+                raise HTTPException(status_code=500, detail="Invalid response format")
     finally:
         await _cleanup_queues(redis_db, job_id)
 
@@ -83,35 +90,63 @@ async def make_stream_organic_query(
     job_id = rcst.generate_job_id()
     organic_message = await _construct_organic_message(payload=payload, job_id=job_id, task=task)
 
-    # Ensure queues are clean before starting
-    await rcst.ensure_queue_clean(redis_db, job_id)
-    
-    # Push query to queue
-    await redis_db.lpush(rcst.QUERY_QUEUE_KEY, organic_message)
+    try:
+        # Ensure queues are clean before starting
+        await rcst.ensure_queue_clean(redis_db, job_id)
+        
+        # Push query to queue
+        await redis_db.lpush(rcst.QUERY_QUEUE_KEY, organic_message)
 
-    # Wait for acknowledgment
-    if not await _wait_for_acknowledgement(redis_db, job_id):
-        logger.error(f"No acknowledgment received for job {job_id}")
+        # Wait for acknowledgment
+        if not await _wait_for_acknowledgement(redis_db, job_id):
+            logger.error(f"No acknowledgment received for job {job_id}")
+            await _cleanup_queues(redis_db, job_id)
+            raise HTTPException(status_code=500, detail="Unable to process request")
+
+        # Add debug logging for successful queue setup
+        logger.debug(f"Query setup complete for job {job_id}, streaming results...")
+        return _stream_results(redis_db, job_id)
+    except Exception as e:
+        logger.error(f"Error in query setup: {str(e)}")
         await _cleanup_queues(redis_db, job_id)
-        raise HTTPException(status_code=500, detail="Unable to process request")
-
-    return _stream_results(redis_db, job_id)
-
-
-
+        raise
 
 async def _handle_no_stream(text_generator: AsyncGenerator[str, None]) -> JSONResponse:
     all_content = ""
-    async for chunk in text_generator:
-        chunks = load_sse_jsons(chunk)
-        if isinstance(chunks, list):
-            for chunk in chunks:
-                content = chunk["choices"][0]["delta"]["content"]
-                all_content += content
-                if content == "":
-                    break
+    try:
+        async for chunk in text_generator:
+            logger.debug(f"Received chunk: {chunk}")
+            
+            try:
+                chunks = load_sse_jsons(chunk)
+            except json.JSONDecodeError as e:
+                logger.error(f"Failed to decode chunk: {e}")
+                raise HTTPException(status_code=500, detail="Invalid response format")
 
-    return JSONResponse({"choices": [{"delta": {"content": all_content}}]})
+            if not isinstance(chunks, list):
+                logger.error(f"Unexpected chunk format: {chunks}")
+                raise HTTPException(status_code=500, detail="Invalid response format")
+
+            for chunk in chunks:
+                try:
+                    content = chunk["choices"][0]["delta"]["content"]
+                    all_content += content
+                    if content == "":
+                        break
+                except (KeyError, IndexError) as e:
+                    logger.error(f"Malformed chunk structure: {e}")
+                    raise HTTPException(status_code=500, detail="Invalid response structure")
+
+        return JSONResponse({
+            "choices": [{
+                "delta": {"content": all_content}
+            }]
+        })
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Unexpected error in non-streaming response: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to process response")
 
 async def chat(
     chat_request: request_models.ChatRequest,

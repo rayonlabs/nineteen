@@ -39,8 +39,6 @@ async def _acknowledge_job(redis_db: Redis, job_id: str):
     logger.debug(f"Successfully acknowledged job id : {job_id} ✅")
 
 
-
-
 async def _handle_stream_query(config: Config, message: rdc.QueryQueueMessage, contenders_to_query: list[Contender]) -> bool:
     success = False
     response_queue = rcst.get_response_queue_key(message.job_id)
@@ -90,6 +88,9 @@ async def _handle_stream_query(config: Config, message: rdc.QueryQueueMessage, c
 
 async def _handle_nonstream_query(config: Config, message: rdc.QueryQueueMessage, contenders_to_query: list[Contender]) -> bool:
     success = False
+    response_queue = rcst.get_response_queue_key(message.job_id)
+    await config.redis_db.expire(response_queue, rcst.RESPONSE_QUEUE_TTL)
+
     for contender in contenders_to_query:
         node = await get_node(config.psql_db, contender.node_id, config.netuid)
         if node is None:
@@ -106,7 +107,6 @@ async def _handle_nonstream_query(config: Config, message: rdc.QueryQueueMessage
         )
         if success:
             break
-
     if not success:
         logger.error(
             f"All Contenders {[contender.node_id for contender in contenders_to_query]} for task {message.task} failed to respond! :("
@@ -123,10 +123,11 @@ async def _handle_nonstream_query(config: Config, message: rdc.QueryQueueMessage
 
 async def _handle_error(config: Config, synthetic_query: bool, job_id: str, status_code: int, error_message: str) -> None:
     if not synthetic_query:
+        logger.debug(f"Handling error for job {job_id}: {error_message} (status: {status_code})")
         response_queue = rcst.get_response_queue_key(job_id)
         error_event = gutils.get_error_event(job_id=job_id, error_message=error_message, status_code=status_code)
+        logger.debug(f"Pushing error event to queue {response_queue}: {error_event}")
         await config.redis_db.rpush(response_queue, error_event)
-
 
 async def process_task(config: Config, message: rdc.QueryQueueMessage):
     task = message.task
