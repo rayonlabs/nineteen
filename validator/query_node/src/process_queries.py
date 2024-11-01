@@ -140,7 +140,8 @@ async def process_task(config: Config, message: rdc.QueryQueueMessage):
 
     stream = task_config.is_stream
 
-    contenders_to_query = await get_contenders_for_task(config.psql_db, task, 5, message.query_type)
+    async with await config.psql_db.connection() as connection:
+        contenders_to_query = await get_contenders_for_task(connection, task, 5, message.query_type)
 
     if contenders_to_query is None:
         raise ValueError("No contenders to query! :(")
