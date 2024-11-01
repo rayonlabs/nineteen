@@ -86,7 +86,7 @@ async def handle_nonstream_event(
             gcst.STATUS_CODE: status_code or 500,
             gcst.JOB_ID: job_id  # Include job_id in error response
         })
-        logger.error(f"Pushing error to queue {response_queue}: {error_message}")
+        logger.error(f"Pushing error to queue {response_queue}: {error_message} - {event_data}")
     
     try:
         await config.redis_db.rpush(response_queue, event_data)
