@@ -37,11 +37,17 @@ async def factory_config() -> Config:
 
     pool = ConnectionPool(
         host=redis_host,
-        max_connections=20,
+        max_connections=32,
         retry_on_timeout=True,
-        decode_responses=True
+        decode_responses=True,
+        socket_timeout=5.0,
+        socket_connect_timeout=5.0,
+        socket_keepalive=True,
+        health_check_interval=30,
+        retry_on_error=[ConnectionError, TimeoutError]
     )
-    redis_db = Redis(host=redis_host)
+
+    redis_db = Redis(connection_pool=pool)
 
     prod = bool(os.getenv("ENV", "prod").lower() == "prod")
 
