@@ -135,14 +135,7 @@ async def query_nonstream(
         await utils.adjust_contender_from_result(
             config=config, query_result=query_result, contender=contender, synthetic_query=synthetic_query, payload=payload
         )
-        await handle_nonstream_event(
-            config=config,
-            content=None,
-            synthetic_query=synthetic_query,
-            job_id=job_id,
-            status_code=500,
-            error_message=str(e)
-        )
+        # Don't send error event here - let the handler deal with it if all contenders fail
         return False
 
     response_time = time.time() - time_before_query
@@ -154,15 +147,9 @@ async def query_nonstream(
         await utils.adjust_contender_from_result(
             config=config, query_result=query_result, contender=contender, synthetic_query=synthetic_query, payload=payload
         )
-        await handle_nonstream_event(
-            config=config,
-            content=None,
-            synthetic_query=synthetic_query,
-            job_id=job_id,
-            status_code=500,
-            error_message=f"Failed to deserialize response: {str(e)}"
-        )
+        # Don't send error event here
         return False
+
     if formatted_response is not None:
         query_result = utility_models.QueryResult(
             formatted_response=formatted_response,
@@ -174,6 +161,7 @@ async def query_nonstream(
             success=True,
         )
         logger.info(f"✅ Queried node: {node_id} for task: {contender.task} - time: {response_time}")
+        # Only send success events immediately
         await handle_nonstream_event(
             config, formatted_response.model_dump_json(), synthetic_query, job_id, status_code=response.status_code
         )
@@ -197,12 +185,5 @@ async def query_nonstream(
         await utils.adjust_contender_from_result(
             config=config, query_result=query_result, contender=contender, synthetic_query=synthetic_query, payload=payload
         )
-        await handle_nonstream_event(
-            config=config,
-            content=None,
-            synthetic_query=synthetic_query,
-            job_id=job_id,
-            status_code=response.status_code,
-            error_message="Failed to format response"
-        )
+        # Don't send error event here
         return False

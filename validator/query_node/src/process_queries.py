@@ -91,11 +91,16 @@ async def _handle_nonstream_query(config: Config, message: rdc.QueryQueueMessage
     response_queue = rcst.get_response_queue_key(message.job_id)
     await config.redis_db.expire(response_queue, rcst.RESPONSE_QUEUE_TTL)
 
+    # Track errors for debugging
+    errors = []
+
     for contender in contenders_to_query:
         node = await get_node(config.psql_db, contender.node_id, config.netuid)
         if node is None:
             logger.error(f"Node {contender.node_id} not found in database for netuid {config.netuid}")
+            errors.append(f"Node {contender.node_id} not found")
             continue
+            
         success = await nonstream.query_nonstream(
             config=config,
             contender=contender,
@@ -107,16 +112,22 @@ async def _handle_nonstream_query(config: Config, message: rdc.QueryQueueMessage
         )
         if success:
             break
+        
     if not success:
+        error_msg = f"Service for task {message.task} is not responding after trying {len(contenders_to_query)} contenders."
+        if errors:
+            error_msg += f" Errors: {'; '.join(errors)}"
+            
         logger.error(
             f"All Contenders {[contender.node_id for contender in contenders_to_query]} for task {message.task} failed to respond! :("
         )
+        # Only send error event if all contenders failed
         await _handle_error(
             config=config,
             synthetic_query=message.query_type == gcst.SYNTHETIC,
             job_id=message.job_id,
             status_code=500,
-            error_message=f"Service for task {message.task} is not responding, please try again",
+            error_message=error_msg,
         )
     return success
 
