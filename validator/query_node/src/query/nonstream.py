@@ -78,13 +78,13 @@ async def handle_nonstream_event(
         event_data = json.dumps({
             gcst.CONTENT: content,
             gcst.STATUS_CODE: status_code,
-            gcst.JOB_ID: job_id  # Include job_id in response
+            gcst.JOB_ID: job_id 
         })
     else:
         event_data = json.dumps({
             gcst.ERROR_MESSAGE: error_message or "Failed to process request",
             gcst.STATUS_CODE: status_code or 500,
-            gcst.JOB_ID: job_id  # Include job_id in error response
+            gcst.JOB_ID: job_id
         })
         logger.error(f"Pushing error to queue {response_queue}: {error_message} - {event_data}")
     
@@ -135,7 +135,6 @@ async def query_nonstream(
         await utils.adjust_contender_from_result(
             config=config, query_result=query_result, contender=contender, synthetic_query=synthetic_query, payload=payload
         )
-        # Don't send error event here - let the handler deal with it if all contenders fail
         return False
 
     response_time = time.time() - time_before_query
@@ -147,7 +146,6 @@ async def query_nonstream(
         await utils.adjust_contender_from_result(
             config=config, query_result=query_result, contender=contender, synthetic_query=synthetic_query, payload=payload
         )
-        # Don't send error event here
         return False
 
     if formatted_response is not None:
@@ -161,7 +159,6 @@ async def query_nonstream(
             success=True,
         )
         logger.info(f"✅ Queried node: {node_id} for task: {contender.task} - time: {response_time}")
-        # Only send success events immediately
         await handle_nonstream_event(
             config, formatted_response.model_dump_json(), synthetic_query, job_id, status_code=response.status_code
         )
@@ -185,5 +182,4 @@ async def query_nonstream(
         await utils.adjust_contender_from_result(
             config=config, query_result=query_result, contender=contender, synthetic_query=synthetic_query, payload=payload
         )
-        # Don't send error event here
         return False

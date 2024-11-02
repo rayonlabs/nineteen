@@ -49,7 +49,7 @@ async def _collect_single_result(redis_db: Redis, job_id: str, timeout: float) -
         start_time = time.time()
         while (time.time() - start_time) < timeout:
             # use BLPOP with shorter timeout for polling
-            result = await redis_db.blpop(response_queue, timeout=20)
+            result = await redis_db.blpop(response_queue, timeout=rcst.RESPONSE_QUEUE_TTL)
             if result is None:
                 continue
 
@@ -97,13 +97,9 @@ async def make_non_stream_organic_query(
     job_id = rcst.generate_job_id()
     organic_message = _construct_organic_message(payload=payload, job_id=job_id, task=task)
 
-    # Ensure queues are clean before starting
-    await rcst.ensure_queue_clean(redis_db, job_id)
-    
-    # Push query to queue
+    await rcst.ensure_queue_clean(redis_db, job_id)    
     await redis_db.lpush(rcst.QUERY_QUEUE_KEY, organic_message)
 
-    # Wait for acknowledgment first
     if not await _wait_for_acknowledgement(redis_db, job_id):
         logger.error(f"No acknowledgment received for job {job_id}")
         await rcst.ensure_queue_clean(redis_db, job_id)

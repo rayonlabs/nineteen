@@ -35,7 +35,7 @@ JOB_RESULTS = "JOB_RESULTS"
 # RESPONSE QUEUE HANDLING
 RESPONSE_QUEUE_PREFIX = "response_queue:"
 ACK_SUFFIX = ":ack"
-RESPONSE_QUEUE_TTL = 20
+RESPONSE_QUEUE_TTL = 30
 
 def get_response_queue_key(job_id: str) -> str:
     return f"{RESPONSE_QUEUE_PREFIX}{job_id}"

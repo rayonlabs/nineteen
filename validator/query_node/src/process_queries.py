@@ -24,7 +24,6 @@ async def _decrement_requests_remaining(redis_db: Redis, task: str):
     key = f"task_synthetics_info:{task}:requests_remaining"
     await redis_db.decr(key)
 
-
 async def _acknowledge_job(redis_db: Redis, job_id: str):
     logger.debug(f"Acknowledging job id : {job_id}")
     response_queue = rcst.get_response_queue_key(job_id)
@@ -91,7 +90,6 @@ async def _handle_nonstream_query(config: Config, message: rdc.QueryQueueMessage
     response_queue = rcst.get_response_queue_key(message.job_id)
     await config.redis_db.expire(response_queue, rcst.RESPONSE_QUEUE_TTL)
 
-    # Track errors for debugging
     errors = []
 
     for contender in contenders_to_query:
@@ -121,7 +119,6 @@ async def _handle_nonstream_query(config: Config, message: rdc.QueryQueueMessage
         logger.error(
             f"All Contenders {[contender.node_id for contender in contenders_to_query]} for task {message.task} failed to respond! :("
         )
-        # Only send error event if all contenders failed
         await _handle_error(
             config=config,
             synthetic_query=message.query_type == gcst.SYNTHETIC,
