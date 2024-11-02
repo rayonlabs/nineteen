@@ -15,7 +15,7 @@ async def sql_insert_reward_data(connection: Connection, data: RewardData) -> No
             {dcst.COLUMN_QUALITY_SCORE}, {dcst.COLUMN_VALIDATOR_HOTKEY}, 
             {dcst.COLUMN_MINER_HOTKEY}, {dcst.COLUMN_SYNTHETIC_QUERY}, 
             {dcst.COLUMN_METRIC}, {dcst.COLUMN_RESPONSE_TIME}, {dcst.COLUMN_RESPONSE_TIME_PENALTY_MULTIPLIER}, {dcst.COLUMN_VOLUME}
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
         RETURNING {dcst.COLUMN_ID}
         """,
         data.id,
