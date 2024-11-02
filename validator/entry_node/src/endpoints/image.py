@@ -126,7 +126,7 @@ async def process_image_request(
         redis_db=config.redis_db,
         payload=payload.model_dump(),
         task=task,
-        timeout=task_config.timeout
+        timeout=rcst.RESPONSE_QUEUE_TTL
     )
     
     if result is None or result.content is None:
