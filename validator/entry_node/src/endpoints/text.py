@@ -25,7 +25,7 @@ async def _construct_organic_message(payload: dict, job_id: str, task: str) -> s
         "job_id": job_id
     })
 
-async def _wait_for_acknowledgement(redis_db: Redis, job_id: str, timeout: float = 2.0) -> bool:
+async def _wait_for_acknowledgement(redis_db: Redis, job_id: str, timeout: float = 2) -> bool:
     response_queue = rcst.get_response_queue_key(job_id)
     try:
         result = await redis_db.blpop(response_queue, timeout=timeout)
@@ -43,13 +43,13 @@ async def _cleanup_queues(redis_db: Redis, job_id: str):
     await redis_db.delete(response_queue)
 
 
-async def _stream_results(redis_db: Redis, job_id: str) -> AsyncGenerator[str, None]:
+async def _stream_results(redis_db: Redis, job_id: str, timeout: float = 2) -> AsyncGenerator[str, None]:
     response_queue = rcst.get_response_queue_key(job_id)
     received_done = False
     
     try:
         while True:
-            result = await redis_db.blpop(response_queue, timeout=5)
+            result = await redis_db.blpop(response_queue, timeout=timeout)
             if result is None:
                 logger.error(f"Timeout waiting for response in queue {response_queue}")
                 raise HTTPException(status_code=500, detail="Request timed out")

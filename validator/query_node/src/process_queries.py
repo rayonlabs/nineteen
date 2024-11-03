@@ -28,7 +28,7 @@ async def _acknowledge_job(redis_db: Redis, job_id: str):
     logger.info(f"Acknowledging job id: {job_id}")
     response_queue = rcst.get_response_queue_key(job_id)
     
-    await rcst.ensure_queue_clean(redis_db, job_id)
+    #await rcst.ensure_queue_clean(redis_db, job_id)
     
     async with redis_db.pipeline(transaction=True) as pipe:
         await pipe.rpush(response_queue, "[ACK]")

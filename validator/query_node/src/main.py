@@ -18,7 +18,7 @@ from fiber.chain import chain_utils
 
 logger = get_logger(__name__)
 
-MAX_CONCURRENT_TASKS = 100
+MAX_CONCURRENT_TASKS = 200
 
 
 async def load_config() -> Config:
