@@ -172,7 +172,12 @@ async def consume_generator(
             avg_latency = sum(time_between_chunks) / len(time_between_chunks)
             max_latency = max(time_between_chunks)
             min_latency = min(time_between_chunks)
-            smooth_streaming_penalty = (max_latency - avg_latency) + (avg_latency - min_latency)
+
+            # In order to penalize a Miner for deviating from its average
+            # latency in either direction, we'll the calculate penalty as: 
+            #   smooth_streaming_penalty = (max_latency - avg_latency) + (avg_latency - min_latency)
+            # Which in turn reduces to:
+            smooth_streaming_penalty = max_latency - min_latency 
 
         # Note: We would add the smooth-streaming penalty by persisting it in Redis 
         # and then sending it along to Miner in a subsequent request as the penalty 
