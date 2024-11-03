@@ -25,7 +25,7 @@ async def _construct_organic_message(payload: dict, job_id: str, task: str) -> s
         "job_id": job_id
     })
 
-async def _wait_for_acknowledgement(redis_db: Redis, job_id: str, timeout: float = 2) -> bool:
+async def _wait_for_acknowledgement(redis_db: Redis, job_id: str, start: float, timeout: float = 2) -> bool:
     response_queue = rcst.get_response_queue_key(job_id)
     try:
         result = await redis_db.blpop(response_queue, timeout=timeout)
@@ -33,7 +33,10 @@ async def _wait_for_acknowledgement(redis_db: Redis, job_id: str, timeout: float
             return False
         
         _, data = result
-        return data.decode() == "[ACK]"
+        end = time.time()
+        data = data.decode()
+        logger.info(f"Ack for job_id : {job_id}: {data} - ack time : {round(end-start, 3)}s")
+        return data == "[ACK]"
     except Exception as e:
         logger.error(f"Error waiting for acknowledgment: {e}")
         return False
@@ -100,8 +103,9 @@ async def make_stream_organic_query(
 
     try:
         await rcst.ensure_queue_clean(redis_db, job_id)
+        start = time.time()
         await redis_db.lpush(rcst.QUERY_QUEUE_KEY, organic_message)
-        if not await _wait_for_acknowledgement(redis_db, job_id):
+        if not await _wait_for_acknowledgement(redis_db, job_id, start):
             logger.error(f"No acknowledgment received for job {job_id}")
             await _cleanup_queues(redis_db, job_id)
             raise HTTPException(status_code=500, detail="Unable to process request")
