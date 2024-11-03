@@ -34,20 +34,14 @@ JOB_RESULTS = "JOB_RESULTS"
 
 # RESPONSE QUEUE HANDLING
 RESPONSE_QUEUE_PREFIX = "response_queue:"
-ACK_SUFFIX = ":ack"
-RESPONSE_QUEUE_TTL = 30
+RESPONSE_QUEUE_TTL = 20  # seconds
 
 def get_response_queue_key(job_id: str) -> str:
     return f"{RESPONSE_QUEUE_PREFIX}{job_id}"
-
-def get_ack_key(job_id: str) -> str:
-    return f"{get_response_queue_key(job_id)}{ACK_SUFFIX}"
 
 def generate_job_id() -> str:
     return uuid.uuid4().hex
 
 async def ensure_queue_clean(redis_db: Redis, job_id: str) -> None:
     response_queue = get_response_queue_key(job_id)
-    ack_key = get_ack_key(job_id)
-    await redis_db.delete(response_queue, ack_key)
-
+    await redis_db.delete(response_queue)
