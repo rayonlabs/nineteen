@@ -9,6 +9,7 @@ from validator.db.src.sql.contenders import (
     update_contender_429_count,
     update_contender_500_count,
     update_contender_capacities,
+    update_contender_smooth_streaming_penalty,
 )
 
 logger = get_logger(__name__)
@@ -17,6 +18,7 @@ logger = get_logger(__name__)
 async def adjust_contender_from_result(
     config: Config,
     query_result: utility_models.QueryResult,
+    smooth_streaming_penalty: float,
     contender: Contender,
     synthetic_query: bool,
     payload: dict,
@@ -39,6 +41,8 @@ async def adjust_contender_from_result(
         logger.debug(f"Capacity consumed: {capacity_consumed}")
 
         await update_contender_capacities(config.psql_db, contender, capacity_consumed)
+
+        await update_contender_smooth_streaming_penalty(config.psql_db, contender, smooth_streaming_penalty)
 
         await db_functions.potentially_store_result_in_db(
             config.psql_db, query_result, query_result.task, synthetic_query=synthetic_query, payload=payload

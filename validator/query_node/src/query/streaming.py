@@ -94,6 +94,11 @@ async def consume_generator(
     task = contender.task
     query_result = None
 
+    # We'll default to a penalty of zero and penalize
+    # Miners if the pace at which chunks of tokens are 
+    # streamed is not uniform
+    smooth_streaming_penalty = 0
+
     try:
         first_chunk = await generator.__anext__()
     except (StopAsyncIteration, httpx.ConnectError, httpx.ReadError, httpx.HTTPError, httpx.ReadTimeout, Exception) as e:
@@ -102,7 +107,7 @@ async def consume_generator(
 
         logger.error(f"Error when querying node: {node.node_id} for task: {task}. Error: {error_type} - {error_details}")
         query_result = construct_500_query_result(node, task)
-        await utils.adjust_contender_from_result(config, query_result, contender, synthetic_query, payload=payload)
+        await utils.adjust_contender_from_result(config, query_result, smooth_streaming_penalty, contender, synthetic_query, payload=payload)
         return False
 
     text_jsons, status_code, first_message =  [], 200, True
@@ -156,13 +161,6 @@ async def consume_generator(
                     )
 
         
-        # We'll default to a penalty of zero and only penalize
-        # Miners if the absolute value of the time between tokens
-        # exceeds a threshold value, thereby indicating a change
-        # in the pace at which tokens are being streamed to the
-        # Validator
-        smooth_streaming_penalty = 0
-
         # If there is only one entry, then it means we only 
         # received 2 tokens, and there's no way to calculate
         # whether or not the stream was smooth since we need
@@ -177,10 +175,6 @@ async def consume_generator(
             #   smooth_streaming_penalty = (max_latency - avg_latency) + (avg_latency - min_latency)
             # Which in turn reduces to:
             smooth_streaming_penalty = max_latency - min_latency 
-
-        # Note: We would add the smooth-streaming penalty by persisting it in Redis 
-        # and then sending it along to Miner in a subsequent request as the penalty 
-        # from the previous request
 
         if len(text_jsons) > 0:
             last_payload = _get_formatted_payload("", False, add_finish_reason=True)
@@ -209,7 +203,7 @@ async def consume_generator(
         success = False
     finally:
         if query_result is not None:
-            await utils.adjust_contender_from_result(config, query_result, contender, synthetic_query, payload=payload)
+            await utils.adjust_contender_from_result(config, query_result, smooth_streaming_penalty, contender, synthetic_query, payload=payload)
             await config.redis_db.expire(rcst.QUERY_RESULTS_KEY + ":" + job_id, 10)
 
     character_count = sum([len(text_json["choices"][0]["delta"]["content"]) for text_json in text_jsons])
