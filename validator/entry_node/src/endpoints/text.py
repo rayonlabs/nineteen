@@ -25,7 +25,7 @@ async def _construct_organic_message(payload: dict, job_id: str, task: str) -> s
         "job_id": job_id
     })
 
-async def _wait_for_acknowledgement(redis_db: Redis, job_id: str, timeout: float = 2.0) -> bool:
+async def _wait_for_acknowledgement(redis_db: Redis, job_id: str, timeout: float = 5.0) -> bool:
     response_queue = rcst.get_response_queue_key(job_id)
     try:
         result = await redis_db.blpop(response_queue, timeout=timeout)
