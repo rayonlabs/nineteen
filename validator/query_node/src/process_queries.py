@@ -26,7 +26,7 @@ async def _decrement_requests_remaining(redis_db: Redis, task: str):
 
 async def _acknowledge_job(redis_db: Redis, job_id: str):
     logger.info(f"Acknowledging job id: {job_id}")
-    response_queue = rcst.get_response_queue_key(job_id)
+    response_queue = await rcst.get_response_queue_key(job_id)
     
     #await rcst.ensure_queue_clean(redis_db, job_id)
     
@@ -41,7 +41,7 @@ async def _acknowledge_job(redis_db: Redis, job_id: str):
 
 async def _handle_stream_query(config: Config, message: rdc.QueryQueueMessage, contenders_to_query: list[Contender]) -> bool:
     success = False
-    response_queue = rcst.get_response_queue_key(message.job_id)
+    response_queue = await rcst.get_response_queue_key(message.job_id)
     await config.redis_db.expire(response_queue, rcst.RESPONSE_QUEUE_TTL)
 
     for contender in contenders_to_query[:5]:
@@ -88,7 +88,7 @@ async def _handle_stream_query(config: Config, message: rdc.QueryQueueMessage, c
 
 async def _handle_nonstream_query(config: Config, message: rdc.QueryQueueMessage, contenders_to_query: list[Contender]) -> bool:
     success = False
-    response_queue = rcst.get_response_queue_key(message.job_id)
+    response_queue = await rcst.get_response_queue_key(message.job_id)
     await config.redis_db.expire(response_queue, rcst.RESPONSE_QUEUE_TTL)
 
     errors = []
@@ -133,7 +133,7 @@ async def _handle_nonstream_query(config: Config, message: rdc.QueryQueueMessage
 async def _handle_error(config: Config, synthetic_query: bool, job_id: str, status_code: int, error_message: str) -> None:
     if not synthetic_query:
         logger.debug(f"Handling error for job {job_id}: {error_message} (status: {status_code})")
-        response_queue = rcst.get_response_queue_key(job_id)
+        response_queue = await rcst.get_response_queue_key(job_id)
         error_event = gutils.get_error_event(job_id=job_id, error_message=error_message, status_code=status_code)
         logger.debug(f"Pushing error event to queue {response_queue}: {error_event}")
         await config.redis_db.rpush(response_queue, error_event)

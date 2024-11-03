@@ -43,7 +43,7 @@ async def _handle_event(
     if synthetic_query:
         return
 
-    response_queue = rcst.get_response_queue_key(job_id)
+    response_queue = await rcst.get_response_queue_key(job_id)
     
     if content is not None:
         if isinstance(content, dict):
@@ -59,7 +59,7 @@ async def _handle_event(
         })
     
     await config.redis_db.rpush(response_queue, event_data)
-    
+
 async def async_chain(first_chunk, async_gen):
     yield first_chunk  # manually yield the first chunk
     async for item in async_gen:

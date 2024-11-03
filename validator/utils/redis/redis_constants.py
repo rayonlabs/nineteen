@@ -36,12 +36,12 @@ JOB_RESULTS = "JOB_RESULTS"
 RESPONSE_QUEUE_PREFIX = "response_queue:"
 RESPONSE_QUEUE_TTL = 3  # seconds
 
-def get_response_queue_key(job_id: str) -> str:
+async def get_response_queue_key(job_id: str) -> str:
     return f"{RESPONSE_QUEUE_PREFIX}{job_id}"
 
 def generate_job_id() -> str:
     return uuid.uuid4().hex
 
 async def ensure_queue_clean(redis_db: Redis, job_id: str) -> None:
-    response_queue = get_response_queue_key(job_id)
+    response_queue = await get_response_queue_key(job_id)
     await redis_db.delete(response_queue)

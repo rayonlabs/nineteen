@@ -26,7 +26,7 @@ async def _construct_organic_message(payload: dict, job_id: str, task: str) -> s
     })
 
 async def _wait_for_acknowledgement(redis_db: Redis, job_id: str, start: float, timeout: float = 2) -> bool:
-    response_queue = rcst.get_response_queue_key(job_id)
+    response_queue = await rcst.get_response_queue_key(job_id)
     try:
         result = await redis_db.blpop(response_queue, timeout=timeout)
         if result is None:
@@ -42,12 +42,12 @@ async def _wait_for_acknowledgement(redis_db: Redis, job_id: str, start: float, 
         return False
 
 async def _cleanup_queues(redis_db: Redis, job_id: str):
-    response_queue = rcst.get_response_queue_key(job_id)
+    response_queue = await rcst.get_response_queue_key(job_id)
     await redis_db.delete(response_queue)
 
 
 async def _stream_results(redis_db: Redis, job_id: str, timeout: float = 2) -> AsyncGenerator[str, None]:
-    response_queue = rcst.get_response_queue_key(job_id)
+    response_queue = await rcst.get_response_queue_key(job_id)
     received_done = False
     
     try:

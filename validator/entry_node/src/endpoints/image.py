@@ -44,7 +44,7 @@ async def _wait_for_acknowledgement(redis_db: Redis, job_id: str, timeout: float
 
 
 async def _collect_single_result(redis_db: Redis, job_id: str, timeout: float) -> GenericResponse | None:
-    response_queue = rcst.get_response_queue_key(job_id)
+    response_queue = await rcst.get_response_queue_key(job_id)
     try:
         start_time = time.time()
         while (time.time() - start_time) < timeout:

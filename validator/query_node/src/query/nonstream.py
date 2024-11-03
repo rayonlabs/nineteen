@@ -70,7 +70,7 @@ async def handle_nonstream_event(
     if synthetic_query:
         return
 
-    response_queue = rcst.get_response_queue_key(job_id)
+    response_queue = await rcst.get_response_queue_key(job_id)
     
     if content is not None:
         if isinstance(content, dict):
