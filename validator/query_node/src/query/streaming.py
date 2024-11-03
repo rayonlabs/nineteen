@@ -169,7 +169,6 @@ async def consume_generator(
         # at least 3 tokens in order to calculate a change in
         # pace, and so we'll leave the penalty at 0
         if len(time_between_chunks) > 1:
-            avg_latency = sum(time_between_chunks) / len(time_between_chunks)
             max_latency = max(time_between_chunks)
             min_latency = min(time_between_chunks)
 
