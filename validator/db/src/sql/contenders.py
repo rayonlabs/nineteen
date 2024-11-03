@@ -196,7 +196,7 @@ async def get_contenders_for_organic_task(connection: Connection, task: str, top
             combined_contenders = best_top_x_percent + remaining_top_x_percent
             combined_weights = best_top_x_weights + remaining_top_x_weights
             
-            selected_contenders = random.choices(combined_contenders, weights=combined_weights, k=int(len(combined_contenders)*0.25))
+            selected_contenders = random.choices(combined_contenders, weights=combined_weights, k=int(len(combined_contenders)*0.75))
             selected_contenders = sorted(selected_contenders, key=lambda x: getattr(x, dcst.REQUESTS_429))[:top_x]
             logger.debug(f"Selected contenders for task {task} : {selected_contenders}")
             return selected_contenders
