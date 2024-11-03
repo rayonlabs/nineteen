@@ -26,23 +26,22 @@ async def _construct_organic_message(payload: dict, job_id: str, task: str) -> s
     })
 
 async def _wait_for_acknowledgement(redis_db: Redis, job_id: str, timeout: float = 2.0) -> bool:
-    ack_key = rcst.get_ack_key(job_id)
-    start_time = time.time()
-    while (time.time() - start_time) < timeout:
-        try:
-            ack = await redis_db.get(ack_key)
-            if ack is not None:
-                return True
-            await asyncio.sleep(0.01)
-        except asyncio.TimeoutError:
-            break
-    return False
-
+    response_queue = rcst.get_response_queue_key(job_id)
+    try:
+        result = await redis_db.blpop(response_queue, timeout=timeout)
+        if result is None:
+            return False
+        
+        _, data = result
+        return data.decode() == "[ACK]"
+    except Exception as e:
+        logger.error(f"Error waiting for acknowledgment: {e}")
+        return False
 
 async def _cleanup_queues(redis_db: Redis, job_id: str):
     response_queue = rcst.get_response_queue_key(job_id)
-    ack_key = rcst.get_ack_key(job_id)
-    await redis_db.delete(response_queue, ack_key)
+    await redis_db.delete(response_queue)
+
 
 async def _stream_results(redis_db: Redis, job_id: str) -> AsyncGenerator[str, None]:
     response_queue = rcst.get_response_queue_key(job_id)
@@ -100,19 +99,13 @@ async def make_stream_organic_query(
     organic_message = await _construct_organic_message(payload=payload, job_id=job_id, task=task)
 
     try:
-        # Ensure queues are clean before starting
         await rcst.ensure_queue_clean(redis_db, job_id)
-        
-        # Push query to queue
         await redis_db.lpush(rcst.QUERY_QUEUE_KEY, organic_message)
-
-        # Wait for acknowledgment
         if not await _wait_for_acknowledgement(redis_db, job_id):
             logger.error(f"No acknowledgment received for job {job_id}")
             await _cleanup_queues(redis_db, job_id)
             raise HTTPException(status_code=500, detail="Unable to process request")
 
-        # Add debug logging for successful queue setup
         logger.debug(f"Query setup complete for job {job_id}, streaming results...")
         return _stream_results(redis_db, job_id)
     except Exception as e:

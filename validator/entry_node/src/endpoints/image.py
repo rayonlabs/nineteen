@@ -48,7 +48,6 @@ async def _collect_single_result(redis_db: Redis, job_id: str, timeout: float) -
     try:
         start_time = time.time()
         while (time.time() - start_time) < timeout:
-            # use BLPOP with shorter timeout for polling
             result = await redis_db.blpop(response_queue, timeout=rcst.RESPONSE_QUEUE_TTL)
             if result is None:
                 continue
