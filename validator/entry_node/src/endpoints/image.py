@@ -101,8 +101,8 @@ async def make_non_stream_organic_query(
 
     await rcst.ensure_queue_clean(redis_db, job_id)    
     await redis_db.lpush(rcst.QUERY_QUEUE_KEY, organic_message)
-
-    if not await _wait_for_acknowledgement(redis_db, job_id):
+    start = time.time()
+    if not await _wait_for_acknowledgement(redis_db, job_id, start):
         logger.error(f"No acknowledgment received for job {job_id}")
         await rcst.ensure_queue_clean(redis_db, job_id)
         raise HTTPException(status_code=500, detail="Unable to process request")
