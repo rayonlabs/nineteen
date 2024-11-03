@@ -34,7 +34,7 @@ JOB_RESULTS = "JOB_RESULTS"
 
 # RESPONSE QUEUE HANDLING
 RESPONSE_QUEUE_PREFIX = "response_queue:"
-RESPONSE_QUEUE_TTL = 20  # to fit with both image/text tasks
+RESPONSE_QUEUE_TTL = 20
 
 async def get_response_queue_key(job_id: str) -> str:
     return f"{RESPONSE_QUEUE_PREFIX}{job_id}"

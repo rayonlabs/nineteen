@@ -46,7 +46,7 @@ async def _cleanup_queues(redis_db: Redis, job_id: str):
     await redis_db.delete(response_queue)
 
 
-async def _stream_results(redis_db: Redis, job_id: str, timeout: float = 2) -> AsyncGenerator[str, None]:
+async def _stream_results(redis_db: Redis, job_id: str, timeout: float = rcst.RESPONSE_QUEUE_TTL) -> AsyncGenerator[str, None]:
     response_queue = await rcst.get_response_queue_key(job_id)
     received_done = False
     
