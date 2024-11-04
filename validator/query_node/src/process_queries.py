@@ -44,7 +44,7 @@ async def _handle_stream_query(config: Config, message: rdc.QueryQueueMessage, c
     response_queue = await rcst.get_response_queue_key(message.job_id)
     await config.redis_db.expire(response_queue, rcst.RESPONSE_QUEUE_TTL)
 
-    for contender in contenders_to_query[:5]:
+    for contender in contenders_to_query:
         node = await get_node(config.psql_db, contender.node_id, config.netuid)
         if node is None:
             logger.error(f"Node {contender.node_id} not found in database for netuid {config.netuid}")

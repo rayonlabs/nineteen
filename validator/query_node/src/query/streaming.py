@@ -59,6 +59,7 @@ async def _handle_event(
         })
     
     await config.redis_db.rpush(response_queue, event_data)
+    await config.redis_db.expire(response_queue, rcst.RESPONSE_QUEUE_TTL)
 
 async def async_chain(first_chunk, async_gen):
     yield first_chunk  # manually yield the first chunk
