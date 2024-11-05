@@ -7,6 +7,7 @@ from core.models.payload_models import ImageResponse
 from validator.query_node.src.query_config import Config
 from validator.utils.generic import generic_constants as gcst
 from validator.models import Contender
+import validator.utils.redis.redis_utils as rutils
 from fiber.networking.models import NodeWithFernet as Node
 from fiber.validator import client
 from core import task_config as tcfg
@@ -70,7 +71,7 @@ async def handle_nonstream_event(
     if synthetic_query:
         return
 
-    response_queue = await rcst.get_response_queue_key(job_id)
+    response_queue = await rutils.get_response_queue_key(job_id)
     
     if content is not None:
         if isinstance(content, dict):

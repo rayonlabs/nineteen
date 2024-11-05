@@ -1,12 +1,13 @@
 import json
 from typing import Any, AsyncGenerator
-import asyncio
 from fastapi import Depends, HTTPException
 from fastapi.responses import JSONResponse, StreamingResponse
 from opentelemetry import metrics
 from redis.asyncio import Redis
 from fiber.logging_utils import get_logger
 from fastapi.routing import APIRouter
+import validator.utils.redis.redis_dataclasses as rcls
+import validator.utils.redis.redis_utils as rutils
 from validator.entry_node.src.core.configuration import Config
 from validator.entry_node.src.core.dependencies import get_config
 from validator.entry_node.src.core.middleware import verify_api_key_rate_limit
@@ -20,15 +21,14 @@ from opentelemetry import metrics
 logger = get_logger(__name__)
 
 async def _construct_organic_message(payload: dict, job_id: str, task: str) -> str:
-    return json.dumps({
-        "query_type": gcst.ORGANIC,
-        "query_payload": payload,
-        "task": task,
-        "job_id": job_id
-    })
+    message = rcls.QueryQueueMessage(query_type=gcst.ORGANIC,
+                                     query_payload=payload,
+                                     task=task,
+                                     job_id=job_id)
+    return message.to_json()
 
 async def _wait_for_acknowledgement(redis_db: Redis, job_id: str, start: float, timeout: float = 2) -> bool:
-    response_queue = await rcst.get_response_queue_key(job_id)
+    response_queue = await rutils.get_response_queue_key(job_id)
     try:
         result = await redis_db.blpop(response_queue, timeout=timeout)
         if result is None:
@@ -38,13 +38,13 @@ async def _wait_for_acknowledgement(redis_db: Redis, job_id: str, start: float, 
         end = time.time()
         data = data.decode()
         logger.info(f"Ack for job_id : {job_id}: {data} - ack time : {round(end-start, 3)}s")
-        return data == "[ACK]"
+        return data == rcst.ACK_TOKEN
     except Exception as e:
         logger.error(f"Error waiting for acknowledgment: {e}")
         return False
 
 async def _cleanup_queues(redis_db: Redis, job_id: str):
-    response_queue = await rcst.get_response_queue_key(job_id)
+    response_queue = await rutils.get_response_queue_key(job_id)
     await redis_db.delete(response_queue)
 
 COUNTER_TEXT_GENERATION_ERROR = metrics.get_meter(__name__).create_counter("validator.entry_node.text.error")
@@ -55,7 +55,7 @@ GAUGE_TOKENS_PER_SEC = metrics.get_meter(__name__).create_gauge(
 )
 
 async def _stream_results(redis_db: Redis, job_id: str, timeout: float = rcst.RESPONSE_QUEUE_TTL) -> AsyncGenerator[str, None]:
-    response_queue = await rcst.get_response_queue_key(job_id)
+    response_queue = await rutils.get_response_queue_key(job_id)
     received_done = False
     
     try:
@@ -111,11 +111,11 @@ async def make_stream_organic_query(
     payload: dict[str, Any],
     task: str,
 ) -> AsyncGenerator[str, None]:
-    job_id = rcst.generate_job_id()
+    job_id = rutils.generate_job_id()
     organic_message = await _construct_organic_message(payload=payload, job_id=job_id, task=task)
 
     try:
-        await rcst.ensure_queue_clean(redis_db, job_id)
+        await rutils.ensure_queue_clean(redis_db, job_id)
         start = time.time()
         await redis_db.lpush(rcst.QUERY_QUEUE_KEY, organic_message)
         if not await _wait_for_acknowledgement(redis_db, job_id, start):

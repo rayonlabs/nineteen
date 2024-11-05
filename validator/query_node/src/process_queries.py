@@ -1,4 +1,3 @@
-import json
 import time
 from redis.asyncio import Redis
 from core.models.payload_models import ImageResponse
@@ -9,6 +8,7 @@ from validator.utils.generic import generic_utils as gutils
 from validator.utils.contender import contender_utils as putils
 from validator.utils.redis import redis_constants as rcst
 from fiber.logging_utils import get_logger
+import validator.utils.redis.redis_utils as rutils
 from validator.utils.redis import redis_dataclasses as rdc
 from validator.query_node.src.query import nonstream, streaming
 from validator.db.src.sql.contenders import get_contenders_for_task
@@ -37,12 +37,12 @@ async def _decrement_requests_remaining(redis_db: Redis, task: str):
 
 async def _acknowledge_job(redis_db: Redis, job_id: str):
     logger.info(f"Acknowledging job id: {job_id}")
-    response_queue = await rcst.get_response_queue_key(job_id)
+    response_queue = await rutils.get_response_queue_key(job_id)
     
-    #await rcst.ensure_queue_clean(redis_db, job_id)
+    await rutils.ensure_queue_clean(redis_db, job_id)
     
     async with redis_db.pipeline(transaction=True) as pipe:
-        await pipe.rpush(response_queue, "[ACK]")
+        await pipe.rpush(response_queue, rcst.ACK_TOKEN)
         await pipe.expire(response_queue, rcst.RESPONSE_QUEUE_TTL)
         await pipe.execute()
     
@@ -52,7 +52,7 @@ async def _acknowledge_job(redis_db: Redis, job_id: str):
 
 async def _handle_stream_query(config: Config, message: rdc.QueryQueueMessage, contenders_to_query: list[Contender]) -> bool:
     success = False
-    response_queue = await rcst.get_response_queue_key(message.job_id)
+    response_queue = await rutils.get_response_queue_key(message.job_id)
     await config.redis_db.expire(response_queue, rcst.RESPONSE_QUEUE_TTL)
 
     for contender in contenders_to_query:
@@ -99,7 +99,7 @@ async def _handle_stream_query(config: Config, message: rdc.QueryQueueMessage, c
 
 async def _handle_nonstream_query(config: Config, message: rdc.QueryQueueMessage, contenders_to_query: list[Contender]) -> bool:
     success = False
-    response_queue = await rcst.get_response_queue_key(message.job_id)
+    response_queue = await rutils.get_response_queue_key(message.job_id)
     await config.redis_db.expire(response_queue, rcst.RESPONSE_QUEUE_TTL)
 
     errors = []
@@ -144,7 +144,7 @@ async def _handle_nonstream_query(config: Config, message: rdc.QueryQueueMessage
 async def _handle_error(config: Config, synthetic_query: bool, job_id: str, status_code: int, error_message: str) -> None:
     if not synthetic_query:
         logger.debug(f"Handling error for job {job_id}: {error_message} (status: {status_code})")
-        response_queue = await rcst.get_response_queue_key(job_id)
+        response_queue = await rutils.get_response_queue_key(job_id)
         error_event = gutils.get_error_event(job_id=job_id, error_message=error_message, status_code=status_code)
         logger.debug(f"Pushing error event to queue {response_queue}: {error_event}")
         await config.redis_db.rpush(response_queue, error_event)

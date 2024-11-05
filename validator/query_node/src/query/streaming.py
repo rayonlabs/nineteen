@@ -6,12 +6,13 @@ import httpx
 from core.models import utility_models
 from validator.query_node.src.query_config import Config
 from validator.query_node.src import utils
+import validator.utils.redis.redis_utils as rutils
 
 from validator.models import Contender
 from fiber.validator import client
 from fiber.networking.models import NodeWithFernet as Node
 from core import task_config as tcfg
-from validator.utils.generic import generic_constants as gcst, generic_utils
+from validator.utils.generic import generic_constants as gcst
 from validator.utils.redis import redis_constants as rcst
 
 from fiber.logging_utils import get_logger
@@ -43,7 +44,7 @@ async def _handle_event(
     if synthetic_query:
         return
 
-    response_queue = await rcst.get_response_queue_key(job_id)
+    response_queue = await rutils.get_response_queue_key(job_id)
     
     if content is not None:
         if isinstance(content, dict):
