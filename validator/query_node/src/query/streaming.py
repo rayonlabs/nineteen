@@ -117,8 +117,8 @@ async def consume_generator(
         async for text in async_chain(first_chunk, generator):
             time_of_current_chunk = time.time()
             
-            # If this is not the first token, then we'll track
-            # the time elapsed since the last token arrived
+            # If this is not the first chunk, then we'll track
+            # the time elapsed since the last chunk arrived
             if time_of_last_chunk is not None:
                 time_between_chunks.append(time_of_current_chunk - time_of_last_chunk)
 
