@@ -171,7 +171,7 @@ async def get_contenders_for_organic_task(connection: Connection, task: str, top
                 AND c.{dcst.TASK} = s.{dcst.TASK}
             WHERE c.{dcst.TASK} = $1 
             AND c.{dcst.CAPACITY} > 0 
-            AND c.{dcst.REQUESTS_500} < 0.01 * c.{dcst.TOTAL_REQUESTS_MADE}
+            AND c.{dcst.REQUESTS_500} + c.{dcst.REQUESTS_429} < 0.03 * c.{dcst.TOTAL_REQUESTS_MADE}
             AND n.{dcst.SYMMETRIC_KEY_UUID} IS NOT NULL
             ORDER BY c.{dcst.NODE_HOTKEY}, c.{dcst.TASK}, s.{dcst.COLUMN_NORMALISED_NET_SCORE} DESC, s.{dcst.CREATED_AT} DESC
         )
@@ -196,8 +196,8 @@ async def get_contenders_for_organic_task(connection: Connection, task: str, top
             combined_contenders = best_top_x_percent + remaining_top_x_percent
             combined_weights = best_top_x_weights + remaining_top_x_weights
             
-            selected_contenders = random.choices(combined_contenders, weights=combined_weights, k=int(len(combined_contenders)*0.75))
-            selected_contenders = sorted(selected_contenders, key=lambda x: getattr(x, dcst.REQUESTS_429))[:top_x]
+            selected_contenders = random.choices(combined_contenders, weights=combined_weights, k=min(top_x, len(combined_contenders)))
+
             logger.debug(f"Selected contenders for task {task} : {selected_contenders}")
             return selected_contenders
         else:
