@@ -10,7 +10,7 @@ tasks:
 
   show_stats:
     cmds:
-      - docker compose --env-file .vali.env -e LOCALHOST=false --entrypoint "python src/collect_statistics.py" control_node
+      - docker compose --env-file .vali.env -f docker-compose.yml run -e LOCALHOST=false --entrypoint "python src/collect_statistics.py" control_node
 
   control_node_dev:
     cmds:
