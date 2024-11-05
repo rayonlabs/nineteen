@@ -118,7 +118,7 @@ services:
     container_name: 0_postgresql
     image: postgres:latest
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - ./postgres_data:/var/lib/postgresql/data
     healthcheck:
       test: [ "CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}" ]
       interval: 5s
@@ -200,6 +200,3 @@ services:
       - 127.0.0.1:5432:5432
     depends_on:
       - postgresql
-
-volumes:
-  postgres_data:
