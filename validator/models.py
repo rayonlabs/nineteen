@@ -79,7 +79,7 @@ def calculate_period_score(
     # We'll normalize the Smooth Streaming Punishment Factor by using
     # its inverse if it's not already between 0 and 1
     smooth_streaming_punishment_factor = (
-        1 - (1 / smooth_streaming_penalty_per_request) if smooth_streaming_penalty_per_request > 0 and smooth_streaming_penalty_per_request < 1 else smooth_streaming_penalty_per_request 
+        1 - (1 / smooth_streaming_penalty_per_request) if smooth_streaming_penalty_per_request > 1 else smooth_streaming_penalty_per_request 
     )
 
     return max(
