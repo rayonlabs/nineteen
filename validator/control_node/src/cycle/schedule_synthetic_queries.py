@@ -16,8 +16,26 @@ from validator.utils.generic import generic_constants as gcst
 from validator.utils.redis import redis_constants as rcst
 from core import constants as ccst
 from fiber.logging_utils import get_logger
+from opentelemetry import metrics
 
 logger = get_logger(__name__)
+
+GAUGE_REQUESTS_TO_SKIP = metrics.get_meter(__name__).create_gauge(
+    "validator.control_node.synthetic.cycle.requests_to_skip",
+    description="Number of synthetic requests to skip for scheduled task"
+)
+GAUGE_SCHEDULE_REMAINING_REQUESTS = metrics.get_meter(__name__).create_gauge(
+    "validator.control_node.synthetic.cycle.schedule_remaining_requests",
+    description="Number of remaining synthetic requests for scheduled task"
+)
+GAUGE_LATEST_REMAINING_REQUESTS = metrics.get_meter(__name__).create_gauge(
+    "validator.control_node.synthetic.cycle.latest_remaining_requests",
+    description="Number of latest remaining synthetic requests for scheduled task"
+)
+GAUGE_TOTAL_REQUESTS = metrics.get_meter(__name__).create_gauge(
+    "validator.control_node.synthetic.cycle.total_requests",
+    description="Number of total synthetic requests to be scheduled for the task in current cycle"
+)
 
 
 @dataclass
@@ -144,7 +162,9 @@ async def schedule_synthetics_until_done(config: Config):
         if latest_remaining_requests <= 0:
             logger.info(f"No more requests remaining for task {schedule.task}")
             continue
+
         requests_to_skip = schedule.remaining_requests - latest_remaining_requests
+        GAUGE_REQUESTS_TO_SKIP.set(requests_to_skip, {"task": schedule.task})
 
         if requests_to_skip > 0:
             logger.info(f"Skipping {requests_to_skip} requests for task {schedule.task}")
@@ -156,11 +176,16 @@ async def schedule_synthetics_until_done(config: Config):
         else:
             await _schedule_synthetic_query(config.redis_db, schedule.task, max_len=100)
 
+
             remaining_requests = latest_remaining_requests - 1
             await _update_redis_remaining_requests(config.redis_db, schedule.task, remaining_requests)
             schedule.next_schedule_time = time.time() + schedule.interval
             schedule.remaining_requests = remaining_requests
 
+        GAUGE_TOTAL_REQUESTS.set(schedule.total_requests, {"task": schedule.task})
+        GAUGE_SCHEDULE_REMAINING_REQUESTS.set(schedule.remaining_requests, {"task": schedule.task})
+        GAUGE_LATEST_REMAINING_REQUESTS.set(latest_remaining_requests, {"task": schedule.task})
+        
         if schedule.remaining_requests > 0:
             heapq.heappush(task_schedules, schedule)
         else:

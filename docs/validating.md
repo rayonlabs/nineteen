@@ -1,4 +1,4 @@
-# Full instructions for setup - ninteen.ai
+# Full instructions for setup - nineteen.ai
 
 Welcome to SN19 Validating 🔥
 
@@ -14,7 +14,7 @@ See [helpful commands](./helpful-commands.md) for more information on the docker
 
 # Overview
 
-Validating on ninteen is special.
+Validating on nineteen is special.
 
 Not only do you validate miners are behaving, set some weights and get some tao - you also get to sell your access to these miners 🤩
 
