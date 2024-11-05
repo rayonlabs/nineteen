@@ -45,7 +45,7 @@ async def _wait_for_acknowledgement(redis_db: Redis, job_id: str, start: float, 
         end = time.time()
         data = data.decode()
         logger.info(f"Ack for job_id : {job_id}: {data} - ack time : {round(end-start, 3)}s")
-        return data == "[ACK]"
+        return data == rcst.ACK_TOKEN
     except Exception as e:
         COUNTER_IMAGE_ERROR.add(1, {"task": task, "kind": "_wait_for_acknowledgement failed", "status_code": 500})
         logger.error(f"Error waiting for acknowledgment: {e}")
