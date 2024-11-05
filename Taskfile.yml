@@ -1,16 +1,16 @@
 version: "3"
+dotenv:
+  - .env
+  - .vali.env
 
 tasks:
-
-
-
   set_weights:
     cmds:
       -  docker compose --env-file .vali.env -f docker-compose.yml run -e LOCALHOST=false -e JUST_ONCE=true --entrypoint "python src/set_weights/calculate_and_schedule_weights.py" weight_setter
 
   show_stats:
     cmds:
-      - docker compose --env-file .vali.env -f docker-compose.yml run -e LOCALHOST=false --entrypoint "python src/collect_statistics.py" control_node
+      - docker compose --env-file .vali.env -e LOCALHOST=false --entrypoint "python src/collect_statistics.py" control_node
 
   control_node_dev:
     cmds:
@@ -30,7 +30,22 @@ tasks:
 
   dev_setup:
     cmds:
-      - docker compose --env-file .vali.env -f docker-compose.yml -f docker-compose.dev.yml --profile entry_node_profile up -d --build --scale entry_node=0 --scale query_node=0 --scale control_node=0 --scale weight_setter=0
+      # turns off the nodes so you can run them on the host
+      # turns _on_ the proxies and dev tooling so you can access the infrastructure directly from the host
+      - "
+        docker compose 
+          --env-file .vali.env 
+          --profile entry_node_profile 
+          up -d --build 
+          --scale entry_node=0 
+          --scale query_node=0 
+          --scale control_node=0 
+          --scale weight_setter=0 
+          --scale redis-proxy=1
+          --scale adminer=1 
+          --scale postgres-proxy=1
+          --scale redis-commander=1
+      "
       # Now use control_node_dev etc
 
   m1_dev:
@@ -50,3 +65,23 @@ tasks:
   createm:
     cmds:
       - bash start_miners.sh
+
+  startup:
+    cmds:
+      - docker compose --env-file .vali.env --profile entry_node_profile up -d --build
+
+  shutdown:
+    cmds:
+      - docker compose --env-file .vali.env --profile entry_node_profile down --remove-orphans
+
+  shutdown_and_delete:
+    cmds:
+      - docker compose --env-file .vali.env --profile entry_node_profile down --remove-orphans -v
+
+  postgres:
+    cmds:
+      - docker compose --env-file .vali.env --profile entry_node_profile exec -it postgresql psql -U$POSTGRES_USER $POSTGRES_DB
+
+  redis:
+    cmds:
+      - docker compose --env-file .vali.env --profile entry_node_profile exec -it redis redis-cli
