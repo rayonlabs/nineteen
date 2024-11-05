@@ -13,11 +13,11 @@ from validator.entry_node.src.core.dependencies import get_config
 from validator.entry_node.src.core.middleware import verify_api_key_rate_limit
 from validator.utils.redis import redis_constants as rcst
 from validator.utils.generic import generic_constants as gcst
-import validator.utils.redis.redis_utils as rutils
 from validator.entry_node.src.models import request_models
 import time
+import validator.utils.redis.redis_utils as rutils
 from validator.utils.generic.generic_dataclasses import GenericResponse
-import validator.utils.redis.redis_dataclasses as rcls
+
 logger = get_logger(__name__)
 
 
@@ -26,14 +26,15 @@ COUNTER_IMAGE_SUCCESS = metrics.get_meter(__name__).create_counter("validator.en
 
 
 def _construct_organic_message(payload: dict, job_id: str, task: str) -> str:
-    message = rcls.QueryQueueMessage(query_type=gcst.ORGANIC,
-                                     query_payload=payload,
-                                     task=task,
-                                     job_id=job_id)
-    return message.to_json()
+    return json.dumps({
+        "query_type": gcst.ORGANIC,
+        "query_payload": payload,
+        "task": task,
+        "job_id": job_id
+    })
 
 
-async def _wait_for_acknowledgement(redis_db: Redis, job_id: str, start: float, timeout: float = 2) -> bool:
+async def _wait_for_acknowledgement(redis_db: Redis, job_id: str, start: float, task: str, timeout: float = 2) -> bool:
     response_queue = await rutils.get_response_queue_key(job_id)
     try:
         result = await redis_db.blpop(response_queue, timeout=timeout)
@@ -44,13 +45,14 @@ async def _wait_for_acknowledgement(redis_db: Redis, job_id: str, start: float, 
         end = time.time()
         data = data.decode()
         logger.info(f"Ack for job_id : {job_id}: {data} - ack time : {round(end-start, 3)}s")
-        return data == rcst.ACK_TOKEN
+        return data == "[ACK]"
     except Exception as e:
+        COUNTER_IMAGE_ERROR.add(1, {"task": task, "kind": "_wait_for_acknowledgement failed", "status_code": 500})
         logger.error(f"Error waiting for acknowledgment: {e}")
         return False
 
 
-async def _collect_single_result(redis_db: Redis, job_id: str, timeout: float) -> GenericResponse | None:
+async def _collect_single_result(redis_db: Redis, job_id: str, timeout: float, task: str) -> GenericResponse | None:
     response_queue = await rutils.get_response_queue_key(job_id)
     try:
         start_time = time.time()
@@ -68,6 +70,7 @@ async def _collect_single_result(redis_db: Redis, job_id: str, timeout: float) -
                 logger.debug(f"Received content: {content}")
                 
                 if gcst.STATUS_CODE in content and content[gcst.STATUS_CODE] >= 400:
+                    COUNTER_IMAGE_ERROR.add(1, {"task": task, "kind": "_collect_single_result failed", "status_code": content[gcst.STATUS_CODE]})
                     raise HTTPException(
                         status_code=content[gcst.STATUS_CODE],
                         detail=content.get(gcst.ERROR_MESSAGE, "Unknown error")
@@ -88,6 +91,7 @@ async def _collect_single_result(redis_db: Redis, job_id: str, timeout: float) -
                 continue
 
         logger.error(f"Timeout waiting for response in queue {response_queue}")
+        COUNTER_IMAGE_ERROR.add(1, {"task": task, "kind": "redis_acknowledgement_timeout", "status_code": 500})
         raise HTTPException(status_code=500, detail="Request timed out")
             
     finally:
@@ -106,12 +110,12 @@ async def make_non_stream_organic_query(
     await rutils.ensure_queue_clean(redis_db, job_id)    
     await redis_db.lpush(rcst.QUERY_QUEUE_KEY, organic_message)
     start = time.time()
-    if not await _wait_for_acknowledgement(redis_db, job_id, start):
+    if not await _wait_for_acknowledgement(redis_db, job_id, start, task):
         logger.error(f"No acknowledgment received for job {job_id}")
         await rutils.ensure_queue_clean(redis_db, job_id)
         raise HTTPException(status_code=500, detail="Unable to process request")
 
-    return await _collect_single_result(redis_db, job_id, timeout)
+    return await _collect_single_result(redis_db, job_id, timeout, task)
 
 
 async def process_image_request(
