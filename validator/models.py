@@ -72,14 +72,14 @@ def calculate_period_score(
 
     # Since the Smooth Streaming Penalty is the aggregate difference 
     # between the max and min latencies of streaming chunks during all 
-    # the good requests, we need to calculate the average penalty per
-    # good request in order to come up with a punishment factor.
-    smooth_streaming_penalty_per_request = smooth_streaming_penalty / good_requests
+    # the requests, good and bad, we need to calculate the average penalty 
+    # per request in order to come up with a punishment factor.
+    smooth_streaming_penalty_per_request = smooth_streaming_penalty / total_requests_made
 
     # We'll normalize the Smooth Streaming Punishment Factor by using
-    # its inverse if it's not already between 0.0 and 1.0
+    # its inverse if it's not already between 0 and 1
     smooth_streaming_punishment_factor = (
-        1 - (1 / smooth_streaming_penalty_per_request) if smooth_streaming_penalty_per_request > 1.0 and smooth_streaming_penalty_per_request > 0 else smooth_streaming_penalty_per_request 
+        1 - (1 / smooth_streaming_penalty_per_request) if smooth_streaming_penalty_per_request > 0 and smooth_streaming_penalty_per_request < 1 else smooth_streaming_penalty_per_request 
     )
 
     return max(
