@@ -15,7 +15,7 @@ from fiber.logging_utils import get_logger
 logger = get_logger(__name__)
 
 
-# TOOD: Change to mapping
+# TODO: Change to mapping
 async def _store_synthetic_data_in_redis(redis_db: Redis, task: str, synthetic_data: BaseModel) -> None:
     pipe = redis_db.pipeline(transaction=True)
 
