@@ -122,7 +122,7 @@ async def consume_generator(
             if time_of_last_chunk is not None:
                 time_between_chunks.append(time_of_current_chunk - time_of_last_chunk)
 
-            time_of_last_token = time_of_current_chunk
+            time_of_last_chunk = time_of_current_chunk
 
             if isinstance(text, bytes):
                 text = text.decode()
