@@ -1,6 +1,9 @@
-services:
+include:
+  - ./docker-compose.observability.yml
 
+services:
   control_node:
+    container_name: control_node
     build:
       context: .
       dockerfile: dockerfiles/control_node.dockerfile
@@ -9,20 +12,22 @@ services:
         condition: service_completed_successfully
       redis:
         condition: service_started
-    networks:
-      - postgres_network
-      - redis_network
-    entrypoint: [ "python", "-u", "/app/validator/control_node/src/main.py" ]
+    entrypoint: ["opentelemetry-instrument", "--logs_exporter", "otlp", "--traces_exporter", "otlp", "--metrics_exporter", "otlp", "--service_name", "control_node", "python", "-u", "/app/validator/control_node/src/main.py"]
     volumes:
       - ${HOME}/.bittensor/wallets:/root/.bittensor/wallets
     env_file:
       - .vali.env
-    container_name: control_node
+    environment:
+      OTEL_EXPORTER_OTLP_PROTOCOL: "http/protobuf"
+      OTEL_EXPORTER_OTLP_ENDPOINT: "http://otel-collector:4317"
+      OTEL_PYTHON_LOGGING_AUTO_INSTRUMENTATION_ENABLED: "true"
+      OTEL_PYTHON_LOG_CORRELATION: "true"
     deploy:
       restart_policy:
         condition: on-failure
 
   weight_setter:
+    container_name: weight_setter
     build:
       context: .
       dockerfile: dockerfiles/control_node.dockerfile
@@ -31,20 +36,17 @@ services:
         condition: service_completed_successfully
       redis:
         condition: service_started
-    networks:
-      - postgres_network
-      - redis_network
     entrypoint: [ "python", "-u", "/app/validator/control_node/src/set_weights/calculate_and_schedule_weights.py" ]
     volumes:
       - ${HOME}/.bittensor/wallets:/root/.bittensor/wallets
     env_file:
       - .vali.env
-    container_name: weight_setter
     deploy:
       restart_policy:
         condition: on-failure
 
   query_node:
+    container_name: query_node
     build:
       context: .
       dockerfile: dockerfiles/query_node.dockerfile
@@ -59,17 +61,26 @@ services:
     depends_on:
       - redis
       - postgresql
-    networks:
-      - postgres_network
-      - redis_network
     volumes:
       - ${HOME}/.bittensor/wallets:/root/.bittensor/wallets
-    entrypoint: [ "python", "-u", "/app/validator/query_node/src/main.py" ]
-    container_name: query_node
+    entrypoint: ["opentelemetry-instrument", "--logs_exporter", "otlp", "--traces_exporter", "otlp", "--metrics_exporter", "otlp", "--service_name", "query_node", "python", "-u", "/app/validator/query_node/src/main.py"]
+    environment:
+      OTEL_EXPORTER_OTLP_PROTOCOL: "http/protobuf"
+      OTEL_EXPORTER_OTLP_ENDPOINT: "http://otel-collector:4317"
+      OTEL_PYTHON_LOGGING_AUTO_INSTRUMENTATION_ENABLED: "true"
+      OTEL_PYTHON_LOG_CORRELATION: "true"
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_PORT: ${POSTGRES_PORT}
+      POSTGRES_HOST: ${POSTGRES_HOST}
+      ENV: ${ENV}
+      NETUID: ${NETUID}
     env_file:
       - .vali.env
 
   entry_node:
+    container_name: entry_node
     build:
       context: .
       dockerfile: dockerfiles/entry_node.dockerfile
@@ -84,30 +95,35 @@ services:
     depends_on:
       - redis
       - postgresql
-    networks:
-      - postgres_network
-      - redis_network
     ports:
       - "${ORGANIC_SERVER_PORT:-8091}:${ORGANIC_SERVER_PORT:-8091}"
-    entrypoint: [ "python", "-u", "/app/validator/entry_node/src/server.py" ]
-    container_name: entry_node
+    entrypoint: ["opentelemetry-instrument", "--logs_exporter", "otlp", "--traces_exporter", "otlp", "--metrics_exporter", "otlp", "--service_name", "entry_node", "python", "-u", "/app/validator/entry_node/src/server.py"]
+    environment:
+      OTEL_EXPORTER_OTLP_PROTOCOL: "http/protobuf"
+      OTEL_EXPORTER_OTLP_ENDPOINT: "http://otel-collector:4317"
+      OTEL_PYTHON_LOGGING_AUTO_INSTRUMENTATION_ENABLED: "true"
+      OTEL_PYTHON_LOG_CORRELATION: "true"
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_PORT: ${POSTGRES_PORT}
+      POSTGRES_HOST: ${POSTGRES_HOST}
+      ENV: ${ENV}
     env_file:
       - .vali.env
     profiles:
       - entry_node_profile
 
   postgresql:
+    container_name: 0_postgresql
     image: postgres:latest
     volumes:
-      - ./postgres_data:/var/lib/postgresql/data
+      - postgres_data:/var/lib/postgresql/data
     healthcheck:
       test: [ "CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}" ]
       interval: 5s
       timeout: 5s
       retries: 5
-    networks:
-      - postgres_network
-    container_name: 0_postgresql
     environment:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
@@ -116,33 +132,74 @@ services:
       POSTGRES_HOST: ${POSTGRES_HOST}
 
   dbmate:
+    container_name: 0_dbmate_nineteen
     image: amacneil/dbmate
     volumes:
       - ./validator/db:/db
-    command: up
+    command: --wait up
+    environment:
+      DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgresql:5432/${POSTGRES_DB}?sslmode=disable
     depends_on:
       postgresql:
         condition: service_healthy
-    networks:
-      - postgres_network
-    environment:
-      DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgresql:5432/${POSTGRES_DB}?sslmode=disable
-    container_name: 0_dbmate_nineteen
 
   redis:
-    image: redis/redis-stack:latest
-    networks:
-      - redis_network
     container_name: 0_redis
+    image: redis/redis-stack:latest
     deploy:
       restart_policy:
         condition: on-failure
 
-networks:
-  postgres_network:
-    driver: bridge
-  redis_network:
-    driver: bridge
+  # if you want this, scale it to `1`
+  adminer:
+    scale: 0
+    container_name: 0_adminer
+    image: adminer
+    restart: always
+    environment:
+      ADMINER_DEFAULT_SERVER: postgresql
+      ADMINER_DESIGN: nette
+      ADMINER_PLUGINS: tables-filter tinymce
+    ports:
+      - 5051:8080
+    depends_on:
+      postgresql:
+        condition: service_healthy
+
+  # if you want this, scale it to `1`
+  redis-commander:
+    scale: 0
+    container_name: 0_redis_commander
+    image: ghcr.io/joeferner/redis-commander:latest
+    restart: always
+    environment:
+      - REDIS_HOSTS=local:redis:6379
+    ports:
+      - '8081:8081'
+    depends_on:
+      - redis
+
+  # if you want this, scale it to `1`
+  redis-proxy:
+    scale: 0
+    container_name: 0_redis_proxy
+    image: hpello/tcp-proxy
+    command: redis 6379
+    ports:
+      - 127.0.0.1:6379:6379
+    depends_on:
+      - redis
+
+  # if you want this, scale it to `1`
+  postgres-proxy:
+    scale: 0
+    container_name: 0_postgres_proxy
+    image: hpello/tcp-proxy
+    command: postgresql 5432
+    ports:
+      - 127.0.0.1:5432:5432
+    depends_on:
+      - postgresql
 
 volumes:
   postgres_data:
