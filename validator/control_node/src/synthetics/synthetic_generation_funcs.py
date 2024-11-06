@@ -3,6 +3,7 @@ import random
 from time import time
 import sys
 from typing import Any
+import re
 import json
 from nltk.tokenize import sent_tokenize, word_tokenize
 from core.models import utility_models
@@ -87,6 +88,7 @@ async def generate_text(corpus, n_words):
     if merged_text and merged_text[-1] not in possible_endings:
         if random.choice([True, False]):
             merged_text += random.choice(possible_endings)
+    merged_text = re.sub(r'[^\x20-\x7E]', '', merged_text).strip()
     return merged_text
 
 def sampling(size=1, gamma_mean=1000, max_value=8000, gamma_shape=0.5, gaussian_mean=1000, gaussian_weight=0.3, gaussian_std=850):
