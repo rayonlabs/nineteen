@@ -6,7 +6,6 @@ NODES_TABLE = "nodes"
 NODES_HISTORY_TABLE = "nodes_history"
 CONTENDERS_TABLE = "contenders"
 CONTENDERS_HISTORY_TABLE = "contenders_history"
-RANDOM_TEXT_TABLE = "random_text"
 
 CONTENDERS_WEIGHTS_STATS_TABLE = "contenders_weights_stats"
 NODES_WEIGHTS_TABLE = "nodes_weights"
