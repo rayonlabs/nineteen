@@ -401,8 +401,8 @@ async def generate_synthetic_data(task: str) -> Any:
     func = getattr(sys.modules[__name__], generative_function_name)
     kwargs = task_config.synthetic_generation_config.kwargs
 
-    if generative_function_name == "generate_chat_synthetic":
-        kwargs["task_config"] = task_config
+    #if generative_function_name == "generate_chat_synthetic":
+    #    kwargs["task_config"] = task_config
 
 
     return await func(**kwargs)
