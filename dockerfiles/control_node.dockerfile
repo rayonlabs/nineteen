@@ -38,6 +38,8 @@ COPY validator/control_node/src ./src
 COPY validator/control_node/assets ./assets
 COPY validator/control_node/pyproject.toml .
 
+RUN wget https://huggingface.co/datasets/tau-vision/synth-gen/resolve/main/synth_corpus.json -P /app/validator/control_node/assets
+
 ENV PYTHONPATH="${PYTHONPATH}:/app/validator/control_node/src"
 
 
