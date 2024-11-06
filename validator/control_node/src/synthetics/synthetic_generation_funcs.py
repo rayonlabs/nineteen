@@ -97,7 +97,7 @@ def sampling(size=1, gamma_mean=1000, max_value=8000, gamma_shape=0.5, gaussian_
     combined_samples = combined_samples[combined_samples < max_value]
     return combined_samples
 
-async def generate_chat_synthetic(model: str, task_config: Any, word_to_token: float = 3) -> payload_models.ChatPayload:
+async def generate_chat_synthetic(model: str, task_config: Any, word_to_token: float = 4.5) -> payload_models.ChatPayload:
     start = time()
     try:
     
