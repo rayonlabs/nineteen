@@ -97,7 +97,7 @@ def sampling(size=1, gamma_mean=1000, max_value=8000, gamma_shape=0.5, gaussian_
     combined_samples = combined_samples[combined_samples < max_value]
     return combined_samples
 
-async def generate_chat_synthetic(model: str, task_config: Any, word_to_token: float = 4.5) -> payload_models.ChatPayload:
+async def generate_chat_synthetic_new(model: str, task_config: Any, word_to_token: float = 6) -> payload_models.ChatPayload:
     start = time()
     try:
     
@@ -107,7 +107,7 @@ async def generate_chat_synthetic(model: str, task_config: Any, word_to_token: f
         else:
             total_n_words = int(total_n_words[0])
         total_n_words = total_n_words if total_n_words > 0 else 20
-
+        logger.info(f"generating prompt with {total_n_words} words for synth")
         total_messages = random.randint(2, 10)
         n_words_per_message = total_n_words // total_messages
 
@@ -139,30 +139,30 @@ async def generate_chat_synthetic(model: str, task_config: Any, word_to_token: f
         logger.error("Error in new version of generate_chat_synthetic: %s", e)
         logger.error(traceback.format_exc())
         logger.error("Rolling back to the old method")
-        return await generate_chat_synthetic_markov(model)
+        return await generate_chat_synthetic(model)
 
 
-async def generate_chat_synthetic_markov(model: str) -> payload_models.ChatPayload:
-    user_content = await _get_markov_sentence(max_words=140)
+async def generate_chat_synthetic(model: str) -> payload_models.ChatPayload:
+    user_content = await _get_markov_sentence(max_words=2000)
     messages = [utility_models.Message(content=user_content, role=utility_models.Role.user)]
 
     if random.random() < 0.1:
         messages.append(
             utility_models.Message(
-                content=await _get_markov_sentence(max_words=140),
+                content=await _get_markov_sentence(max_words=500),
                 role=utility_models.Role.assistant,
             )
         )
         messages.append(
             utility_models.Message(
-                content=await _get_markov_sentence(max_words=140),
+                content=await _get_markov_sentence(max_words=100),
                 role=utility_models.Role.user,
             )
         )
     return payload_models.ChatPayload(
         messages=messages,
         temperature=round(random.random(), 1),
-        max_tokens=1024,
+        max_tokens=2000,
         seed=random.randint(1, scst.MAX_SEED),
         model=model,
         top_p=1,
