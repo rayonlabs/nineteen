@@ -100,7 +100,7 @@ def sampling(size=1, gamma_mean=1000, max_value=8000, gamma_shape=0.5, gaussian_
 async def generate_chat_synthetic(model: str, task_config: Any) -> payload_models.ChatPayload:
     start = time()
     try:
-        total_n_words = sampling(size=1, max_value=task_config.orchestrator_server_config.load_model_config.max_model_len//2) # we need num words
+        total_n_words = sampling(size=1, max_value=task_config.orchestrator_server_config.load_model_config['max_model_len']//2) # we need num words
         if total_n_words.size == 0:
             total_n_words = 1000 
         else:
