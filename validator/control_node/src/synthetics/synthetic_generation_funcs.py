@@ -100,50 +100,102 @@ def sampling(size=1, gamma_mean=1000, max_value=8000, gamma_shape=0.5, gaussian_
     return combined_samples
 
 async def generate_chat_synthetic(model: str, task_config: Any, word_to_token: float = 10) -> payload_models.ChatPayload:
-    start = time()
+    """Generate synthetic chat conversations that are harder to distinguish from organic queries."""
     try:
-        total_n_words = sampling(size=1, max_value=task_config.orchestrator_server_config.load_model_config['max_model_len']//word_to_token)
-        if total_n_words.size == 0:
-            total_n_words = 1000 
-        else:
-            total_n_words = int(total_n_words[0])
-        total_n_words = total_n_words if total_n_words > 0 else 20
-        logger.info(f"generating prompt with {total_n_words} words for synth")
-        total_messages = random.randint(2, 10)
-        n_words_per_message = total_n_words // total_messages
-
-        messages = [
-            utility_models.Message(content=await generate_text(synth_corpus, n_words_per_message), role=utility_models.Role.system),
-            utility_models.Message(content=await generate_text(synth_corpus, n_words_per_message), role=utility_models.Role.user)
-        ]
-        alternate_roles = [utility_models.Role.assistant, utility_models.Role.user]
-        messages += [
-            utility_models.Message(content=await generate_text(synth_corpus, n_words_per_message), role=alternate_roles[i % 2])
-            for i in range(total_messages - 2)
-        ]
-        if messages[-1].role != utility_models.Role.user:
+        # Get total words but add some noise to make it less predictable
+        base_n_words = int(sampling(
+            size=1, 
+            max_value=task_config.orchestrator_server_config.load_model_config['max_model_len']//word_to_token
+        )[0])
+        noise = random.randint(-100, 100)
+        total_n_words = max(20, min(base_n_words + noise, 8000))
+        
+        # Randomize number of messages - use more variable distribution
+        total_messages = max(2, int(np.random.gamma(2, 2))) # More natural distribution
+        
+        # Variable words per message using random distribution
+        words_per_msg = []
+        remaining_words = total_n_words
+        for i in range(total_messages-1):
+            # Use beta distribution to get variable but natural-looking proportions
+            proportion = np.random.beta(2, 2)
+            words = int(remaining_words * proportion)
+            words_per_msg.append(words)
+            remaining_words -= words
+        words_per_msg.append(remaining_words)
+        
+        # Sometimes skip system message to be more like organic
+        messages = []
+        if random.random() < 0.7:  # 70% chance of system message
             messages.append(utility_models.Message(
-                content=await generate_text(synth_corpus, 10),
+                content=await generate_text(synth_corpus, words_per_msg.pop(0)),
+                role=utility_models.Role.system
+            ))
+            
+        # Start with user message
+        messages.append(utility_models.Message(
+            content=await generate_text(synth_corpus, words_per_msg.pop(0)),
+            role=utility_models.Role.user
+        ))
+        
+        # Add remaining messages with some randomization in role patterns
+        roles = [utility_models.Role.assistant, utility_models.Role.user]
+        
+        # Sometimes add consecutive assistant or user messages to seem more organic
+        for i, words in enumerate(words_per_msg):
+            if random.random() < 0.15:  # 15% chance to repeat same role
+                role = messages[-1].role
+            else:
+                role = roles[i % 2]
+            
+            messages.append(utility_models.Message(
+                content=await generate_text(synth_corpus, words),
+                role=role
+            ))
+            
+        # Ensure ends with user message without being too obvious
+        if messages[-1].role != utility_models.Role.user:
+            extra_words = random.randint(5, 20)  # Variable small length
+            messages.append(utility_models.Message(
+                content=await generate_text(synth_corpus, extra_words),
                 role=utility_models.Role.user
             ))
-        payload = payload_models.ChatPayload(
+
+        # Add some randomization to temperature and max_tokens
+        temp = random.uniform(0.1, 1.0)  # More variable than round(random.random(), 1)
+        max_tokens_base = task_config.orchestrator_server_config.load_model_config['max_model_len'] - total_n_words
+        max_tokens = random.randint(10, max_tokens_base)
+        
+        # Occasionally add some formatting quirks that appear in organic messages
+        messages = _add_organic_quirks(messages)
+            
+        return payload_models.ChatPayload(
             messages=messages,
-            temperature=round(random.random(), 1),
-            max_tokens=random.randint(10, task_config.orchestrator_server_config.load_model_config['max_model_len'] - total_n_words),
+            temperature=temp,
+            max_tokens=max_tokens,
             seed=random.randint(1, scst.MAX_SEED),
             model=model,
-            top_p=1,
+            top_p=random.uniform(0.9, 1.0),  # Add some variation to top_p
         )
-        real_count = sum([len(word_tokenize(msg.content)) for msg in messages])
-        logger.info(f"Generated {total_n_words} words chat synth in {round(time()-start, 3)}s - REAL word count : {real_count}")
-        logger.info(f"prompt : {messages}")
-        return payload
+
     except Exception as e:
-        logger.error("Error in new version of generate_chat_synthetic: %s", e)
+        logger.error(f"Error in generate_chat_synthetic: {e}")
         logger.error(traceback.format_exc())
-        logger.error("Rolling back to the old method")
         return await generate_chat_synthetic_markov(model)
 
+def _add_organic_quirks(messages: list[utility_models.Message]) -> list[utility_models.Message]:
+    """Add random organic-looking quirks to messages."""
+    for msg in messages:
+        if random.random() < 0.1:  # 10% chance per message
+            quirk = random.choice([
+                lambda x: x + " " * random.randint(1, 3),  # Extra spaces
+                lambda x: x.replace(". ", ".\n") if random.random() < 0.3 else x,  # Random newlines
+                lambda x: x + ("?" if x[-1] != "?" else ""),  # Extra question marks
+                lambda x: x.lower() if random.random() < 0.2 else x,  # Sometimes all lowercase
+                # No obvious patterns like templates or fixed structures
+            ])
+            msg.content = quirk(msg.content)
+    return messages
 
 async def generate_chat_synthetic_markov(model: str) -> payload_models.ChatPayload:
     user_content = await _get_markov_sentence(max_words=140)
