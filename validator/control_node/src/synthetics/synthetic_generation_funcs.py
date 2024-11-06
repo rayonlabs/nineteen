@@ -100,7 +100,6 @@ def sampling(size=1, gamma_mean=1000, max_value=8000, gamma_shape=0.5, gaussian_
 async def generate_chat_synthetic(model: str, task_config: Any, word_to_token: float = 10) -> payload_models.ChatPayload:
     start = time()
     try:
-    
         total_n_words = sampling(size=1, max_value=task_config.orchestrator_server_config.load_model_config['max_model_len']//word_to_token)
         if total_n_words.size == 0:
             total_n_words = 1000 
@@ -133,7 +132,9 @@ async def generate_chat_synthetic(model: str, task_config: Any, word_to_token: f
             model=model,
             top_p=1,
         )
-        logger.debug(f"Generated {total_n_words} words chat synth in {round(time()-start, 3)}s")
+        real_count = sum([len(word_tokenize(msg.content)) for msg in messages])
+        logger.info(f"Generated {total_n_words} words chat synth in {round(time()-start, 3)}s - REAL word count : {real_count}")
+        logger.info(f"prompt : {messages}")
         return payload
     except Exception as e:
         logger.error("Error in new version of generate_chat_synthetic: %s", e)
