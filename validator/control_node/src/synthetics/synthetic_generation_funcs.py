@@ -129,7 +129,7 @@ async def generate_chat_synthetic(model: str, task_config: Any, word_to_token: f
         payload = payload_models.ChatPayload(
             messages=messages,
             temperature=round(random.random(), 1),
-            max_tokens=100# random.randint(10, task_config.orchestrator_server_config.load_model_config['max_model_len'] - total_n_words*word_to_token),
+            max_tokens=100,# random.randint(10, task_config.orchestrator_server_config.load_model_config['max_model_len'] - total_n_words*word_to_token),
             seed=random.randint(1, scst.MAX_SEED),
             model=model,
             top_p=1,
