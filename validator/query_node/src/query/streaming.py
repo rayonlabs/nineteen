@@ -33,6 +33,70 @@ def _get_formatted_payload(content: str, first_message: bool, add_finish_reason:
     }
     return json.dumps(payload)
 
+async def async_chain(first_chunk, async_gen):
+    yield first_chunk  # manually yield the first chunk
+    async for item in async_gen:
+        yield item  # then yield from the original generator
+
+def construct_500_query_result(node: Node, task: str) -> utility_models.QueryResult:
+    query_result = utility_models.QueryResult(
+        node_id=node.node_id,
+        task=task,
+        success=False,
+        node_hotkey=node.hotkey,
+        formatted_response=None,
+        status_code=500,
+        response_time=None,
+    )
+    return query_result
+
+
+from collections import deque
+from contextlib import asynccontextmanager
+
+class StreamBuffer:
+    def __init__(self, redis_client, max_size=50, flush_interval=0.1):
+        self.redis = redis_client
+        self.buffer = deque(maxlen=max_size)
+        self.max_size = max_size
+        self.flush_interval = flush_interval
+        self.last_flush = time.time()
+        self._pipeline = None
+        
+    @asynccontextmanager
+    async def pipeline(self):
+        if self._pipeline is None:
+            self._pipeline = self.redis.pipeline()
+        try:
+            yield self._pipeline
+        finally:
+            self._pipeline = None
+
+    async def add(self, queue_key: str, data: str, ttl: int):
+        now = time.time()
+        should_flush = (
+            len(self.buffer) >= self.max_size or 
+            (now - self.last_flush) >= self.flush_interval
+        )
+        
+        self.buffer.append((queue_key, data, ttl))
+        
+        if should_flush:
+            await self.flush()
+    
+    async def flush(self):
+        if not self.buffer:
+            return
+            
+        async with self.pipeline() as pipe:
+            while self.buffer:
+                queue_key, data, ttl = self.buffer.popleft()
+                pipe.rpush(queue_key, data)
+                pipe.expire(queue_key, ttl)
+            await pipe.execute()
+            
+        self.last_flush = time.time()
+
 async def _handle_event(
     config: Config,
     content: str | None,
@@ -60,28 +124,11 @@ async def _handle_event(
             gcst.STATUS_CODE: status_code
         })
     
-    # Use pipeline for atomic operations
-    async with config.redis_db.pipeline() as pipe:
-        await pipe.rpush(response_queue, event_data)
-        await pipe.expire(response_queue, ttl)
-        await pipe.execute()
-        
-async def async_chain(first_chunk, async_gen):
-    yield first_chunk  # manually yield the first chunk
-    async for item in async_gen:
-        yield item  # then yield from the original generator
-
-def construct_500_query_result(node: Node, task: str) -> utility_models.QueryResult:
-    query_result = utility_models.QueryResult(
-        node_id=node.node_id,
-        task=task,
-        success=False,
-        node_hotkey=node.hotkey,
-        formatted_response=None,
-        status_code=500,
-        response_time=None,
-    )
-    return query_result
+    # Get or create buffer from config
+    if not hasattr(config, 'stream_buffer'):
+        config.stream_buffer = StreamBuffer(config.redis_db)
+    
+    await config.stream_buffer.add(response_queue, event_data, ttl)
 
 async def consume_generator(
     config: Config,
@@ -97,19 +144,20 @@ async def consume_generator(
     assert job_id
     task = contender.task
     query_result = None
+    response_queue = await rutils.get_response_queue_key(job_id)
 
     try:
         first_chunk = await generator.__anext__()
     except (StopAsyncIteration, httpx.ConnectError, httpx.ReadError, httpx.HTTPError, httpx.ReadTimeout, Exception) as e:
         error_type = type(e).__name__
         error_details = str(e)
-
         logger.error(f"Error when querying node: {node.node_id} for task: {task}. Error: {error_type} - {error_details}")
         query_result = construct_500_query_result(node, task)
         await utils.adjust_contender_from_result(config, query_result, contender, synthetic_query, payload=payload)
         return False
 
     text_jsons, status_code, first_message = [], 200, True
+    
     try:
         async for text in async_chain(first_chunk, generator):
             if isinstance(text, bytes):
@@ -118,7 +166,7 @@ async def consume_generator(
                 try:
                     loaded_jsons = load_sse_jsons(text)
                     if isinstance(loaded_jsons, dict):
-                        status_code = loaded_jsons.get(gcst.STATUS_CODE)  # noqa
+                        status_code = loaded_jsons.get(gcst.STATUS_CODE)
                         break
 
                 except (IndexError, json.JSONDecodeError) as e:
@@ -128,18 +176,19 @@ async def consume_generator(
                 for text_json in loaded_jsons:
                     if not isinstance(text_json, dict):
                         logger.debug(f"Invalid text_json because its not a dict?: {text_json}")
-                        first_message = True  # NOTE: Janky, but so we mark it as a fail
+                        first_message = True
                         break
                     try:
                         _ = text_json["choices"][0]["delta"]["content"]
                     except KeyError:
                         logger.debug(f"Invalid text_json because there's not delta content: {text_json}")
-                        first_message = True  # NOTE: Janky, but so we mark it as a fail
+                        first_message = True
                         break
 
                     text_jsons.append(text_json)
                     dumped_payload = json.dumps(text_json)
                     first_message = False
+                    
                     s = time.time()
                     await _handle_event(
                         config,
@@ -151,29 +200,37 @@ async def consume_generator(
                     e = time.time()
                     logger.info(f"time to send chunk : {round(e-s, 4)}")
 
+        # Ensure any buffered chunks are flushed
+        if hasattr(config, 'stream_buffer'):
+            await config.stream_buffer.flush()
+
         if len(text_jsons) > 0:
+            # Handle final messages
             last_payload = _get_formatted_payload("", False, add_finish_reason=True)
             s = time.time()
             await _handle_event(
-                config, 
-                content=f"data: {last_payload}\n\n", 
-                synthetic_query=synthetic_query, 
-                job_id=job_id, 
+                config,
+                content=f"data: {last_payload}\n\n",
+                synthetic_query=synthetic_query,
+                job_id=job_id,
                 status_code=200
             )
-            e = time.time()
-            logger.info(f"time to send last chunk : {round(e-s, 4)}")
-            s = time.time()
+            
             await _handle_event(
-                config, 
-                content="data: [DONE]\n\n", 
-                synthetic_query=synthetic_query, 
-                job_id=job_id, 
+                config,
+                content="data: [DONE]\n\n",
+                synthetic_query=synthetic_query,
+                job_id=job_id,
                 status_code=200,
                 ttl=1
             )
+            
+            # Final flush to ensure everything is sent
+            if hasattr(config, 'stream_buffer'):
+                await config.stream_buffer.flush()
+                
             e = time.time()
-            logger.info(f"time to send DONE : {round(e-s, 4)}")
+            logger.info(f"time to send final messages: {round(e-s, 4)}")
             logger.info(f" 👀  Queried node: {node.node_id} for task: {task}. Success: {not first_message}.")
 
         response_time = time.time() - start_time
@@ -199,6 +256,7 @@ async def consume_generator(
     logger.debug(f"Success: {success}; Node: {node.node_id}; Task: {task}; response_time: {response_time}; first_message: {first_message}; character_count: {character_count}")
     logger.info(f"Success: {success}")
     return success
+
 
 async def query_node_stream(config: Config, contender: Contender, node: Node, payload: dict):
     address = client.construct_server_address(

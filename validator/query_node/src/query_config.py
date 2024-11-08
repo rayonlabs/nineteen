@@ -4,6 +4,7 @@ import httpx
 from fiber.logging_utils import get_logger
 from validator.db.src.database import PSQLDB
 from redis.asyncio import Redis
+from typing import Any
 
 logger = get_logger(__name__)
 
@@ -18,3 +19,4 @@ class Config:
     httpx_client: httpx.AsyncClient = httpx.AsyncClient()
     replace_with_localhost: bool = False
     replace_with_docker_localhost: bool = True
+    stream_buffer: Any = None
