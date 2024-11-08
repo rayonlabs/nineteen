@@ -63,7 +63,7 @@ def create_redis_pool(host: str) -> BlockingConnectionPool:
         timeout=20 
     )
 
-async def load_config() -> Config:
+async def load_config_once() -> Config:
     wallet_name = os.getenv("WALLET_NAME", "default")
     hotkey_name = os.getenv("HOTKEY_NAME", "default")
 
@@ -102,6 +102,14 @@ async def load_config() -> Config:
         replace_with_localhost=localhost,
         keypair=keypair,
     )
+
+_config = None
+
+async def load_config():
+    global _config
+    if not _config:
+        _config = await load_config_once()
+    return _config
 
 async def _handle_no_stream(text_generator: AsyncGenerator[str, None]) -> JSONResponse:
     """Handle non-streaming response by accumulating content."""
@@ -170,7 +178,6 @@ async def chat(
 ) -> StreamingResponse | JSONResponse:
     """Handle chat completion requests."""
     payload = request_models.chat_to_payload(chat_request)
-    payload.temperature = 0.5
     job_id = rutils.generate_job_id()
     start_time = time.time()
 

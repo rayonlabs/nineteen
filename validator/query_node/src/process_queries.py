@@ -35,10 +35,6 @@ async def _decrement_requests_remaining(redis_db: Redis, task: str):
     key = f"task_synthetics_info:{task}:requests_remaining"
     await redis_db.decr(key)
 
-async def _handle_synthetic_error(config: Config, job_id: str, status_code: int, error_message: str) -> None:
-    """Handle errors for synthetic queries by pushing to Redis."""
-    logger.error(f"Error processing synthetic message - {status_code} - {error_message}")
-
 async def _get_contenders(config: Config, task: str, query_type: str) -> list[Contender]:
     """Get list of contenders for task."""
     try:
@@ -93,12 +89,7 @@ async def _handle_stream_synthetic(
             return True
             
     error_msg = f"Service for task {message.task} is not responding, please try again"
-    await _handle_synthetic_error(
-        config=config,
-        job_id=message.job_id, 
-        status_code=500,
-        error_message=error_msg
-    )
+    logger.error(error_msg)
     return False
 
 async def _handle_stream_organic(
@@ -170,12 +161,7 @@ async def _handle_nonstream_query(
         
     error_msg = f"Service for task {message.task} is not responding after trying {len(contenders)} contenders"
     if message.query_type == gcst.SYNTHETIC:
-        await _handle_synthetic_error(
-            config=config,
-            job_id=message.job_id,
-            status_code=500,
-            error_message=error_msg,
-        )
+        logger.error(error_msg)
         return False
     else:
         raise HTTPException(status_code=500, detail=error_msg)
@@ -192,7 +178,6 @@ async def process_synthetic_task(config: Config, message: rdc.QueryQueueMessage)
         if not task_config:
             error_msg = f"Can't find the task {task}, please try again later"
             logger.error(f"Can't find the task {task} in the query node!")
-            await _handle_synthetic_error(config, message.job_id, 500, error_msg)
             COUNTER_FAILED_QUERIES.add(1, {
                 "task": task,
                 "synthetic_query": "true"
@@ -213,12 +198,6 @@ async def process_synthetic_task(config: Config, message: rdc.QueryQueueMessage)
 
     except Exception as e:
         logger.error(f"Error processing synthetic task {task}: {e}")
-        await _handle_synthetic_error(
-            config=config,
-            job_id=message.job_id,
-            status_code=500,
-            error_message=f"Error processing task {task}: {e}",
-        )
         COUNTER_FAILED_QUERIES.add(1, {
             "task": task,
             "synthetic_query": "true"
