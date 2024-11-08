@@ -283,11 +283,7 @@ def run_api_server():
 
 async def main() -> None:
     """Main entry point."""
-    config = await load_config()
-    app.state.config = config
-    logger.debug(f"config: {config}")
-    port = int(os.getenv("API_PORT", "6919"))
-    uvicorn.run(app, host="0.0.0.0", port=port, log_level="info")
+    pass
     #task_processor = SyntheticTaskProcessor(config)
     
     #import multiprocessing
@@ -310,7 +306,8 @@ def signal_handler(signum, frame):
 if __name__ == "__main__":
     signal.signal(signal.SIGINT, signal_handler)
     signal.signal(signal.SIGTERM, signal_handler)
-    
+    port = int(os.getenv("API_PORT", "6919"))
+    uvicorn.run(app, host="0.0.0.0", port=port, log_level="info")
     try:
         asyncio.run(main())
     except KeyboardInterrupt:
