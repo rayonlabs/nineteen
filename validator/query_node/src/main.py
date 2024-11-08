@@ -209,7 +209,7 @@ async def _process_stream(
 async def get_config() -> Config:
     return app.state.config
 
-@app.post("/v1/chat/completions")
+@app.post("/v1/chat/completions", response_model=None)
 async def chat(
     chat_request: request_models.ChatRequest,
     config: Config = Depends(get_config),
