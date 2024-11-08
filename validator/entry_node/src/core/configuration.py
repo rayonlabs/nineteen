@@ -3,8 +3,7 @@ from dotenv import load_dotenv
 from typing import TypeVar
 import httpx
 from pydantic import BaseModel
-from redis.asyncio import Redis
-from redis.asyncio.connection import ConnectionPool
+from redis.asyncio import Redis, BlockingConnectionPool
 from aiocache import cached
 from validator.db.src.database import PSQLDB
 
@@ -22,6 +21,12 @@ class Config:
     prod: bool
     httpx_client: httpx.AsyncClient
 
+def create_redis_pool(host: str) -> BlockingConnectionPool:
+    return BlockingConnectionPool(
+        host=host,
+        max_connections=300
+    )
+
 async def create_config() -> Config:
     localhost = bool(os.getenv("LOCALHOST", "false").lower() == "true")
     if localhost:
@@ -33,7 +38,7 @@ async def create_config() -> Config:
     psql_db = PSQLDB()
     await psql_db.connect()
 
-    redis_db = Redis(host=redis_host)
+    redis_db = Redis(connection_pool=create_redis_pool(redis_host))
 
     prod = bool(os.getenv("ENV", "prod").lower() == "prod")
 
