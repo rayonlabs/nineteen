@@ -132,6 +132,9 @@ services:
       POSTGRES_DB: ${POSTGRES_DB}
       POSTGRES_PORT: ${POSTGRES_PORT}
       POSTGRES_HOST: ${POSTGRES_HOST}
+      POSTGRES_MAX_CONNECTIONS: 500
+    command: ["postgres", "-c", "max_connections=500"]
+
 
   dbmate:
     container_name: 0_dbmate_nineteen
