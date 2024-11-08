@@ -19,4 +19,3 @@ class Config:
     httpx_client: httpx.AsyncClient = httpx.AsyncClient()
     replace_with_localhost: bool = False
     replace_with_docker_localhost: bool = True
-    stream_buffer: Any = None
