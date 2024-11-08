@@ -1,8 +1,7 @@
 from dotenv import load_dotenv
 import os
-
-load_dotenv(os.getenv("ENV_FILE", ".vali.env"))
-
+import sys
+import signal
 import asyncio
 from redis.asyncio import Redis, BlockingConnectionPool
 from fastapi import FastAPI, Depends, HTTPException
@@ -17,7 +16,7 @@ import json
 from validator.utils.generic import generic_constants as gcst
 from validator.query_node.src.query_config import Config
 from validator.utils.redis import redis_constants as rcst, redis_dataclasses as rdc
-from validator.query_node.src.process_queries import process_task
+from validator.query_node.src.process_queries import process_task, process_organic_task
 from validator.db.src.sql.nodes import get_vali_ss58_address
 from validator.db.src.database import PSQLDB
 from fiber.chain import chain_utils
@@ -92,7 +91,6 @@ async def load_config() -> Config:
         await asyncio.sleep(0.1)
 
     keypair = chain_utils.load_hotkey_keypair(wallet_name=wallet_name, hotkey_name=hotkey_name)
-
     redis_pool = create_redis_pool(redis_host)
 
     return Config(
@@ -106,30 +104,24 @@ async def load_config() -> Config:
     )
 
 async def _handle_no_stream(text_generator: AsyncGenerator[str, None]) -> JSONResponse:
+    """Handle non-streaming response by accumulating content."""
     all_content = ""
     try:
         async for chunk in text_generator:
-            logger.debug(f"Received chunk: {chunk}")
-            
             try:
                 chunks = load_sse_jsons(chunk)
-            except json.JSONDecodeError as e:
-                logger.error(f"Failed to decode chunk: {e}")
-                raise HTTPException(status_code=500, detail="Invalid response format")
+                if not isinstance(chunks, list):
+                    raise HTTPException(status_code=500, detail="Invalid response format")
 
-            if not isinstance(chunks, list):
-                logger.error(f"Unexpected chunk format: {chunks}")
-                raise HTTPException(status_code=500, detail="Invalid response format")
-
-            for chunk in chunks:
-                try:
+                for chunk in chunks:
                     content = chunk["choices"][0]["delta"]["content"]
                     all_content += content
                     if content == "":
                         break
-                except (KeyError, IndexError) as e:
-                    logger.error(f"Malformed chunk structure: {e}")
-                    raise HTTPException(status_code=500, detail="Invalid response structure")
+
+            except (json.JSONDecodeError, KeyError, IndexError) as e:
+                logger.error(f"Error processing chunk: {e}")
+                raise HTTPException(status_code=500, detail="Invalid response format")
 
         return JSONResponse({
             "choices": [{
@@ -142,25 +134,21 @@ async def _handle_no_stream(text_generator: AsyncGenerator[str, None]) -> JSONRe
         logger.error(f"Unexpected error in non-streaming response: {str(e)}")
         raise HTTPException(status_code=500, detail="Failed to process response")
 
-async def _process_stream(
+async def process_organic_stream(
     config: Config,
     message: rdc.QueryQueueMessage,
     start_time: float
 ) -> AsyncGenerator[str, None]:
+    """Process organic stream request and track metrics."""
     try:
-        result = await process_task(config, message)
-        
-        if isinstance(result, bool):
-            raise HTTPException(status_code=500, detail="Failed to process request")
-            
         num_tokens = 0
-        async for chunk in result:
+        async for chunk in await process_organic_task(config, message):
             num_tokens += 1
             yield chunk
 
         COUNTER_TEXT_GENERATION_SUCCESS.add(1, {"task": message.task})
-        completion_time = time.time() - start_time
         if num_tokens > 0:
+            completion_time = time.time() - start_time
             GAUGE_TOKENS_PER_SEC.set(num_tokens / completion_time)
 
     except Exception as e:
@@ -172,6 +160,7 @@ async def _process_stream(
         raise
 
 async def get_config() -> Config:
+    """FastAPI dependency to get config."""
     return app.state.config
 
 @app.post("/v1/chat/completions", response_model=None)
@@ -179,6 +168,7 @@ async def chat(
     chat_request: request_models.ChatRequest,
     config: Config = Depends(get_config),
 ) -> StreamingResponse | JSONResponse:
+    """Handle chat completion requests."""
     payload = request_models.chat_to_payload(chat_request)
     payload.temperature = 0.5
     job_id = rutils.generate_job_id()
@@ -192,7 +182,7 @@ async def chat(
             query_payload=payload.model_dump()
         )
 
-        text_generator = _process_stream(config, message, start_time)
+        text_generator = process_organic_stream(config, message, start_time)
 
         if chat_request.stream:
             return StreamingResponse(text_generator, media_type="text/event-stream")
@@ -206,6 +196,8 @@ async def chat(
         raise HTTPException(status_code=500, detail="An unexpected error occurred")
 
 class SyntheticTaskProcessor:
+    """Process synthetic tasks from Redis queue."""
+    
     def __init__(self, config: Config):
         self.config = config
         self.tasks: set[asyncio.Task] = set()
@@ -213,6 +205,7 @@ class SyntheticTaskProcessor:
         self.running = True
         
     async def process_synthetic_message(self, message_data: bytes):
+        """Process single synthetic message."""
         try:
             message = rdc.QueryQueueMessage(**json.loads(message_data))
             if message.query_type != gcst.SYNTHETIC:
@@ -220,8 +213,8 @@ class SyntheticTaskProcessor:
                 return
                 
             logger.info(f"Processing synthetic query for task: {message.task}")
-            result = await process_task(self.config, message)
-            if not isinstance(result, bool) or not result:
+            success = await process_task(self.config, message)
+            if not success:
                 logger.warning(f"Failed to process synthetic task: {message.task}")
                 
         except Exception as e:
@@ -231,6 +224,7 @@ class SyntheticTaskProcessor:
             })
 
     async def cleanup_done_tasks(self):
+        """Cleanup completed tasks."""
         done = {t for t in self.tasks if t.done()}
         for task in done:
             try:
@@ -241,6 +235,7 @@ class SyntheticTaskProcessor:
                 self.tasks.remove(task)
 
     async def listen(self):
+        """Listen for synthetic tasks on Redis queue."""
         logger.info("Starting synthetic query listener")
         
         while self.running:
@@ -268,17 +263,24 @@ class SyntheticTaskProcessor:
                 await asyncio.sleep(1)
 
     async def stop(self):
+        """Stop processing and cleanup."""
         self.running = False
         if self.tasks:
             await asyncio.gather(*self.tasks, return_exceptions=True)
 
 def run_api_server():
-    config = asyncio.run(load_config())
-    app.state.config = config
-    port = int(os.getenv("API_PORT", "6919"))
-    uvicorn.run(app, host="0.0.0.0", port=port, log_level="info")
+    """Run FastAPI server."""
+    try:
+        config = asyncio.run(load_config())
+        app.state.config = config
+        port = int(os.getenv("API_PORT", "6919"))
+        uvicorn.run(app, host="0.0.0.0", port=port, log_level="info")
+    except Exception as e:
+        logger.error(f"Error starting API server: {e}")
+        sys.exit(1)
 
 async def main() -> None:
+    """Main entry point."""
     config = await load_config()
     logger.debug(f"config: {config}")
 
@@ -296,8 +298,15 @@ async def main() -> None:
         await task_processor.stop()
         api_process.terminate()
 
+def signal_handler(signum, frame):
+    """Handle shutdown signals."""
+    logger.info(f"Received signal {signum}")
+    sys.exit(0)
 
 if __name__ == "__main__":
+    signal.signal(signal.SIGINT, signal_handler)
+    signal.signal(signal.SIGTERM, signal_handler)
+    
     try:
         asyncio.run(main())
     except KeyboardInterrupt:
