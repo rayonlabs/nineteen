@@ -21,7 +21,7 @@ from validator.db.src.sql.nodes import get_vali_ss58_address
 from validator.db.src.database import PSQLDB
 from fiber.chain import chain_utils
 from opentelemetry import metrics
-from validator.query_node.src import request_models, middleware
+from validator.query_node.src import request_models
 from validator.utils.query.query_utils import load_sse_jsons
 import validator.utils.redis.redis_utils as rutils
 
@@ -165,7 +165,7 @@ async def process_organic_stream(
         })
         raise
 
-@app.post("/v1/chat/completions", response_model=None, dependencies=[Depends(middleware.verify_api_key_rate_limit)])
+@app.post("/v1/chat/completions", response_model=None)
 async def chat(
     chat_request: request_models.ChatRequest,
     config: Config = Depends(load_config),
