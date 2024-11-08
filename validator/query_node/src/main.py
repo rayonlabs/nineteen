@@ -84,7 +84,7 @@ async def load_config() -> Config:
         keypair=keypair,
     )
 
-
+import time
 async def listen_for_tasks(config: Config):
     tasks: set[asyncio.Task] = set()
 
@@ -97,8 +97,10 @@ async def listen_for_tasks(config: Config):
 
         QUERY_NODE_REQUESTS_PROCESSING_GAUGE.set(len(tasks))
         while len(tasks) < MAX_CONCURRENT_TASKS:
+            start = time.time()
             message_json = await config.redis_db.blpop(rcst.QUERY_QUEUE_KEY, timeout=0.1)  # type: ignore
-
+            end = time.time()
+            logger.info(f"1 - time to blpop task : {round(end-start, 4)}")
             if not message_json:
                 # QUERY_NODE_FAILED_POPS_COUNTER.add(1)
                 break

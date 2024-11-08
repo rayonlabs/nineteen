@@ -52,7 +52,7 @@ async def _handle_stream_query(config: Config, message: rdc.QueryQueueMessage, c
     success = False
     response_queue = await rutils.get_response_queue_key(message.job_id)
     await config.redis_db.expire(response_queue, rcst.RESPONSE_QUEUE_TTL)
-
+    start = time.time()
     for contender in contenders_to_query:
         node = await get_node(config.psql_db, contender.node_id, config.netuid)
         if node is None:
@@ -79,12 +79,16 @@ async def _handle_stream_query(config: Config, message: rdc.QueryQueueMessage, c
             start_time=start_time,
         )
         if success:
+            end = time.time()
+            logger.info(f"1 - time to get success from a contender : {round(end-start, 4)}")
             break
 
     if not success:
         logger.error(
             f"All Contenders {[contender.node_id for contender in contenders_to_query]} for task {message.task} failed to respond! :("
         )
+        end = time.time()
+        logger.info(f"1 - time to fail by all contenders : {round(end-start, 4)}")
         await _handle_error(
             config=config,
             synthetic_query=message.query_type == gcst.SYNTHETIC,
@@ -152,7 +156,10 @@ async def process_task(config: Config, message: rdc.QueryQueueMessage):
 
     if message.query_type == gcst.ORGANIC:
         logger.debug(f"Acknowledging job id : {message.job_id}")
+        start = time.time()
         await _acknowledge_job(config.redis_db, message.job_id)
+        end = time.time()
+        logger.info(f"1 - time to ack task : {round(end-start, 4)}")
         logger.debug(f"Successfully acknowledged job id : {message.job_id} ✅")
         await _decrement_requests_remaining(config.redis_db, task)
     else:
@@ -178,8 +185,11 @@ async def process_task(config: Config, message: rdc.QueryQueueMessage):
 
     stream = task_config.is_stream
 
+    start = time.time()
     async with await config.psql_db.connection() as connection:
         contenders_to_query = await get_contenders_for_task(connection, task, 5, message.query_type)
+    end = time.time()
+    logger.info(f"1 - time to get contenders : {round(end-start, 4)}")
 
     if contenders_to_query is None:
         raise ValueError("No contenders to query! :(")
