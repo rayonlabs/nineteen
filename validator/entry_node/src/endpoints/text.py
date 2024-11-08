@@ -62,7 +62,7 @@ async def _stream_results(redis_db: Redis, job_id: str, task: str, start_time: f
     try:
         num_tokens = 0
         while True:
-            result = await redis_db.blpop(response_queue, timeout=timeout)
+            result = await redis_db.blpop(response_queue, timeout=2)
             if result is None:
                 logger.error(f"Timeout waiting for response in queue {response_queue}")
                 raise HTTPException(status_code=500, detail="Request timed out")
