@@ -33,10 +33,14 @@ async def _decrement_requests_remaining(redis_db: Redis, task: str):
     key = f"task_synthetics_info:{task}:requests_remaining"
     await redis_db.decr(key)
 
+import asyncio
+lock = asyncio.Lock()
+
 async def _get_contenders(connection: Connection, task: str, query_type: str) -> list[Contender]:
     """Get list of contenders for task."""
     try:
-        contenders = await get_contenders_for_task(connection, task, 5, query_type)
+        async with lock:
+            contenders = await get_contenders_for_task(connection, task, 5, query_type)
         return contenders
     except Exception as e:
         logger.error(f"Error getting contenders: {e}")
