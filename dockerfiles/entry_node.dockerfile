@@ -33,6 +33,7 @@ COPY core /app/core
 COPY validator/utils /app/validator/utils
 COPY validator/models.py /app/validator/models.py
 COPY validator/db /app/validator/db
+COPY validator/entry_node /app/validator/entry_node
 
 COPY validator/entry_node/src ./src
 COPY validator/entry_node/pyproject.toml .
