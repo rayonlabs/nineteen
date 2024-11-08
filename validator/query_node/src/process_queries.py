@@ -41,11 +41,18 @@ async def _handle_synthetic_error(config: Config, job_id: str, status_code: int,
 
 async def _get_contenders(config: Config, task: str, query_type: str) -> list[Contender]:
     """Get list of contenders for task."""
-    async with await config.psql_db.connection() as connection:
-        contenders = await get_contenders_for_task(connection, task, 5, query_type)
-        if not contenders:
-            raise ValueError("No contenders available to query")
-        return contenders
+    try:
+        connection = await config.psql_db.pool.acquire()
+        try:
+            contenders = await get_contenders_for_task(connection, task, 5, query_type)
+            if not contenders:
+                raise ValueError("No contenders available to query")
+            return contenders
+        finally:
+            await config.psql_db.pool.release(connection)
+    except Exception as e:
+        logger.error(f"Error getting contenders: {e}")
+        raise
 
 async def _handle_stream_synthetic(
     config: Config, 

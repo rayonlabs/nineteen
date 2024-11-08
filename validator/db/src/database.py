@@ -19,16 +19,32 @@ class PSQLDB:
             raise ValueError("Either from_env must be True or connection_string must be set")
         self.connection_string: str = connection_string
         self.pool: Pool | None = None
+        # Add default pool settings
+        self.pool_min_size = 20
+        self.pool_max_size = 100
+        self.pool_max_inactive_connection_lifetime = 300.0  # 5 minutes
+        self.pool_timeout = 30.0  # 30 seconds
 
     async def connect(self) -> None:
         logger.debug(f"Connecting to {self.connection_string}....")
         if self.pool is None:
             try:
-                self.pool = await asyncpg.create_pool(self.connection_string, min_size=16, max_size=32)
+                self.pool = await asyncpg.create_pool(
+                    self.connection_string,
+                    min_size=self.pool_min_size,
+                    max_size=self.pool_max_size,
+                    max_inactive_connection_lifetime=self.pool_max_inactive_connection_lifetime,
+                    timeout=self.pool_timeout,
+                    command_timeout=10.0,
+                    server_settings={
+                        'statement_timeout': '30000',  # 30 seconds
+                        'idle_in_transaction_session_timeout': '30000'  # 30 seconds
+                    }
+                )
                 if self.pool is None:
                     raise ConnectionError("Failed to create connection pool")
                 else:
-                    logger.debug("Connection pool created successfully")
+                    logger.debug(f"Connection pool created successfully with {self.pool_min_size}-{self.pool_max_size} connections")
             except asyncpg.exceptions.PostgresError as e:
                 raise ConnectionError(f"PostgreSQL error: {str(e)}") from e
             except socket.gaierror as e:
@@ -38,7 +54,26 @@ class PSQLDB:
             except Exception as e:
                 raise ConnectionError(f"Unexpected error while connecting: {str(e)}") from e
 
+    async def acquire(self) -> asyncpg.Connection:
+        """Explicitly acquire a connection from the pool."""
+        if not self.pool:
+            raise RuntimeError("Database connection not established. Call connect() first.")
+        return await self.pool.acquire()
+
+    async def release(self, connection: asyncpg.Connection) -> None:
+        """Explicitly release a connection back to the pool."""
+        if not self.pool:
+            raise RuntimeError("Database connection not established. Call connect() first.")
+        await self.pool.release(connection)
+
+    async def connection(self) -> asyncpg.pool.PoolAcquireContext:
+        """Get a connection context manager."""
+        if not self.pool:
+            raise RuntimeError("Database connection not established. Call connect() first.")
+        return self.pool.acquire()
+
     async def close(self) -> None:
+        """Close all pool connections."""
         if self.pool:
             await self.pool.close()
 
@@ -49,40 +84,9 @@ class PSQLDB:
             try:
                 rows = await connection.fetch(query, *args)
                 return [dict(row) for row in rows]
-
             except asyncpg.exceptions.PostgresError as e:
                 logger.error(f"PostgreSQL error in fetch_all: {str(e)}")
                 logger.error(f"Query: {query}")
-                raise
-
-    async def connection(self) -> asyncpg.pool.PoolAcquireContext:
-        if not self.pool:
-            raise RuntimeError("Database connection not established. Call connect() first.")
-        return self.pool.acquire()
-
-    async def truncate_all_tables(self) -> None:
-        if not self.pool:
-            raise RuntimeError("Database connection not established. Call connect() first.")
-
-        async with self.pool.acquire() as connection:
-            try:
-                # Get all table names in the current schema
-                tables = await connection.fetch(
-                    """
-                    SELECT tablename FROM pg_tables
-                    WHERE schemaname = 'public'
-                    """
-                )
-
-                # Disable triggers and truncate each table
-                await connection.execute("SET session_replication_role = 'replica';")
-                for table in tables:
-                    await connection.execute(f'TRUNCATE TABLE "{table["tablename"]}" CASCADE;')
-                await connection.execute("SET session_replication_role = 'origin';")
-
-                logger.info("All tables have been truncated successfully.")
-            except asyncpg.exceptions.PostgresError as e:
-                logger.error(f"PostgreSQL error in truncate_all_tables: {str(e)}")
                 raise
 
     async def fetchone(self, query: str, *args: Any) -> dict[str, Any] | None:
