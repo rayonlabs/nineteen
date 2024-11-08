@@ -21,7 +21,6 @@ from validator.utils.query.query_utils import load_sse_jsons
 logger = get_logger(__name__)
 
 def _get_formatted_payload(content: str, first_message: bool, add_finish_reason: bool = False) -> str:
-    """Format text response in ChatCompletions format."""
     delta_payload = {"content": content}
     if first_message:
         delta_payload["role"] = "assistant"
@@ -34,13 +33,11 @@ def _get_formatted_payload(content: str, first_message: bool, add_finish_reason:
     return json.dumps(payload)
 
 async def async_chain(first_chunk, async_gen):
-    """Chain first chunk with rest of generator."""
     yield first_chunk
     async for item in async_gen:
         yield item
 
 def construct_500_query_result(node: Node, task: str) -> utility_models.QueryResult:
-    """Construct error result for node query."""
     return utility_models.QueryResult(
         node_id=node.node_id,
         task=task,
@@ -58,7 +55,6 @@ async def _handle_synthetic_event(
     status_code: int = 200,
     ttl: int = rcst.RESPONSE_QUEUE_TTL
 ) -> None:
-    """Handle Redis event for synthetic queries."""
     response_queue = await rutils.get_response_queue_key(job_id)
     event_data = json.dumps({
         gcst.CONTENT: content,
@@ -79,7 +75,6 @@ async def consume_synthetic_generator(
     payload: dict,
     start_time: float,
 ) -> bool:
-    """Process generator for synthetic queries, returning success status."""
     task = contender.task
     query_result = None
 
@@ -180,7 +175,6 @@ async def consume_organic_generator(
     payload: dict,
     start_time: float,
 ) -> AsyncGenerator[str, None]:
-    """Process generator for organic queries, streaming responses."""
     task = contender.task
     query_result = None
 
@@ -250,7 +244,6 @@ async def consume_organic_generator(
             await utils.adjust_contender_from_result(config, query_result, contender, False, payload=payload)
 
 async def query_node_stream(config: Config, contender: Contender, node: Node, payload: dict) -> Optional[AsyncGenerator]:
-    """Make streaming request to node."""
     address = client.construct_server_address(
         node,
         replace_with_docker_localhost=config.replace_with_docker_localhost,

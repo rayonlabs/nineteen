@@ -112,7 +112,6 @@ async def load_config():
     return _config
 
 async def _handle_no_stream(text_generator: AsyncGenerator[str, None]) -> JSONResponse:
-    """Handle non-streaming response by accumulating content."""
     all_content = ""
     try:
         async for chunk in text_generator:
@@ -147,7 +146,6 @@ async def process_organic_stream(
     message: rdc.QueryQueueMessage,
     start_time: float
 ) -> AsyncGenerator[str, None]:
-    """Process organic stream request and track metrics."""
     try:
         num_tokens = 0
         async for chunk in process_organic_task(config, message):
@@ -172,7 +170,6 @@ async def chat(
     chat_request: request_models.ChatRequest,
     config: Config = Depends(load_config),
 ) -> StreamingResponse | JSONResponse:
-    """Handle chat completion requests."""
     payload = request_models.chat_to_payload(chat_request)
     job_id = rutils.generate_job_id()
     start_time = time.time()
@@ -198,9 +195,7 @@ async def chat(
         logger.error(f"Unexpected error in chat endpoint: {str(e)}")
         raise HTTPException(status_code=500, detail="An unexpected error occurred")
 
-class SyntheticTaskProcessor:
-    """Process synthetic tasks from Redis queue."""
-    
+class SyntheticTaskProcessor:    
     def __init__(self, config: Config):
         self.config = config
         self.tasks: set[asyncio.Task] = set()
@@ -208,7 +203,6 @@ class SyntheticTaskProcessor:
         self.running = True
         
     async def process_synthetic_message(self, message_data: bytes):
-        """Process single synthetic message."""
         try:
             message = rdc.QueryQueueMessage(**json.loads(message_data))
             if message.query_type != gcst.SYNTHETIC:
@@ -227,7 +221,6 @@ class SyntheticTaskProcessor:
             })
 
     async def cleanup_done_tasks(self):
-        """Cleanup completed tasks."""
         done = {t for t in self.tasks if t.done()}
         for task in done:
             try:
@@ -238,7 +231,6 @@ class SyntheticTaskProcessor:
                 self.tasks.remove(task)
 
     async def listen(self):
-        """Listen for synthetic tasks on Redis queue."""
         logger.info("Starting synthetic query listener")
         
         while self.running:
@@ -271,55 +263,23 @@ class SyntheticTaskProcessor:
         if self.tasks:
             await asyncio.gather(*self.tasks, return_exceptions=True)
 
-def run_api_server():
-    """Run FastAPI server."""
-    try:
-        #config = asyncio.run(load_config())
-        port = int(os.getenv("API_PORT", "6919"))
-        uvicorn.run(app, host="0.0.0.0", port=port, log_level="info")
-    except Exception as e:
-        logger.error(f"Error starting API server: {e}")
-        sys.exit(1)
-
-async def main() -> None:
-    """Main entry point."""
-    pass
-    #task_processor = SyntheticTaskProcessor(config)
-    
-    #import multiprocessing
-    #api_process = multiprocessing.Process(target=run_api_server)
-    #api_process.start()
-    
-    #try:
-    #    await task_processor.listen()
-    #except asyncio.CancelledError:
-    #    logger.info("Shutting down query node...")
-    #finally:
-    #    await task_processor.stop()
-    #    api_process.terminate()
-
 def signal_handler(signum, frame):
     """Handle shutdown signals."""
     logger.info(f"Received signal {signum}")
     sys.exit(0)
 
 async def main():
-    # Set up signal handlers
     signal.signal(signal.SIGINT, signal_handler)
     signal.signal(signal.SIGTERM, signal_handler)
 
-    # Load the configuration
     config = await load_config()
 
-    # Create the task processor
     task_processor = SyntheticTaskProcessor(config)
 
-    # Create the Uvicorn server
     port = int(os.getenv("API_PORT", "6919"))
     app_config = uvicorn.Config(app, host="0.0.0.0", port=port, log_level="info")
     server = uvicorn.Server(app_config)
 
-    # Run the task processor and Uvicorn server concurrently
     await asyncio.gather(
         task_processor.listen(),
         server.serve(),

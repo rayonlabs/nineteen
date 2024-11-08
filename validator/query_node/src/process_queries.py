@@ -37,7 +37,6 @@ import asyncio
 lock = asyncio.Lock()
 
 async def _get_contenders(connection: Connection, task: str, query_type: str) -> list[Contender]:
-    """Get list of contenders for task."""
     try:
         async with lock:
             contenders = await get_contenders_for_task(connection, task, 5, query_type)
@@ -51,7 +50,6 @@ async def _handle_stream_synthetic(
     message: rdc.QueryQueueMessage, 
     contenders: list[Contender]
 ) -> bool:
-    """Handle streaming synthetic queries."""
     start = time.time()
     for i, contender in enumerate(contenders):
         node = await get_node(config.psql_db, contender.node_id, config.netuid)
@@ -123,7 +121,7 @@ async def _handle_stream_organic(
             start_time=start,
         ):
             yield chunk
-        return  # Successfully streamed all chunks
+        return 
             
     raise HTTPException(
         status_code=500,
@@ -135,7 +133,6 @@ async def _handle_nonstream_query(
     message: rdc.QueryQueueMessage, 
     contenders: list[Contender]
 ) -> bool:
-    """Handle non-streaming queries."""
     for contender in contenders:
         
         node = await get_node(config.psql_db, contender.node_id, config.netuid)
@@ -163,7 +160,6 @@ async def _handle_nonstream_query(
         raise HTTPException(status_code=500, detail=error_msg)
 
 async def process_synthetic_task(config: Config, message: rdc.QueryQueueMessage) -> bool:
-    """Process synthetic task, returning success status."""
     task = message.task
     
     try:
@@ -201,7 +197,6 @@ async def process_synthetic_task(config: Config, message: rdc.QueryQueueMessage)
         return False
 
 async def process_organic_task(config: Config, message: rdc.QueryQueueMessage) -> AsyncGenerator[str, None]:
-    """Process organic task, streaming responses."""
     task = message.task
     
     try:
