@@ -274,8 +274,7 @@ class SyntheticTaskProcessor:
 def run_api_server():
     """Run FastAPI server."""
     try:
-        config = asyncio.run(load_config())
-        app.state.config = config
+        #config = asyncio.run(load_config())
         port = int(os.getenv("API_PORT", "6919"))
         uvicorn.run(app, host="0.0.0.0", port=port, log_level="info")
     except Exception as e:
@@ -285,6 +284,7 @@ def run_api_server():
 async def main() -> None:
     """Main entry point."""
     config = await load_config()
+    app.state.config = config
     logger.debug(f"config: {config}")
 
     #task_processor = SyntheticTaskProcessor(config)
