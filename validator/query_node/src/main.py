@@ -307,15 +307,9 @@ class SyntheticTaskProcessor:
 
 async def run_api_server(config: Config):
     app.state.config = config
-    
-    uvicorn_config = uvicorn.Config(
-        app=app,
-        host="0.0.0.0",
-        port=8000,
-        loop="asyncio"
-    )
-    server = uvicorn.Server(uvicorn_config)
-    await server.serve()
+    port = int(os.getenv("API_PORT", "6919"))
+    uvicorn.run(app, host="0.0.0.0", port=port, log_level="info")
+
 
 async def main() -> None:
     config = await load_config()
@@ -323,16 +317,17 @@ async def main() -> None:
 
     task_processor = SyntheticTaskProcessor(config)
     
+    import multiprocessing
+    api_process = multiprocessing.Process(target=run_api_server, args=(config,))
+    api_process.start()
+    
     try:
-        api_server = asyncio.create_task(run_api_server(config))
-        synthetic_listener = asyncio.create_task(task_processor.listen())
-        
-        await asyncio.gather(api_server, synthetic_listener)
-        
+        await task_processor.listen()
     except asyncio.CancelledError:
         logger.info("Shutting down query node...")
     finally:
         await task_processor.stop()
+        api_process.terminate()
 
 if __name__ == "__main__":
     try:
