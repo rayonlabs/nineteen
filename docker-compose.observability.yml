@@ -25,17 +25,29 @@ services:
     volumes:
       - ./config/otel-config.yaml:/etc/otelcol-contrib/config.yaml
 
-  jaeger:
-    container_name: nineteen-jaeger
-    image: jaegertracing/all-in-one:1.59.0
-    restart: always
-    command:
-      - --collector.otlp.grpc.host-port
-      - 0.0.0.0:4317
-    environment:
-      COLLECTOR_OTLP_ENABLED: "true"
+  tempo-init:
+    container_name: nineteen-tempo-init
+    image: grafana/tempo:latest
+    restart: on-failure
+    user: root
+    entrypoint:
+      - "chown"
+      - "10001:10001"
+      - "/var/tempo"
     volumes:
-      - jaeger:/badger
+      - tempo:/var/tempo
+
+  tempo:
+    container_name: nineteen-tempo
+    image: grafana/tempo:latest
+    restart: always
+    command: [ "-config.file=/etc/tempo.yaml" ]
+    volumes:
+      - tempo:/var/tempo
+      - ./config/tempo-config.yaml:/etc/tempo.yaml
+    depends_on:
+      - tempo-init
+      - redis
 
   loki:
     container_name: nineteen-loki
@@ -61,6 +73,6 @@ services:
 
 volumes:
   grafana:
-  jaeger:
+  tempo:
   loki:
   prometheus:
