@@ -303,24 +303,27 @@ def signal_handler(signum, frame):
     logger.info(f"Received signal {signum}")
     sys.exit(0)
 
-if __name__ == "__main__":
+async def main():
     # Set up signal handlers
     signal.signal(signal.SIGINT, signal_handler)
     signal.signal(signal.SIGTERM, signal_handler)
 
     # Load the configuration
-    config = asyncio.run(load_config())
+    config = await load_config()
 
     # Create the task processor
     task_processor = SyntheticTaskProcessor(config)
 
-    # Run the task processor and Uvicorn server concurrently
-    async def main():
-        task = asyncio.create_task(task_processor.listen())
-        await asyncio.gather(
-            task,
-            uvicorn.run(app, host="0.0.0.0", port=port, log_level="info"),
-        )
-
+    # Create the Uvicorn server
     port = int(os.getenv("API_PORT", "6919"))
+    app_config = uvicorn.Config(app, host="0.0.0.0", port=port, log_level="info")
+    server = uvicorn.Server(app_config)
+
+    # Run the task processor and Uvicorn server concurrently
+    await asyncio.gather(
+        task_processor.listen(),
+        server.serve(),
+    )
+
+if __name__ == "__main__":
     asyncio.run(main())
