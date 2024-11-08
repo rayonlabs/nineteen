@@ -286,12 +286,12 @@ async def main() -> None:
     config = await load_config()
     app.state.config = config
     logger.debug(f"config: {config}")
-
+    run_api_server()
     #task_processor = SyntheticTaskProcessor(config)
     
-    import multiprocessing
-    api_process = multiprocessing.Process(target=run_api_server)
-    api_process.start()
+    #import multiprocessing
+    #api_process = multiprocessing.Process(target=run_api_server)
+    #api_process.start()
     
     #try:
     #    await task_processor.listen()
