@@ -53,7 +53,7 @@ async def _handle_stream_query(config: Config, message: rdc.QueryQueueMessage, c
     response_queue = await rutils.get_response_queue_key(message.job_id)
     await config.redis_db.expire(response_queue, rcst.RESPONSE_QUEUE_TTL)
     start = time.time()
-    for contender in contenders_to_query:
+    for i, contender in enumerate(contenders_to_query):
         node = await get_node(config.psql_db, contender.node_id, config.netuid)
         if node is None:
             logger.error(f"Node {contender.node_id} not found in database for netuid {config.netuid}")
@@ -66,6 +66,7 @@ async def _handle_stream_query(config: Config, message: rdc.QueryQueueMessage, c
         )
 
         if generator is None:
+            logger.info(f"fail n°{i}")
             continue
 
         success = await streaming.consume_generator(
