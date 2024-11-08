@@ -61,7 +61,7 @@ async def _handle_event(
         })
     
     await config.redis_db.rpush(response_queue, event_data)
-    await config.redis_db.expire(response_queue, ttl)
+    await config.redis_db.expire(response_queue, 1)
 
 async def async_chain(first_chunk, async_gen):
     yield first_chunk  # manually yield the first chunk
@@ -203,7 +203,7 @@ async def query_node_stream(config: Config, contender: Contender, node: Node, pa
     assert node.symmetric_key_uuid is not None
 
     return client.make_streamed_post(
-        httpx_client=httpx.AsyncClient(timeout=1),
+        httpx_client=httpx.AsyncClient(timeout=),
         server_address=address,
         keypair=config.keypair,
         validator_ss58_address=config.ss58_address,
