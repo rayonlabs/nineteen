@@ -40,6 +40,7 @@ async def _handle_event(
     job_id: str,
     status_code: int,
     error_message: str | None = None,
+    ttl: int = rcst.RESPONSE_QUEUE_TTL
 ) -> None:
     if synthetic_query:
         return
@@ -60,7 +61,7 @@ async def _handle_event(
         })
     
     await config.redis_db.rpush(response_queue, event_data)
-    await config.redis_db.expire(response_queue, rcst.RESPONSE_QUEUE_TTL)
+    await config.redis_db.expire(response_queue, ttl)
 
 async def async_chain(first_chunk, async_gen):
     yield first_chunk  # manually yield the first chunk
@@ -158,7 +159,8 @@ async def consume_generator(
                 content="data: [DONE]\n\n", 
                 synthetic_query=synthetic_query, 
                 job_id=job_id, 
-                status_code=200
+                status_code=200,
+                ttl=1
             )
             logger.info(f" 👀  Queried node: {node.node_id} for task: {task}. Success: {not first_message}.")
 
