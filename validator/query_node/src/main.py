@@ -148,55 +148,20 @@ async def _process_stream(
     start_time: float
 ) -> AsyncGenerator[str, None]:
     try:
-        success = await process_task(config, message)
-        if not success:
+        result = await process_task(config, message)
+        
+        if isinstance(result, bool):
             raise HTTPException(status_code=500, detail="Failed to process request")
-
-        response_queue = await rutils.get_response_queue_key(message.job_id)
-        received_done = False
+            
         num_tokens = 0
+        async for chunk in result:
+            num_tokens += 1
+            yield chunk
 
-        try:
-            while True:
-                result = await config.redis_db.blpop(response_queue, timeout=2)
-                if result is None:
-                    logger.error(f"Timeout waiting for response in queue {response_queue}")
-                    raise HTTPException(status_code=500, detail="Request timed out")
-
-                _, data = result
-                try:
-                    if not data:
-                        continue
-
-                    content = json.loads(data.decode())
-                    if gcst.STATUS_CODE in content and content[gcst.STATUS_CODE] >= 400:
-                        raise HTTPException(
-                            status_code=content[gcst.STATUS_CODE],
-                            detail=content.get(gcst.ERROR_MESSAGE, "Unknown error")
-                        )
-
-                    if gcst.CONTENT in content:
-                        content_str = content[gcst.CONTENT]
-                        num_tokens += 1
-                        yield content_str
-
-                        if "[DONE]" in content_str:
-                            received_done = True
-                            break
-
-                except json.JSONDecodeError as e:
-                    logger.error(f"Failed to decode message: {e}")
-                    continue
-
-            COUNTER_TEXT_GENERATION_SUCCESS.add(1, {"task": message.task})
-            completion_time = time.time() - start_time
-            if num_tokens > 0:
-                GAUGE_TOKENS_PER_SEC.set(num_tokens / completion_time)
-
-        finally:
-            await rutils.ensure_queue_clean(config.redis_db, message.job_id)
-            if not received_done:
-                raise HTTPException(status_code=500, detail="Incomplete response")
+        COUNTER_TEXT_GENERATION_SUCCESS.add(1, {"task": message.task})
+        completion_time = time.time() - start_time
+        if num_tokens > 0:
+            GAUGE_TOKENS_PER_SEC.set(num_tokens / completion_time)
 
     except Exception as e:
         logger.error(f"Error in stream processing: {str(e)}")
@@ -255,8 +220,10 @@ class SyntheticTaskProcessor:
                 return
                 
             logger.info(f"Processing synthetic query for task: {message.task}")
-            await process_task(self.config, message)
-            
+            result = await process_task(self.config, message)
+            if not isinstance(result, bool) or not result:
+                logger.warning(f"Failed to process synthetic task: {message.task}")
+                
         except Exception as e:
             logger.error(f"Error processing synthetic message: {e}")
             QUERY_NODE_FAILED_SYNTHETIC_TASKS_COUNTER.add(1, {

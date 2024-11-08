@@ -94,7 +94,7 @@ async def consume_generator(
     payload: dict,
     start_time: float,
     debug: bool = False,
-) -> bool:
+) -> AsyncGenerator[str, None] | bool:
     assert job_id
     task = contender.task
     query_result = None
@@ -129,43 +129,52 @@ async def consume_generator(
                 for text_json in loaded_jsons:
                     if not isinstance(text_json, dict):
                         logger.debug(f"Invalid text_json because its not a dict?: {text_json}")
-                        first_message = True  # NOTE: Janky, but so we mark it as a fail
+                        first_message = True
                         break
                     try:
                         _ = text_json["choices"][0]["delta"]["content"]
                     except KeyError:
                         logger.debug(f"Invalid text_json because there's not delta content: {text_json}")
-                        first_message = True  # NOTE: Janky, but so we mark it as a fail
+                        first_message = True
                         break
 
                     text_jsons.append(text_json)
                     dumped_payload = json.dumps(text_json)
                     first_message = False
-                    await _handle_event(
-                        config,
-                        content=f"data: {dumped_payload}\n\n",
-                        synthetic_query=synthetic_query,
-                        job_id=job_id,
-                        status_code=200,
-                    )
+                    
+                    if synthetic_query:
+                        await _handle_event(
+                            config,
+                            content=f"data: {dumped_payload}\n\n",
+                            synthetic_query=synthetic_query,
+                            job_id=job_id,
+                            status_code=200,
+                        )
+                    else:
+                        yield f"data: {dumped_payload}\n\n"
 
         if len(text_jsons) > 0:
             last_payload = _get_formatted_payload("", False, add_finish_reason=True)
-            await _handle_event(
-                config, 
-                content=f"data: {last_payload}\n\n", 
-                synthetic_query=synthetic_query, 
-                job_id=job_id, 
-                status_code=200
-            )
-            await _handle_event(
-                config, 
-                content="data: [DONE]\n\n", 
-                synthetic_query=synthetic_query, 
-                job_id=job_id, 
-                status_code=200,
-                ttl=1
-            )
+            if synthetic_query:
+                await _handle_event(
+                    config, 
+                    content=f"data: {last_payload}\n\n", 
+                    synthetic_query=synthetic_query, 
+                    job_id=job_id, 
+                    status_code=200
+                )
+                await _handle_event(
+                    config, 
+                    content="data: [DONE]\n\n", 
+                    synthetic_query=synthetic_query, 
+                    job_id=job_id, 
+                    status_code=200,
+                    ttl=1
+                )
+            else:
+                yield f"data: {last_payload}\n\n"
+                yield "data: [DONE]\n\n"
+                
             logger.info(f" 👀  Queried node: {node.node_id} for task: {task}. Success: {not first_message}.")
 
         response_time = time.time() - start_time
@@ -190,7 +199,10 @@ async def consume_generator(
     character_count = sum([len(text_json["choices"][0]["delta"]["content"]) for text_json in text_jsons])
     logger.debug(f"Success: {success}; Node: {node.node_id}; Task: {task}; response_time: {response_time}; first_message: {first_message}; character_count: {character_count}")
     logger.info(f"Success: {success}")
-    return success
+    
+    if synthetic_query:
+        return success
+    return None
 
 async def query_node_stream(config: Config, contender: Contender, node: Node, payload: dict):
     address = client.construct_server_address(
