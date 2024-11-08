@@ -15,6 +15,7 @@ from validator.query_node.src.query import nonstream, streaming
 from validator.db.src.sql.contenders import get_contenders_for_task
 from validator.db.src.sql.nodes import get_node
 from validator.utils.generic import generic_constants as gcst
+import validator.utils.redis as rutils
 from opentelemetry import metrics
 
 logger = get_logger(__name__)
@@ -36,10 +37,7 @@ async def _decrement_requests_remaining(redis_db: Redis, task: str):
 
 async def _handle_synthetic_error(config: Config, job_id: str, status_code: int, error_message: str) -> None:
     """Handle errors for synthetic queries by pushing to Redis."""
-    response_queue = await rutils.get_response_queue_key(job_id)
-    error_event = gutils.get_error_event(job_id=job_id, error_message=error_message, status_code=status_code)
-    logger.debug(f"Pushing error event to queue {response_queue}: {error_event}")
-    await config.redis_db.rpush(response_queue, error_event)
+    logger.error(f"Error processing synthetic message - {status_code} - {error_message}")
 
 async def _get_contenders(config: Config, task: str, query_type: str) -> list[Contender]:
     """Get list of contenders for task."""
@@ -144,7 +142,8 @@ async def _handle_nonstream_query(
     contenders: list[Contender]
 ) -> bool:
     """Handle non-streaming queries."""
-    for contender in enumerate(contenders):
+    for contender in contenders:
+        
         node = await get_node(config.psql_db, contender.node_id, config.netuid)
         if not node:
             logger.error(f"Node {contender.node_id} not found in database for netuid {config.netuid}")

@@ -142,7 +142,7 @@ async def process_organic_stream(
     """Process organic stream request and track metrics."""
     try:
         num_tokens = 0
-        async for chunk in await process_organic_task(config, message):
+        async for chunk in process_organic_task(config, message):
             num_tokens += 1
             yield chunk
 
