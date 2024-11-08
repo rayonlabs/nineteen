@@ -60,13 +60,16 @@ async def _handle_event(
             gcst.STATUS_CODE: status_code
         })
     
-    await config.redis_db.rpush(response_queue, event_data)
-    await config.redis_db.expire(response_queue, 1)
+    # Use pipeline for atomic operations
+    async with config.redis_db.pipeline() as pipe:
+        await pipe.rpush(response_queue, event_data)
+        await pipe.expire(response_queue, ttl)
+        await pipe.execute()
 
 async def async_chain(first_chunk, async_gen):
-    yield first_chunk  # manually yield the first chunk
+    yield first_chunk
     async for item in async_gen:
-        yield item  # then yield from the original generator
+        yield item
 
 def construct_500_query_result(node: Node, task: str) -> utility_models.QueryResult:
     query_result = utility_models.QueryResult(
@@ -94,6 +97,7 @@ async def consume_generator(
     assert job_id
     task = contender.task
     query_result = None
+    response_queue = await rutils.get_response_queue_key(job_id)
 
     try:
         first_chunk = await generator.__anext__()
@@ -107,6 +111,12 @@ async def consume_generator(
         return False
 
     text_jsons, status_code, first_message = [], 200, True
+    
+    # Pipeline for batching redis operations
+    pipe = config.redis_db.pipeline()
+    pipeline_size = 0
+    MAX_PIPELINE_SIZE = 10  # Adjust based on your needs
+    
     try:
         async for text in async_chain(first_chunk, generator):
             if isinstance(text, bytes):
@@ -115,7 +125,7 @@ async def consume_generator(
                 try:
                     loaded_jsons = load_sse_jsons(text)
                     if isinstance(loaded_jsons, dict):
-                        status_code = loaded_jsons.get(gcst.STATUS_CODE)  # noqa
+                        status_code = loaded_jsons.get(gcst.STATUS_CODE)
                         break
 
                 except (IndexError, json.JSONDecodeError) as e:
@@ -125,52 +135,68 @@ async def consume_generator(
                 for text_json in loaded_jsons:
                     if not isinstance(text_json, dict):
                         logger.debug(f"Invalid text_json because its not a dict?: {text_json}")
-                        first_message = True  # NOTE: Janky, but so we mark it as a fail
+                        first_message = True
                         break
                     try:
                         _ = text_json["choices"][0]["delta"]["content"]
                     except KeyError:
                         logger.debug(f"Invalid text_json because there's not delta content: {text_json}")
-                        first_message = True  # NOTE: Janky, but so we mark it as a fail
+                        first_message = True
                         break
 
                     text_jsons.append(text_json)
                     dumped_payload = json.dumps(text_json)
                     first_message = False
+                    
                     s = time.time()
-                    await _handle_event(
-                        config,
-                        content=f"data: {dumped_payload}\n\n",
-                        synthetic_query=synthetic_query,
-                        job_id=job_id,
-                        status_code=200,
-                    )
+                    
+                    # Add commands to pipeline
+                    event_data = json.dumps({
+                        gcst.CONTENT: f"data: {dumped_payload}\n\n",
+                        gcst.STATUS_CODE: 200
+                    })
+                    pipe.rpush(response_queue, event_data)
+                    pipe.expire(response_queue, rcst.RESPONSE_QUEUE_TTL)
+                    pipeline_size += 1
+
+                    # Execute pipeline when batch size is reached
+                    if pipeline_size >= MAX_PIPELINE_SIZE:
+                        await pipe.execute()
+                        pipeline_size = 0
+                        pipe = config.redis_db.pipeline()
+                    
                     e = time.time()
                     logger.info(f"time to send chunk : {round(e-s, 4)}")
 
+        # Execute any remaining pipeline commands
+        if pipeline_size > 0:
+            await pipe.execute()
+
         if len(text_jsons) > 0:
-            last_payload = _get_formatted_payload("", False, add_finish_reason=True)
-            s = time.time()
-            await _handle_event(
-                config, 
-                content=f"data: {last_payload}\n\n", 
-                synthetic_query=synthetic_query, 
-                job_id=job_id, 
-                status_code=200
-            )
-            e = time.time()
-            logger.info(f"time to send last chunk : {round(e-s, 4)}")
-            s = time.time()
-            await _handle_event(
-                config, 
-                content="data: [DONE]\n\n", 
-                synthetic_query=synthetic_query, 
-                job_id=job_id, 
-                status_code=200,
-                ttl=1
-            )
-            e = time.time()
-            logger.info(f"time to send DONE : {round(e-s, 4)}")
+            # Handle final messages with a single pipeline
+            async with config.redis_db.pipeline() as final_pipe:
+                # Last payload
+                last_payload = _get_formatted_payload("", False, add_finish_reason=True)
+                event_data = json.dumps({
+                    gcst.CONTENT: f"data: {last_payload}\n\n",
+                    gcst.STATUS_CODE: 200
+                })
+                final_pipe.rpush(response_queue, event_data)
+                final_pipe.expire(response_queue, rcst.RESPONSE_QUEUE_TTL)
+
+                # Done message
+                done_data = json.dumps({
+                    gcst.CONTENT: "data: [DONE]\n\n",
+                    gcst.STATUS_CODE: 200
+                })
+                final_pipe.rpush(response_queue, done_data)
+                final_pipe.expire(response_queue, 1)
+                
+                s = time.time()
+                await final_pipe.execute()
+                e = time.time()
+                logger.info(f"time to send final messages: {round(e-s, 4)}")
+
             logger.info(f" 👀  Queried node: {node.node_id} for task: {task}. Success: {not first_message}.")
 
         response_time = time.time() - start_time
