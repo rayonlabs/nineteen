@@ -307,7 +307,7 @@ class SyntheticTaskProcessor:
 
 def run_api_server(config: Config):
     app.state.config = config
-    port = int(os.getenv("API_PORT", "8000"))
+    port = int(os.getenv("API_PORT", "6919"))
     uvicorn.run(app, host="0.0.0.0", port=port, log_level="info")
 
 async def main() -> None:
@@ -328,7 +328,7 @@ async def main() -> None:
         await task_processor.stop()
         api_process.terminate()
 
-        
+
 if __name__ == "__main__":
     try:
         asyncio.run(main())
