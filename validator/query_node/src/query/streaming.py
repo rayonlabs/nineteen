@@ -203,7 +203,7 @@ async def query_node_stream(config: Config, contender: Contender, node: Node, pa
     assert node.symmetric_key_uuid is not None
 
     return client.make_streamed_post(
-        httpx_client=config.httpx_client,
+        httpx_client=httpx.AsyncClient(timeout=5),
         server_address=address,
         keypair=config.keypair,
         validator_ss58_address=config.ss58_address,
