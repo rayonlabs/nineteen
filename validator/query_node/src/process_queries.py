@@ -102,7 +102,6 @@ async def _handle_stream_organic(
             continue
             
         logger.info(f"Querying node {contender.node_id} for task {contender.task}")
-        try:
         generator = await streaming.query_node_stream(
             config=config, 
             contender=contender, 
