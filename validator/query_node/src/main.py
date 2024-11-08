@@ -304,11 +304,17 @@ def signal_handler(signum, frame):
     sys.exit(0)
 
 if __name__ == "__main__":
+    import multiprocessing
+
     signal.signal(signal.SIGINT, signal_handler)
     signal.signal(signal.SIGTERM, signal_handler)
+
+    config = asyncio.run(load_config())
+    task_processor = SyntheticTaskProcessor(config)
+
+    api_process = multiprocessing.Process(target=task_processor.listen)
+    api_process.start()
+
     port = int(os.getenv("API_PORT", "6919"))
     uvicorn.run(app, host="0.0.0.0", port=port, log_level="info")
-    try:
-        asyncio.run(main())
-    except KeyboardInterrupt:
-        logger.info("Query node shutdown complete")
+    
