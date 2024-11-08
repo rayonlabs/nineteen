@@ -167,14 +167,10 @@ async def process_organic_stream(
         })
         raise
 
-async def get_config() -> Config:
-    """FastAPI dependency to get config."""
-    return app.state.config
-
 @app.post("/v1/chat/completions", response_model=None)
 async def chat(
     chat_request: request_models.ChatRequest,
-    config: Config = Depends(get_config),
+    config: Config = Depends(load_config),
 ) -> StreamingResponse | JSONResponse:
     """Handle chat completion requests."""
     payload = request_models.chat_to_payload(chat_request)
