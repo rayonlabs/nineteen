@@ -286,7 +286,8 @@ async def main() -> None:
     config = await load_config()
     app.state.config = config
     logger.debug(f"config: {config}")
-    run_api_server()
+    port = int(os.getenv("API_PORT", "6919"))
+    uvicorn.run(app, host="0.0.0.0", port=port, log_level="info")
     #task_processor = SyntheticTaskProcessor(config)
     
     #import multiprocessing
