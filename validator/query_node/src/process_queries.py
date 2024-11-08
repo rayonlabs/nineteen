@@ -54,21 +54,27 @@ async def _handle_stream_query(config: Config, message: rdc.QueryQueueMessage, c
     await config.redis_db.expire(response_queue, rcst.RESPONSE_QUEUE_TTL)
     start = time.time()
     for i, contender in enumerate(contenders_to_query):
+        start = time.time()
         node = await get_node(config.psql_db, contender.node_id, config.netuid)
+        end = time.time()
+        logger.info(f"1 - time to get miner node : {round(end-start, 4)}")
         if node is None:
             logger.error(f"Node {contender.node_id} not found in database for netuid {config.netuid}")
             continue
             
-        logger.debug(f"Querying node {contender.node_id} for task {contender.task} with payload: {message.query_payload}")
+        logger.info(f"Querying node {contender.node_id} for task {contender.task} with payload: {message.query_payload}")
         start_time = time.time()
+        s = time.time()
         generator = await streaming.query_node_stream(
             config=config, contender=contender, payload=message.query_payload, node=node
         )
+        e = time.time()
+        logger.info(f"1 - time to get run streaming.query_node_stream : {round(e-s, 4)}")
 
         if generator is None:
             logger.info(f"fail n°{i}")
             continue
-
+        s = time.time()
         success = await streaming.consume_generator(
             config=config,
             generator=generator,
@@ -79,6 +85,8 @@ async def _handle_stream_query(config: Config, message: rdc.QueryQueueMessage, c
             payload=message.query_payload,
             start_time=start_time,
         )
+        e = time.time()
+        logger.info(f"1 - time to get run streaming.consume_generator : {round(e-s, 4)}")
         if success:
             end = time.time()
             logger.info(f"1 - time to get success from a contender : {round(end-start, 4)}")
