@@ -45,6 +45,11 @@ async def _handle_error(config: Config, synthetic_query: bool, job_id: str, stat
 
 QueryResponse = Union[AsyncGenerator[str, None], bool]
 
+    
+async def _handle_stream_generator(generator: AsyncGenerator[str, None]) -> AsyncGenerator[str, None]:
+    async for chunk in generator:
+        yield chunk
+
 async def _handle_stream_query(config: Config, message: rdc.QueryQueueMessage, contenders_to_query: list[Contender]) -> QueryResponse:
     start = time.time()
     for i, contender in enumerate(contenders_to_query):
@@ -78,9 +83,7 @@ async def _handle_stream_query(config: Config, message: rdc.QueryQueueMessage, c
                 return True
         else:
             if isinstance(result, AsyncGenerator):
-                async for chunk in result:
-                    yield chunk
-                return
+                return _handle_stream_generator(result)
             
     error_msg = f"Service for task {message.task} is not responding, please try again"
     if message.query_type == gcst.SYNTHETIC:
@@ -89,7 +92,7 @@ async def _handle_stream_query(config: Config, message: rdc.QueryQueueMessage, c
         return False
     else:
         raise HTTPException(status_code=500, detail=error_msg)
-
+    
 async def _handle_nonstream_query(config: Config, message: rdc.QueryQueueMessage, contenders_to_query: list[Contender]) -> bool:
     success = False
     errors = []
