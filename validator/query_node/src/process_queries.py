@@ -6,16 +6,14 @@ from core.models.payload_models import ImageResponse
 from validator.models import Contender
 from validator.query_node.src.query_config import Config
 from core import task_config as tcfg
-from validator.utils.generic import generic_utils as gutils
 from validator.utils.contender import contender_utils as putils
-from validator.utils.redis import redis_constants as rcst
 from fiber.logging_utils import get_logger
+from asyncpg import Connection
 from validator.utils.redis import redis_dataclasses as rdc
 from validator.query_node.src.query import nonstream, streaming
 from validator.db.src.sql.contenders import get_contenders_for_task
 from validator.db.src.sql.nodes import get_node
 from validator.utils.generic import generic_constants as gcst
-import validator.utils.redis as rutils
 from opentelemetry import metrics
 
 logger = get_logger(__name__)
@@ -35,17 +33,11 @@ async def _decrement_requests_remaining(redis_db: Redis, task: str):
     key = f"task_synthetics_info:{task}:requests_remaining"
     await redis_db.decr(key)
 
-async def _get_contenders(config: Config, task: str, query_type: str) -> list[Contender]:
+async def _get_contenders(connection: Connection, task: str, query_type: str) -> list[Contender]:
     """Get list of contenders for task."""
     try:
-        connection = await config.psql_db.pool.acquire()
-        try:
-            contenders = await get_contenders_for_task(connection, task, 5, query_type)
-            if not contenders:
-                raise ValueError("No contenders available to query")
-            return contenders
-        finally:
-            await config.psql_db.pool.release(connection)
+        contenders = await get_contenders_for_task(connection, task, 5, query_type)
+        return contenders
     except Exception as e:
         logger.error(f"Error getting contenders: {e}")
         raise
@@ -183,8 +175,8 @@ async def process_synthetic_task(config: Config, message: rdc.QueryQueueMessage)
                 "synthetic_query": "true"
             })
             return False
-
-        contenders = await _get_contenders(config, task, message.query_type)
+        async with await config.psql_db.connection() as connection:
+            contenders = await _get_contenders(connection, task, message.query_type)
         
         COUNTER_TOTAL_QUERIES.add(1, {
             "task": task,
@@ -215,8 +207,8 @@ async def process_organic_task(config: Config, message: rdc.QueryQueueMessage) -
                 status_code=500,
                 detail=f"Can't find the task {task}, please try again later"
             )
-
-        contenders = await _get_contenders(config, task, message.query_type)
+        async with await config.psql_db.connection() as connection:
+            contenders = await _get_contenders(connection, task, message.query_type)
         
         COUNTER_TOTAL_QUERIES.add(1, {
             "task": task,
