@@ -159,9 +159,6 @@ services:
           memory: 4G
     volumes:
       - ./redis.conf:/usr/local/etc/redis/redis.conf
-    sysctls:
-      net.core.somaxconn: 1024
-      vm.overcommit_memory: 1
     ulimits:
       nofile:
         soft: 65536
