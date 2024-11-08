@@ -19,7 +19,7 @@ from opentelemetry import metrics
 
 logger = get_logger(__name__)
 
-MAX_CONCURRENT_TASKS = 200
+MAX_CONCURRENT_TASKS = 1000
 
 QUERY_NODE_REQUESTS_PROCESSING_GAUGE = metrics.get_meter(__name__).create_gauge(
     name="validator.query_node.src.concurrent_queries_processing",
@@ -103,7 +103,6 @@ async def listen_for_tasks(config: Config):
                 QUERY_NODE_FAILED_TASKS_COUNTER.add(1)
                 logger.error(f"Failed to process message: {message_json}")
 
-        await asyncio.sleep(0.01)
 
 
 async def main() -> None:
