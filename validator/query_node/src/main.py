@@ -305,7 +305,8 @@ class SyntheticTaskProcessor:
         if self.tasks:
             await asyncio.gather(*self.tasks, return_exceptions=True)
 
-def run_api_server(config: Config):
+def run_api_server():
+    config = asyncio.run(load_config())
     app.state.config = config
     port = int(os.getenv("API_PORT", "6919"))
     uvicorn.run(app, host="0.0.0.0", port=port, log_level="info")
@@ -317,7 +318,7 @@ async def main() -> None:
     task_processor = SyntheticTaskProcessor(config)
     
     import multiprocessing
-    api_process = multiprocessing.Process(target=run_api_server, args=(config,))
+    api_process = multiprocessing.Process(target=run_api_server)
     api_process.start()
     
     try:

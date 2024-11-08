@@ -141,7 +141,6 @@ async def consume_generator(
                     text_jsons.append(text_json)
                     dumped_payload = json.dumps(text_json)
                     first_message = False
-                    s = time.time()
                     await _handle_event(
                         config,
                         content=f"data: {dumped_payload}\n\n",
@@ -149,12 +148,9 @@ async def consume_generator(
                         job_id=job_id,
                         status_code=200,
                     )
-                    e = time.time()
-                    logger.info(f"time to send chunk : {round(e-s, 4)}")
 
         if len(text_jsons) > 0:
             last_payload = _get_formatted_payload("", False, add_finish_reason=True)
-            s = time.time()
             await _handle_event(
                 config, 
                 content=f"data: {last_payload}\n\n", 
@@ -162,9 +158,6 @@ async def consume_generator(
                 job_id=job_id, 
                 status_code=200
             )
-            e = time.time()
-            logger.info(f"time to send last chunk : {round(e-s, 4)}")
-            s = time.time()
             await _handle_event(
                 config, 
                 content="data: [DONE]\n\n", 
@@ -173,8 +166,6 @@ async def consume_generator(
                 status_code=200,
                 ttl=1
             )
-            e = time.time()
-            logger.info(f"time to send DONE : {round(e-s, 4)}")
             logger.info(f" 👀  Queried node: {node.node_id} for task: {task}. Success: {not first_message}.")
 
         response_time = time.time() - start_time
