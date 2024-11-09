@@ -5,8 +5,8 @@ services:
     restart: always
     environment:
       # these are the defaults, you should probably change them in deployment
-      GF_SECURITY_ADMIN_USER: admin
-      GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_USERNAME:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASSWORD:-admin}
       GF_INSTALL_PLUGINS: redis-datasource
     volumes:
       - grafana:/var/lib/grafana
