@@ -101,8 +101,6 @@ services:
     dns_search: .
     dns: 127.0.0.11
 
-
-
   postgresql:
     container_name: 0_postgresql
     image: postgres:latest
