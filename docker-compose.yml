@@ -80,9 +80,9 @@ services:
     env_file:
       - .vali.env
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:6919/docs"]
-      interval: 30s
-      timeout: 10s
+      test: curl -f http://localhost:6919/ || exit 1
+      interval: 10s
+      timeout: 5s
       retries: 3
       
   nginx_lb:
