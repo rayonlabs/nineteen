@@ -46,7 +46,6 @@ services:
         condition: on-failure
 
   query_node:
-    container_name: query_node
     build:
       context: .
       dockerfile: dockerfiles/query_node.dockerfile
