@@ -155,7 +155,7 @@ async def process_organic_stream(
         COUNTER_TEXT_GENERATION_SUCCESS.add(1, {"task": message.task})
         if num_tokens > 0:
             completion_time = time.time() - start_time
-            GAUGE_TOKENS_PER_SEC.set(num_tokens / completion_time)
+            GAUGE_TOKENS_PER_SEC.set(num_tokens / completion_time, {"task": message.task})
 
     except Exception as e:
         logger.error(f"Error in stream processing: {str(e)}")

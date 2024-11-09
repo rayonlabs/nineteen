@@ -51,17 +51,13 @@ services:
       dockerfile: dockerfiles/query_node.dockerfile
     scale: 4
     deploy:
-      resources:
-        limits:
-          cpus: '1.0'
-          memory: 1G
       restart_policy:
         condition: on-failure
     depends_on:
       - redis
       - postgresql
     ports:
-      - 6919 # Internal port only, don't map to the host
+      - 6919
     volumes:
       - ${HOME}/.bittensor/wallets:/root/.bittensor/wallets
     entrypoint: ["opentelemetry-instrument", "--logs_exporter", "otlp", "--traces_exporter", "otlp", "--metrics_exporter", "otlp", "--service_name", "query_node", "python", "-u", "/app/validator/query_node/src/main.py"]
@@ -82,13 +78,13 @@ services:
     healthcheck:
       test: curl -f http://localhost:6919/ || exit 1
       interval: 10s
-      timeout: 5s
+      timeout: 2s
       retries: 3
       
   nginx_lb:
     image: nginx:latest
     ports:
-      - "80:6919"  # NGINX will listen on 6919 and forward requests to query_node instances
+      - "80:6919"
     volumes:
       - ./nginx/nginx.conf:/etc/nginx/nginx.conf
     depends_on:
