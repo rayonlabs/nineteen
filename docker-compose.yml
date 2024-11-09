@@ -49,8 +49,8 @@ services:
     build:
       context: .
       dockerfile: dockerfiles/query_node.dockerfile
+    scale: 4
     deploy:
-      replicas: 4 # Scale this as needed
       resources:
         limits:
           cpus: '1.0'
@@ -79,6 +79,11 @@ services:
       NETUID: ${NETUID}
     env_file:
       - .vali.env
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:6919/docs"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
       
   nginx_lb:
     image: nginx:latest
@@ -88,6 +93,15 @@ services:
       - ./nginx/nginx.conf:/etc/nginx/nginx.conf
     depends_on:
       - query_node
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:6919/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    dns_search: .
+    dns: 127.0.0.11
+
+
 
   postgresql:
     container_name: 0_postgresql
