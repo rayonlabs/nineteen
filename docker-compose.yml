@@ -76,7 +76,7 @@ services:
     env_file:
       - .vali.env
     healthcheck:
-      test: curl -f http://localhost:6919/ || exit 1
+      test: curl -f http://localhost:6919/docs/ || exit 1
       interval: 10s
       timeout: 2s
       retries: 3
