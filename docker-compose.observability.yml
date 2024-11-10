@@ -26,6 +26,7 @@ services:
       - ./config/otel-config.yaml:/etc/otelcol-contrib/config.yaml
 
   jaeger:
+    scale: 0
     container_name: nineteen-jaeger
     image: jaegertracing/all-in-one:1.59.0
     restart: always
