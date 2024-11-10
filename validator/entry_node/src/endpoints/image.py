@@ -14,10 +14,8 @@ from validator.entry_node.src.core.middleware import verify_api_key_rate_limit
 from validator.utils.redis import redis_constants as rcst
 from validator.utils.generic import generic_constants as gcst
 from validator.entry_node.src.models import request_models
-import asyncio
-
-from redis.asyncio.client import PubSub
-
+import time
+import validator.utils.redis.redis_utils as rutils
 from validator.utils.generic.generic_dataclasses import GenericResponse
 
 logger = get_logger(__name__)
@@ -28,68 +26,96 @@ COUNTER_IMAGE_SUCCESS = metrics.get_meter(__name__).create_counter("validator.en
 
 
 def _construct_organic_message(payload: dict, job_id: str, task: str) -> str:
-    return json.dumps({"query_type": gcst.ORGANIC, "query_payload": payload, "task": task, "job_id": job_id})
+    return json.dumps({
+        "query_type": gcst.ORGANIC,
+        "query_payload": payload,
+        "task": task,
+        "job_id": job_id
+    })
 
 
-async def _wait_for_acknowledgement(pubsub: PubSub, job_id: str) -> bool:
-    async for message in pubsub.listen():
-        channel = message["channel"].decode()
-        if channel == f"{gcst.ACKNLOWEDGED}:{job_id}" and message["type"] == "message":
-            logger.info(f"Job {job_id} confirmed by worker")
-            break
+async def _wait_for_acknowledgement(redis_db: Redis, job_id: str, start: float, task: str, timeout: float = 2) -> bool:
+    response_queue = await rutils.get_response_queue_key(job_id)
+    try:
+        result = await redis_db.blpop(response_queue, timeout=timeout)
+        if result is None:
+            return False
+        
+        _, data = result
+        end = time.time()
+        data = data.decode()
+        logger.info(f"Ack for job_id : {job_id}: {data} - ack time : {round(end-start, 3)}s")
+        return data == rcst.ACK_TOKEN
+    except Exception as e:
+        COUNTER_IMAGE_ERROR.add(1, {"task": task, "kind": "_wait_for_acknowledgement failed", "status_code": 500})
+        logger.error(f"Error waiting for acknowledgment: {e}")
+        return False
 
-    await pubsub.unsubscribe(f"{gcst.ACKNLOWEDGED}:{job_id}")
-    return True
 
+async def _collect_single_result(redis_db: Redis, job_id: str, timeout: float, task: str) -> GenericResponse | None:
+    response_queue = await rutils.get_response_queue_key(job_id)
+    try:
+        start_time = time.time()
+        while (time.time() - start_time) < timeout:
+            result = await redis_db.blpop(response_queue, timeout=rcst.RESPONSE_QUEUE_TTL)
+            if result is None:
+                continue
 
-async def _collect_single_result(pubsub: PubSub, job_id: str) -> GenericResponse | None:
-    result = None
-    async for message in pubsub.listen():
-        try:
-            if message["type"] == "message":
-                result = json.loads(message["data"].decode())
-                if gcst.ACKNLOWEDGED in result:
+            _, data = result
+            if not data:
+                continue
+
+            try:
+                content = json.loads(data.decode())
+                logger.debug(f"Received content: {content}")
+                
+                if gcst.STATUS_CODE in content and content[gcst.STATUS_CODE] >= 400:
+                    COUNTER_IMAGE_ERROR.add(1, {"task": task, "kind": "_collect_single_result failed", "status_code": content[gcst.STATUS_CODE]})
+                    raise HTTPException(
+                        status_code=content[gcst.STATUS_CODE],
+                        detail=content.get(gcst.ERROR_MESSAGE, "Unknown error")
+                    )
+                    
+                if gcst.CONTENT not in content:
+                    logger.warning(f"Malformed content received: {content}")
                     continue
-                status_code = result[gcst.STATUS_CODE]
-                if status_code >= 400:
-                    raise HTTPException(status_code=status_code, detail=result[gcst.ERROR_MESSAGE])
-                break
-        except json.JSONDecodeError as e:
-            logger.error(f"Failed to decode JSON for message: {message}. Error: {e}")
-            continue
-    await pubsub.unsubscribe(f"{rcst.JOB_RESULTS}:{job_id}")
-    if result is None:
-        return None
-    return GenericResponse(**result)
+                    
+                return GenericResponse(
+                    job_id=job_id,
+                    content=content[gcst.CONTENT],
+                    status_code=content.get(gcst.STATUS_CODE, 200)
+                )
+                
+            except json.JSONDecodeError as e:
+                logger.error(f"Failed to decode response data: {e}")
+                continue
+
+        logger.error(f"Timeout waiting for response in queue {response_queue}")
+        COUNTER_IMAGE_ERROR.add(1, {"task": task, "kind": "redis_acknowledgement_timeout", "status_code": 500})
+        raise HTTPException(status_code=500, detail="Request timed out")
+            
+    finally:
+        await rutils.ensure_queue_clean(redis_db, job_id)
 
 
 async def make_non_stream_organic_query(
-    job_id: str, redis_db: Redis, payload: dict[str, Any], task: str, timeout: float
+    redis_db: Redis, 
+    payload: dict[str, Any], 
+    task: str, 
+    timeout: float
 ) -> GenericResponse | None:
-    
-    organic_message = _construct_organic_message(payload=payload, job_id=job_id, task=task)  # NOTE: tis grim
+    job_id = rutils.generate_job_id()
+    organic_message = _construct_organic_message(payload=payload, job_id=job_id, task=task)
 
-    pubsub = redis_db.pubsub()
-    await pubsub.subscribe(f"{gcst.ACKNLOWEDGED}:{job_id}")
-    await redis_db.lpush(rcst.QUERY_QUEUE_KEY, organic_message)  # type: ignore
+    await rutils.ensure_queue_clean(redis_db, job_id)    
+    await redis_db.lpush(rcst.QUERY_QUEUE_KEY, organic_message)
+    start = time.time()
+    if not await _wait_for_acknowledgement(redis_db, job_id, start, task):
+        logger.error(f"No acknowledgment received for job {job_id}")
+        await rutils.ensure_queue_clean(redis_db, job_id)
+        raise HTTPException(status_code=500, detail="Unable to process request")
 
-    try:
-        await asyncio.wait_for(_wait_for_acknowledgement(pubsub, job_id), timeout=1)
-
-        await pubsub.subscribe(f"{rcst.JOB_RESULTS}:{job_id}")
-
-    except asyncio.TimeoutError:
-        logger.error(f"No confirmation received for job {job_id} within timeout period. Task: {task}")
-        COUNTER_IMAGE_ERROR.add(1, {"task": task, "kind": "redis_acknowledgement_timeout", "status_code": 500})
-        raise HTTPException(status_code=500, detail=f"Unable to process task: {task} ; redis_acknowledgement_timeout, please try again later.")
-    
-    try:
-        return await asyncio.wait_for(_collect_single_result(pubsub, job_id), timeout=timeout)
-    except asyncio.TimeoutError:
-        logger.error(f"Timed out waiting for the first chunk of results for job {job_id}. Task: {task}")
-        COUNTER_IMAGE_ERROR.add(1, {"task": task, "kind": "_collect_single_result_failed", "status_code": 500})
-        raise HTTPException(status_code=500, detail=f"Unable to process task: {task} ; _collect_single_result_failed, please try again later.")
-
+    return await _collect_single_result(redis_db, job_id, timeout, task)
 
 
 async def process_image_request(
@@ -101,7 +127,7 @@ async def process_image_request(
     config: Config,
 ) -> request_models.ImageResponse:
     task = task.replace("_", "-")
-    task_config = get_enabled_task_config(task)  # NOTE: is grim
+    task_config = get_enabled_task_config(task)
     if task_config is None:
         COUNTER_IMAGE_ERROR.add(1, {"reason": "no_task_config"})
         logger.error(f"Task config not found for task: {task}")
@@ -109,18 +135,15 @@ async def process_image_request(
 
     job_id = uuid.uuid4().hex
     result = await make_non_stream_organic_query(
-        job_id=job_id,
         redis_db=config.redis_db,
         payload=payload.model_dump(),
         task=task,
-        timeout=task_config.timeout,
+        timeout=rcst.RESPONSE_QUEUE_TTL
     )
-
+    
     if result is None or result.content is None:
-        COUNTER_IMAGE_ERROR.add(1, {"task": task, "kind": "no_result", "status_code": 500})
-        logger.error(f"No content received an image request for some reason. Task: {task}")
+        logger.error(f"No content received for image request. Task: {task}")
         raise HTTPException(status_code=500, detail="Unable to process request")
-
     image_response = payload_models.ImageResponse(**json.loads(result.content))
     if image_response.is_nsfw:
         COUNTER_IMAGE_ERROR.add(1, {"task": task, "kind": "nsfw", "status_code": 403})
@@ -142,7 +165,6 @@ async def text_to_image(
 
     result = await process_image_request(payload, payload.model, config)
     return result
-
 
 async def image_to_image(
     image_to_image_request: request_models.ImageToImageRequest,

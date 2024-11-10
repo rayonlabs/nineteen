@@ -1,6 +1,6 @@
 import base64
 from dataclasses import dataclass
-
+import json
 
 @dataclass
 class QueryQueueMessage:
@@ -8,6 +8,14 @@ class QueryQueueMessage:
     query_payload: dict
     task: str
     job_id: str
+    def to_json(self) -> str:
+        return json.dumps({
+            "query_type": self.query_type,
+            "query_payload": self.query_payload,
+            "task": self.task,
+            "job_id": self.job_id
+        })
+
 
 
 @dataclass

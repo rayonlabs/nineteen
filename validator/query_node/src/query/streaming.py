@@ -6,16 +6,16 @@ import httpx
 from core.models import utility_models
 from validator.query_node.src.query_config import Config
 from validator.query_node.src import utils
+import validator.utils.redis.redis_utils as rutils
 
 from validator.models import Contender
 from fiber.validator import client
 from fiber.networking.models import NodeWithFernet as Node
 from core import task_config as tcfg
-from validator.utils.generic import generic_constants as gcst, generic_utils
+from validator.utils.generic import generic_constants as gcst
 from validator.utils.redis import redis_constants as rcst
 
 from fiber.logging_utils import get_logger
-
 from validator.utils.query.query_utils import load_sse_jsons
 
 logger = get_logger(__name__)
@@ -31,10 +31,7 @@ def _get_formatted_payload(content: str, first_message: bool, add_finish_reason:
     payload = {
         "choices": [choices_payload],
     }
-
-    dumped_payload = json.dumps(payload)
-    return dumped_payload
-
+    return json.dumps(payload)
 
 async def _handle_event(
     config: Config,
@@ -46,25 +43,29 @@ async def _handle_event(
 ) -> None:
     if synthetic_query:
         return
+
+    response_queue = await rutils.get_response_queue_key(job_id)
+    
     if content is not None:
         if isinstance(content, dict):
             content = json.dumps(content)
-        await config.redis_db.publish(
-            f"{rcst.JOB_RESULTS}:{job_id}",
-            generic_utils.get_success_event(content=content, job_id=job_id, status_code=status_code),
-        )
+        event_data = json.dumps({
+            gcst.CONTENT: content,
+            gcst.STATUS_CODE: status_code
+        })
     else:
-        await config.redis_db.publish(
-            f"{rcst.JOB_RESULTS}:{job_id}",
-            generic_utils.get_error_event(job_id=job_id, error_message=error_message, status_code=status_code),
-        )
-
+        event_data = json.dumps({
+            gcst.ERROR_MESSAGE: error_message,
+            gcst.STATUS_CODE: status_code
+        })
+    
+    await config.redis_db.rpush(response_queue, event_data)
+    await config.redis_db.expire(response_queue, rcst.RESPONSE_QUEUE_TTL)
 
 async def async_chain(first_chunk, async_gen):
     yield first_chunk  # manually yield the first chunk
     async for item in async_gen:
         yield item  # then yield from the original generator
-
 
 def construct_500_query_result(node: Node, task: str) -> utility_models.QueryResult:
     query_result = utility_models.QueryResult(
@@ -77,7 +78,6 @@ def construct_500_query_result(node: Node, task: str) -> utility_models.QueryRes
         response_time=None,
     )
     return query_result
-
 
 async def consume_generator(
     config: Config,
@@ -105,7 +105,7 @@ async def consume_generator(
         await utils.adjust_contender_from_result(config, query_result, contender, synthetic_query, payload=payload)
         return False
 
-    text_jsons, status_code, first_message =  [], 200, True
+    text_jsons, status_code, first_message = [], 200, True
     try:
         async for text in async_chain(first_chunk, generator):
             if isinstance(text, bytes):
@@ -147,10 +147,18 @@ async def consume_generator(
         if len(text_jsons) > 0:
             last_payload = _get_formatted_payload("", False, add_finish_reason=True)
             await _handle_event(
-                config, content=f"data: {last_payload}\n\n", synthetic_query=synthetic_query, job_id=job_id, status_code=200
+                config, 
+                content=f"data: {last_payload}\n\n", 
+                synthetic_query=synthetic_query, 
+                job_id=job_id, 
+                status_code=200
             )
             await _handle_event(
-                config, content="data: [DONE]\n\n", synthetic_query=synthetic_query, job_id=job_id, status_code=200
+                config, 
+                content="data: [DONE]\n\n", 
+                synthetic_query=synthetic_query, 
+                job_id=job_id, 
+                status_code=200
             )
             logger.info(f" 👀  Queried node: {node.node_id} for task: {task}. Success: {not first_message}.")
 
@@ -172,13 +180,11 @@ async def consume_generator(
     finally:
         if query_result is not None:
             await utils.adjust_contender_from_result(config, query_result, contender, synthetic_query, payload=payload)
-            await config.redis_db.expire(rcst.QUERY_RESULTS_KEY + ":" + job_id, 10)
 
     character_count = sum([len(text_json["choices"][0]["delta"]["content"]) for text_json in text_jsons])
     logger.debug(f"Success: {success}; Node: {node.node_id}; Task: {task}; response_time: {response_time}; first_message: {first_message}; character_count: {character_count}")
     logger.info(f"Success: {success}")
     return success
-
 
 async def query_node_stream(config: Config, contender: Contender, node: Node, payload: dict):
     address = client.construct_server_address(

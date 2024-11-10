@@ -4,10 +4,20 @@ import json
 from enum import Enum
 import copy
 from fiber.logging_utils import get_logger
-
+import validator.utils.redis.redis_constants as rcst
+import uuid
 
 logger = get_logger(__name__)
 
+async def get_response_queue_key(job_id: str) -> str:
+    return f"{rcst.RESPONSE_QUEUE_PREFIX}{job_id}"
+
+def generate_job_id() -> str:
+    return uuid.uuid4().hex
+
+async def ensure_queue_clean(redis_db: Redis, job_id: str) -> None:
+    response_queue = await get_response_queue_key(job_id)
+    await redis_db.delete(response_queue)
 
 def _remove_enums(map: dict[Any, Any]) -> dict[Any, Any]:
     map_copy = copy.copy(map)
