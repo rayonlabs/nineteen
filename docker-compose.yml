@@ -49,7 +49,7 @@ services:
     build:
       context: .
       dockerfile: dockerfiles/query_node.dockerfile
-    scale: 1
+    scale: 4
     deploy:
       restart_policy:
         condition: on-failure
