@@ -165,7 +165,7 @@ def _normalise_volumes_for_task(effective_volumes: dict[str, float]) -> dict[str
 
 
 def _apply_non_linear_transformation(scores: dict[str, float]) -> dict[str, float]:
-    return {hotkey: score**5 for hotkey, score in scores.items()}
+    return {hotkey: score**4 for hotkey, score in scores.items()}
 
 
 async def _normalise_effective_volumes_for_task(effective_volumes: dict[str, float]) -> dict[str, float]:
