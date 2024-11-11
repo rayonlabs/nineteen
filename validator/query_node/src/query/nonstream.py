@@ -12,6 +12,7 @@ from core import task_config as tcfg
 from fiber.logging_utils import get_logger
 from validator.query_node.src import utils
 import json
+import httpx
 
 logger = get_logger(__name__)
 
@@ -74,7 +75,7 @@ async def query_nonstream(
 
     try:
         response = await client.make_non_streamed_post(
-            httpx_client=config.httpx_client,
+            httpx_client=httpx.AsyncClient(),
             server_address=client.construct_server_address(
                 node,
                 replace_with_docker_localhost=config.replace_with_docker_localhost,

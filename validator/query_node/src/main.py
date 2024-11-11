@@ -236,7 +236,7 @@ async def process_image_request(
             try:
                 chunks = load_sse_jsons(chunk)                
                 if not isinstance(chunks, list):
-                    logger.warning(f"Expected list of chunks but got {type(chunks)}")
+                    logger.error(f"Expected list of chunks but got {type(chunks)}")
                     continue
                 for chunk_data in chunks:
                     try:
