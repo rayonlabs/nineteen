@@ -188,40 +188,86 @@ async def process_image_request(
         query_payload=payload.model_dump()
     )
     
+    logger.info(f"Processing image request for task: {task}, job_id: {job_id}")
+    
     try:
         generator = process_organic_task(config, message)
         response_content = None
         
         async for chunk in generator:
+            logger.debug(f"Received raw chunk: {str(chunk)[:10]}...")
             try:
-                content = json.loads(chunk)
-                if gcst.CONTENT in content:
-                    response_content = content[gcst.CONTENT]
+                chunks = load_sse_jsons(chunk)
+                logger.debug(f"Parsed SSE chunks: {chunks}")
+                
+                if not isinstance(chunks, list):
+                    logger.warning(f"Expected list of chunks but got {type(chunks)}")
+                    continue
+                    
+                for chunk_data in chunks:
+                    try:
+                        content = chunk_data["choices"][0]["delta"]["content"]
+                        logger.info(f"Extracted content: {content}")
+                        try:
+                            response_json = json.loads(content)
+                            logger.info(f"Successfully parsed response JSON for job {job_id}")
+                            logger.debug(f"Response JSON: {response_json}")
+                            response_content = response_json
+                            break
+                        except json.JSONDecodeError as e:
+                            logger.warning(f"Failed to parse content as JSON: {e}")
+                            continue
+                    except (KeyError, IndexError) as e:
+                        logger.error(f"Error extracting content from chunk_data: {e}")
+                        logger.debug(f"Problematic chunk_data: {chunk_data}")
+                        continue
+                        
+                if response_content:
                     break
-            except json.JSONDecodeError:
+                    
+            except (json.JSONDecodeError, KeyError, IndexError) as e:
+                logger.error(f"Error processing chunk: {e}")
+                logger.debug(f"Problematic chunk: {chunk}")
                 continue
                 
         if not response_content:
+            logger.error(f"No valid response content received for job {job_id}")
             raise HTTPException(status_code=500, detail="No response received")
             
-        image_response = payload_models.ImageResponse(**json.loads(response_content))
+        try:
+            logger.debug(f"Attempting to create ImageResponse from: {response_content}")
+            image_response = payload_models.ImageResponse(**response_content)
+            logger.info(f"Successfully created ImageResponse for job {job_id}")
+        except Exception as e:
+            logger.error(f"Failed to create ImageResponse: {e}")
+            logger.error(f"Response content that caused error: {response_content}")
+            raise HTTPException(status_code=500, detail="Invalid response format")
+            
         if image_response.is_nsfw:
+            logger.warning(f"NSFW content detected for job {job_id}")
             COUNTER_IMAGE_ERROR.add(1, {"task": task, "kind": "nsfw"})
             raise HTTPException(status_code=403, detail="NSFW content detected")
             
         if not image_response.image_b64:
+            logger.error(f"No image data received for job {job_id}")
             COUNTER_IMAGE_ERROR.add(1, {"task": task, "kind": "no_image"})
             raise HTTPException(status_code=500, detail="No image generated")
             
+        logger.info(f"Successfully processed image request for job {job_id}")
         COUNTER_IMAGE_SUCCESS.add(1, {"task": task})
         return JSONResponse(content={"image_b64": image_response.image_b64})
         
     except Exception as e:
+        logger.error(f"Error processing image request for job {job_id}: {str(e)}")
+        logger.error(f"Error type: {type(e).__name__}")
+        if hasattr(e, '__traceback__'):
+            import traceback
+            logger.error(f"Traceback: {''.join(traceback.format_tb(e.__traceback__))}")
         COUNTER_IMAGE_ERROR.add(1, {"task": task, "error": str(e)})
         if isinstance(e, HTTPException):
             raise
-        raise HTTPException(status_code=500, detail=str(e))    
-
+        raise HTTPException(status_code=500, detail=str(e))
+    
 @app.post("/v1/text-to-image", response_model=None)
 async def text_to_image(
     request: request_models.TextToImageRequest,
