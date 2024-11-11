@@ -21,7 +21,7 @@ logger = get_logger(__name__)
 
 PERIOD_SCORE_TIME_DECAYING_FACTOR = 0.5
 METRIC_PERCENTILE = 0.3
-SPEED_BONUS_MAX = 0.6
+SPEED_BONUS_MAX = 0.5
 
 
 def _get_metric_score(metrics: list[float]) -> float:
