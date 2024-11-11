@@ -15,11 +15,29 @@ from validator.query_node.src.process_queries import process_task
 from validator.db.src.sql.nodes import get_vali_ss58_address
 from validator.db.src.database import PSQLDB
 from fiber.chain import chain_utils
+from opentelemetry import metrics
 
 logger = get_logger(__name__)
 
 MAX_CONCURRENT_TASKS = 100
 
+QUERY_NODE_REQUESTS_PROCESSING_GAUGE = metrics.get_meter(__name__).create_gauge(
+    name="validator.query_node.src.concurrent_queries_processing",
+    description="concurrent number of requests currently being processed by query node's `listen_for_tasks`",
+    unit="1"
+)
+
+QUERY_NODE_FAILED_POPS_COUNTER = metrics.get_meter(__name__).create_counter(
+    name="validator.query_node.src.query_node_failed_pops",
+    description="number of failed pops from redis QUERY_QUEUE_KEY",
+    unit="1"
+)
+
+QUERY_NODE_FAILED_TASKS_COUNTER = metrics.get_meter(__name__).create_counter(
+    name="validator.query_node.src.query_node_failed_tasks",
+    description="number of failed `process_task` instances",
+    unit="1"
+)
 
 async def load_config() -> Config:
     wallet_name = os.getenv("WALLET_NAME", "default")
@@ -71,15 +89,18 @@ async def listen_for_tasks(config: Config):
         for t in done:
             await t
 
+        QUERY_NODE_REQUESTS_PROCESSING_GAUGE.set(len(tasks))
         while len(tasks) < MAX_CONCURRENT_TASKS:
             message_json = await config.redis_db.blpop(rcst.QUERY_QUEUE_KEY, timeout=1)  # type: ignore
 
             if not message_json:
+                # QUERY_NODE_FAILED_POPS_COUNTER.add(1)
                 break
             try:
                 task = asyncio.create_task(process_task(config, rdc.QueryQueueMessage(**json.loads(message_json[1]))))
                 tasks.add(task)
             except TypeError:
+                QUERY_NODE_FAILED_TASKS_COUNTER.add(1)
                 logger.error(f"Failed to process message: {message_json}")
 
         await asyncio.sleep(0.01)

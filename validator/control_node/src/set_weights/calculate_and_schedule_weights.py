@@ -184,8 +184,6 @@ async def set_weights_periodically(config: Config, just_once: bool = False) -> N
                 continue
 
 
-#
-
 
 async def main():
     logger.info("Starting weight calculation...")

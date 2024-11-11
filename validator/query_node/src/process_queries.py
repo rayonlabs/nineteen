@@ -14,11 +14,22 @@ from validator.query_node.src.query import nonstream, streaming
 from validator.db.src.sql.contenders import get_contenders_for_task
 from validator.db.src.sql.nodes import get_node
 from validator.utils.generic import generic_constants as gcst
+from opentelemetry import metrics
 
 logger = get_logger(__name__)
 
 MAX_CONCURRENT_TASKS = 10
 
+
+COUNTER_TOTAL_QUERIES = metrics.get_meter(__name__).create_counter(
+    name="validator.query_node.process.total_queries",
+    description="Number of total queries sent to `process_task`",
+)
+
+COUNTER_FAILED_QUERIES= metrics.get_meter(__name__).create_counter(
+    name="validator.query_node.process.failed_queries",
+    description="Number of failed queries within `process_task`",
+)
 
 async def _decrement_requests_remaining(redis_db: Redis, task: str):
     key = f"task_synthetics_info:{task}:requests_remaining"
@@ -136,6 +147,12 @@ async def process_task(config: Config, message: rdc.QueryQueueMessage):
             status_code=500,
             error_message=f"Can't find the task {task}, please try again later",
         )
+
+        COUNTER_FAILED_QUERIES.add(1, {
+            "task": task,
+            "synthetic_query": str(message.query_type == gcst.SYNTHETIC),
+        })
+
         return
 
     stream = task_config.is_stream
@@ -145,11 +162,14 @@ async def process_task(config: Config, message: rdc.QueryQueueMessage):
     if contenders_to_query is None:
         raise ValueError("No contenders to query! :(")
 
+    COUNTER_TOTAL_QUERIES.add(1, {"task": task, "synthetic_query": str(message.query_type == gcst.SYNTHETIC)})
+    
     try:
         if stream:
             return await _handle_stream_query(config, message, contenders_to_query)
         else:
             return await _handle_nonstream_query(config=config, message=message, contenders_to_query=contenders_to_query)
+    
     except Exception as e:
         logger.error(f"Error processing task {task}: {e}")
         await _handle_error(
@@ -159,3 +179,8 @@ async def process_task(config: Config, message: rdc.QueryQueueMessage):
             status_code=500,
             error_message=f"Error processing task {task}: {e}",
         )
+
+        COUNTER_FAILED_QUERIES.add(1, {
+            "task": task,
+            "synthetic_query": str(message.query_type == gcst.SYNTHETIC),
+        })
