@@ -24,6 +24,7 @@ class Contender(BaseModel):
     capacity: float = Field(..., description="Declared volume for the UID")
     capacity_to_score: float = Field(..., description="Volume to score")
     consumed_capacity: float = Field(0, description="Queried volume for the UID")
+    smooth_streaming_penalty: float = Field(0, description="Penalty incurred for not streaming at a uniform pace")
     total_requests_made: int = Field(0, description="Total requests made")
     requests_429: int = Field(0, description="HTTP 429 requests")
     requests_500: int = Field(0, description="HTTP 500 requests")
@@ -37,7 +38,12 @@ class Contender(BaseModel):
 
 
 def calculate_period_score(
-    total_requests_made: float, capacity: float, consumed_capacity: float, requests_429: float, requests_500: float
+    total_requests_made: float, 
+    capacity: float, 
+    consumed_capacity: float, 
+    requests_429: float, 
+    requests_500: float,
+    smooth_streaming_penalty: float,
 ) -> float | None:
     """
     Calculate a period score (not including quality which is scored separately)
@@ -58,12 +64,28 @@ def calculate_period_score(
     percentage_of_volume_unqueried = volume_unqueried / capacity
     percentage_of_429s = requests_429 / total_requests_made
     percentage_of_500s = requests_500 / total_requests_made
-    percentage_of_good_requests = (total_requests_made - requests_429 - requests_500) / total_requests_made
+    good_requests = (total_requests_made - requests_429 - requests_500)
+    percentage_of_good_requests = good_requests / total_requests_made
 
     rate_limit_punishment_factor = percentage_of_429s * percentage_of_volume_unqueried
     server_error_punishment_factor = percentage_of_500s * percentage_of_volume_unqueried
 
-    return max(percentage_of_good_requests * (1 - rate_limit_punishment_factor) * (1 - server_error_punishment_factor), 0)
+    # Since the Smooth Streaming Penalty is the aggregate difference 
+    # between the max and min latencies of streaming chunks during all 
+    # the requests, good and bad, we need to calculate the average penalty 
+    # per request in order to come up with a punishment factor.
+    smooth_streaming_penalty_per_request = smooth_streaming_penalty / total_requests_made
+
+    # We'll normalize the Smooth Streaming Punishment Factor by using
+    # its inverse if it's not already between 0 and 1
+    smooth_streaming_punishment_factor = (
+        1 - (1 / smooth_streaming_penalty_per_request) if smooth_streaming_penalty_per_request > 1 else smooth_streaming_penalty_per_request 
+    )
+
+    return max(
+        percentage_of_good_requests * (1 - rate_limit_punishment_factor) * (1 - server_error_punishment_factor) * (1 - smooth_streaming_punishment_factor), 
+        0
+    )
 
 
 class RewardData(BaseModel):

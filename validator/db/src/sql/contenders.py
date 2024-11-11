@@ -233,6 +233,20 @@ async def update_contender_capacities(psql_db: PSQLDB, contender: Contender, cap
         )
 
 
+async def update_contender_smooth_streaming_penalty(psql_db: PSQLDB, contender: Contender, smooth_streaming_penalty: float) -> None:
+    async with await psql_db.connection() as connection:
+        await connection.execute(
+            f"""
+            UPDATE {dcst.CONTENDERS_TABLE}
+            SET {dcst.SMOOTH_STREAMING_PENALTY} = {dcst.SMOOTH_STREAMING_PENALTY} + $1
+            WHERE {dcst.CONTENDER_ID} = $2
+            """,
+            smooth_streaming_penalty,
+            contender.id,
+        )
+
+
+
 async def update_contender_429_count(psql_db: PSQLDB, contender: Contender) -> None:
     async with await psql_db.connection() as connection:
         await connection.execute(
@@ -322,7 +336,8 @@ async def update_contenders_period_scores(connection: Connection, netuid: int) -
             {dcst.CAPACITY},
             {dcst.CONSUMED_CAPACITY},
             {dcst.REQUESTS_429},
-            {dcst.REQUESTS_500}
+            {dcst.REQUESTS_500},
+            {dcst.SMOOTH_STREAMING_PENALTY}
         FROM {dcst.CONTENDERS_TABLE}
         WHERE {dcst.NETUID} = $1
     """,
@@ -337,6 +352,7 @@ async def update_contenders_period_scores(connection: Connection, netuid: int) -
             float(row[dcst.CONSUMED_CAPACITY]),
             float(row[dcst.REQUESTS_429]),
             float(row[dcst.REQUESTS_500]),
+            float(row[dcst.SMOOTH_STREAMING_PENALTY]),
         )
         if score is not None:
             updates.append((score, row[dcst.CONTENDER_ID]))

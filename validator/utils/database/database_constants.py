@@ -87,6 +87,7 @@ RAW_CAPACITY = "raw_capacity"
 CAPACITY = "capacity"
 CAPACITY_TO_SCORE = "capacity_to_score"
 CONSUMED_CAPACITY = "consumed_capacity"
+SMOOTH_STREAMING_PENALTY = "smooth_streaming_penalty"
 
 TOTAL_REQUESTS_MADE = "total_requests_made"
 REQUESTS_429 = "requests_429"

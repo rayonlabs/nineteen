@@ -94,6 +94,11 @@ async def consume_generator(
     task = contender.task
     query_result = None
 
+    # We'll default to a penalty of zero and penalize
+    # Miners if the pace at which chunks of tokens are 
+    # streamed is not uniform
+    smooth_streaming_penalty = 0
+
     try:
         first_chunk = await generator.__anext__()
     except (StopAsyncIteration, httpx.ConnectError, httpx.ReadError, httpx.HTTPError, httpx.ReadTimeout, Exception) as e:
@@ -102,12 +107,23 @@ async def consume_generator(
 
         logger.error(f"Error when querying node: {node.node_id} for task: {task}. Error: {error_type} - {error_details}")
         query_result = construct_500_query_result(node, task)
-        await utils.adjust_contender_from_result(config, query_result, contender, synthetic_query, payload=payload)
+        await utils.adjust_contender_from_result(config, query_result, smooth_streaming_penalty, contender, synthetic_query, payload=payload)
         return False
 
     text_jsons, status_code, first_message =  [], 200, True
+    time_between_chunks = []
+    time_of_last_chunk = None
     try:
         async for text in async_chain(first_chunk, generator):
+            time_of_current_chunk = time.time()
+            
+            # If this is not the first chunk, then we'll track
+            # the time elapsed since the last chunk arrived
+            if time_of_last_chunk is not None:
+                time_between_chunks.append(time_of_current_chunk - time_of_last_chunk)
+
+            time_of_last_chunk = time_of_current_chunk
+
             if isinstance(text, bytes):
                 text = text.decode()
             if isinstance(text, str):
@@ -144,6 +160,22 @@ async def consume_generator(
                         status_code=200,
                     )
 
+        
+        # If there is only one entry, then it means we only 
+        # received 2 tokens, and there's no way to calculate
+        # whether or not the stream was smooth since we need
+        # at least 3 tokens in order to calculate a change in
+        # pace, and so we'll leave the penalty at 0
+        if len(time_between_chunks) > 1:
+            max_latency = max(time_between_chunks)
+            min_latency = min(time_between_chunks)
+
+            # In order to penalize a Miner for deviating from its average
+            # latency in either direction, we'll the calculate penalty as: 
+            #   smooth_streaming_penalty = (max_latency - avg_latency) + (avg_latency - min_latency)
+            # Which in turn reduces to:
+            smooth_streaming_penalty = max_latency - min_latency 
+
         if len(text_jsons) > 0:
             last_payload = _get_formatted_payload("", False, add_finish_reason=True)
             await _handle_event(
@@ -171,7 +203,7 @@ async def consume_generator(
         success = False
     finally:
         if query_result is not None:
-            await utils.adjust_contender_from_result(config, query_result, contender, synthetic_query, payload=payload)
+            await utils.adjust_contender_from_result(config, query_result, smooth_streaming_penalty, contender, synthetic_query, payload=payload)
             await config.redis_db.expire(rcst.QUERY_RESULTS_KEY + ":" + job_id, 10)
 
     character_count = sum([len(text_json["choices"][0]["delta"]["content"]) for text_json in text_jsons])
