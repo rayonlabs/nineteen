@@ -108,7 +108,7 @@ async def generate_chat_synthetic(model: str, task_config: Any, word_to_token: f
         else:
             total_n_words = int(total_n_words[0])
         total_n_words = total_n_words if total_n_words > 0 else 20
-        logger.info(f"generating prompt with {total_n_words} words for synth")
+        logger.debug(f"generating prompt with {total_n_words} words for synth")
         total_messages = random.randint(2, 10)
         n_words_per_message = total_n_words // total_messages
 
@@ -136,8 +136,8 @@ async def generate_chat_synthetic(model: str, task_config: Any, word_to_token: f
             top_p=1,
         )
         real_count = sum([len(word_tokenize(msg.content)) for msg in messages])
-        logger.info(f"Generated {total_n_words} words chat synth in {round(time()-start, 3)}s - REAL word count : {real_count}")
-        logger.info(f"prompt : {messages}")
+        logger.debug(f"Generated {total_n_words} words chat synth in {round(time()-start, 3)}s - REAL word count : {real_count}")
+        logger.debug(f"prompt : {messages}")
         return payload
     except Exception as e:
         logger.error("Error in new version of generate_chat_synthetic: %s", e)
