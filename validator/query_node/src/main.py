@@ -7,6 +7,7 @@ from fastapi import FastAPI, Depends, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, StreamingResponse
 import uvicorn
+import traceback
 from typing import AsyncGenerator, Any
 import time
 from fiber.logging_utils import get_logger
@@ -187,47 +188,35 @@ async def process_image_request(
         job_id=job_id,
         query_payload=payload.model_dump()
     )
-    
-    logger.info(f"Processing image request for task: {task}, job_id: {job_id}")
-    
+        
     try:
         generator = process_organic_task(config, message)
         response_content = None
         
         async for chunk in generator:
-            logger.debug(f"Received raw chunk: {str(chunk)[:10]}...")
             try:
-                chunks = load_sse_jsons(chunk)
-                logger.debug(f"Parsed SSE chunks: {chunks}")
-                
+                chunks = load_sse_jsons(chunk)                
                 if not isinstance(chunks, list):
                     logger.warning(f"Expected list of chunks but got {type(chunks)}")
                     continue
-                    
                 for chunk_data in chunks:
                     try:
                         content = chunk_data["choices"][0]["delta"]["content"]
-                        logger.info(f"Extracted content: {content}")
                         try:
                             response_json = json.loads(content)
-                            logger.info(f"Successfully parsed response JSON for job {job_id}")
-                            logger.debug(f"Response JSON: {response_json}")
                             response_content = response_json
                             break
                         except json.JSONDecodeError as e:
-                            logger.warning(f"Failed to parse content as JSON: {e}")
+                            logger.error(f"Failed to parse content as JSON: {e}")
                             continue
                     except (KeyError, IndexError) as e:
                         logger.error(f"Error extracting content from chunk_data: {e}")
-                        logger.debug(f"Problematic chunk_data: {chunk_data}")
                         continue
-                        
                 if response_content:
                     break
                     
             except (json.JSONDecodeError, KeyError, IndexError) as e:
                 logger.error(f"Error processing chunk: {e}")
-                logger.debug(f"Problematic chunk: {chunk}")
                 continue
                 
         if not response_content:
@@ -237,7 +226,6 @@ async def process_image_request(
         try:
             logger.debug(f"Attempting to create ImageResponse from: {response_content}")
             image_response = payload_models.ImageResponse(**response_content)
-            logger.info(f"Successfully created ImageResponse for job {job_id}")
         except Exception as e:
             logger.error(f"Failed to create ImageResponse: {e}")
             logger.error(f"Response content that caused error: {response_content}")
@@ -253,16 +241,13 @@ async def process_image_request(
             COUNTER_IMAGE_ERROR.add(1, {"task": task, "kind": "no_image"})
             raise HTTPException(status_code=500, detail="No image generated")
             
-        logger.info(f"Successfully processed image request for job {job_id}")
         COUNTER_IMAGE_SUCCESS.add(1, {"task": task})
         return JSONResponse(content={"image_b64": image_response.image_b64})
         
     except Exception as e:
         logger.error(f"Error processing image request for job {job_id}: {str(e)}")
         logger.error(f"Error type: {type(e).__name__}")
-        if hasattr(e, '__traceback__'):
-            import traceback
-            logger.error(f"Traceback: {''.join(traceback.format_tb(e.__traceback__))}")
+        logger.error(f"Traceback: {''.join(traceback.format_tb(e.__traceback__))}")
         COUNTER_IMAGE_ERROR.add(1, {"task": task, "error": str(e)})
         if isinstance(e, HTTPException):
             raise
