@@ -25,8 +25,12 @@ from validator.query_node.src import request_models
 from validator.utils.query.query_utils import load_sse_jsons
 import validator.utils.redis.redis_utils as rutils
 from core.models import payload_models
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from fastapi import Security
+from validator.db.src.sql.api import get_api_key_rate_limit
 
 logger = get_logger(__name__)
+auth_scheme = HTTPBearer()
 
 # Metrics
 QUERY_NODE_REQUESTS_PROCESSING_GAUGE = metrics.get_meter(__name__).create_gauge(
@@ -59,6 +63,39 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+async def verify_api_key_rate_limit(config: Config, api_key: str):
+    # remove before prod
+    if api_key == "39236004-5935-46de-bedf-7f66cc12be35":
+            return True
+    # NOTE: abit dangerous but very useful
+    if not config.prod:
+        if api_key == "test":
+            return True
+
+    rate_limit_key = f"rate_limit:{api_key}"
+    rate_limit = await config.redis_db.get(rate_limit_key)
+    if rate_limit is None:
+        async with await config.psql_db.connection() as connection:
+            rate_limit = await get_api_key_rate_limit(connection, api_key)
+            if rate_limit is None:
+                raise HTTPException(status_code=403, detail="Invalid API key")
+        await config.redis_db.set(rate_limit_key, rate_limit, ex=30)
+    else:
+        rate_limit = int(rate_limit)
+
+    minute = time.time() // 60
+    current_rate_limit_key = f"current_rate_limit:{api_key}:{minute}"
+    current_rate_limit = await config.redis_db.get(current_rate_limit_key)
+    if current_rate_limit is None:
+        current_rate_limit = 0
+        await config.redis_db.expire(current_rate_limit_key, 60)
+    else:
+        current_rate_limit = int(current_rate_limit)
+
+    await config.redis_db.incr(current_rate_limit_key)
+    if current_rate_limit >= rate_limit:
+        raise HTTPException(status_code=429, detail="Too many requests")
+
 
 def create_redis_pool(host: str) -> BlockingConnectionPool:
     return BlockingConnectionPool(
@@ -77,6 +114,7 @@ async def load_config_once() -> Config:
     else:
         netuid = int(netuid)
 
+    prod = bool(os.getenv("ENV", "prod").lower() == "prod")
     localhost = bool(os.getenv("LOCALHOST", "false").lower() == "true")
     if localhost:
         redis_host = "localhost"
@@ -105,6 +143,7 @@ async def load_config_once() -> Config:
         replace_with_docker_localhost=replace_with_docker_localhost,
         replace_with_localhost=localhost,
         keypair=keypair,
+        prod=prod
     )
 
 _config = None
@@ -253,11 +292,55 @@ async def process_image_request(
             raise
         raise HTTPException(status_code=500, detail=str(e))
     
+@app.post("/v1/image-to-image", response_model=None)
+async def image_to_image(
+    request: request_models.ImageToImageRequest,
+    config: Config = Depends(load_config),
+    credentials: HTTPAuthorizationCredentials = Security(auth_scheme)
+) -> JSONResponse:
+    await verify_api_key_rate_limit(config, credentials.credentials)
+    payload = await request_models.image_to_image_to_payload(
+        request,
+        httpx_client=config.httpx_client,
+        prod=config.prod,
+    )
+    return await process_image_request(config, payload, payload.model)
+
+@app.post("/v1/inpaint", response_model=None)
+async def inpaint(
+    request: request_models.InpaintRequest,
+    config: Config = Depends(load_config),
+    credentials: HTTPAuthorizationCredentials = Security(auth_scheme)
+) -> JSONResponse:
+    await verify_api_key_rate_limit(config, credentials.credentials)
+    payload = await request_models.inpaint_to_payload(
+        request, 
+        httpx_client=config.httpx_client, 
+        prod=config.prod
+    )
+    return await process_image_request(config, payload, "inpaint")
+
+@app.post("/v1/avatar", response_model=None)
+async def avatar(
+    request: request_models.AvatarRequest,
+    config: Config = Depends(load_config),
+    credentials: HTTPAuthorizationCredentials = Security(auth_scheme)
+) -> JSONResponse:
+    await verify_api_key_rate_limit(config, credentials.credentials)
+    payload = await request_models.avatar_to_payload(
+        request, 
+        httpx_client=config.httpx_client, 
+        prod=config.prod
+    )
+    return await process_image_request(config, payload, "avatar")
+
 @app.post("/v1/text-to-image", response_model=None)
 async def text_to_image(
     request: request_models.TextToImageRequest,
-    config: Config = Depends(load_config)
+    config: Config = Depends(load_config),
+    credentials: HTTPAuthorizationCredentials = Security(auth_scheme)
 ) -> JSONResponse:
+    await verify_api_key_rate_limit(config, credentials.credentials)
     payload = request_models.text_to_image_to_payload(request)
     return await process_image_request(config, payload, payload.model)
 
