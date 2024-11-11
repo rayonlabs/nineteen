@@ -99,7 +99,7 @@ def sampling(size=1, gamma_mean=1000, max_value=8000, gamma_shape=0.5, gaussian_
     combined_samples = combined_samples[combined_samples < max_value]
     return combined_samples
 
-async def generate_chat_synthetic(model: str, task_config: Any, word_to_token: float = 5) -> payload_models.ChatPayload:
+async def generate_chat_synthetic(model: str, task_config: Any, word_to_token: float = 4) -> payload_models.ChatPayload:
     start = time()
     try:
         total_n_words = sampling(size=1, max_value=task_config.orchestrator_server_config.load_model_config['max_model_len']//word_to_token)
@@ -129,7 +129,6 @@ async def generate_chat_synthetic(model: str, task_config: Any, word_to_token: f
         payload = payload_models.ChatPayload(
             messages=messages,
             temperature=round(random.random(), 1),
-            #max_tokens=random.randint(10, task_config.orchestrator_server_config.load_model_config['max_model_len'] - total_n_words*word_to_token)//2),
             max_tokens=random.randint(50, 1000),
             seed=random.randint(1, scst.MAX_SEED),
             model=model,
