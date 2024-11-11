@@ -23,7 +23,6 @@ from opentelemetry import metrics
 from validator.query_node.src import request_models
 from validator.utils.query.query_utils import load_sse_jsons
 import validator.utils.redis.redis_utils as rutils
-from validator.entry_node.src.models import request_models as entry_request_models
 from core.models import payload_models
 
 logger = get_logger(__name__)
@@ -230,10 +229,10 @@ async def process_image_request(
 
 @app.post("/v1/text-to-image", response_model=None)
 async def text_to_image(
-    request: entry_request_models.TextToImageRequest,
+    request: request_models.TextToImageRequest,
     config: Config = Depends(load_config)
 ) -> JSONResponse:
-    payload = entry_request_models.text_to_image_to_payload(request)
+    payload = request_models.text_to_image_to_payload(request)
     return await process_image_request(config, payload, payload.model)
 
 @app.get("/v1/models", response_model=None)
