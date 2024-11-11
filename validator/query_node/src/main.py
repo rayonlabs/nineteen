@@ -1,4 +1,3 @@
-from dotenv import load_dotenv
 import os
 import sys
 import signal
@@ -8,11 +7,11 @@ from fastapi import FastAPI, Depends, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, StreamingResponse
 import uvicorn
-from typing import AsyncGenerator
+from typing import AsyncGenerator, Any
 import time
-
 from fiber.logging_utils import get_logger
 import json
+from core import task_config as tcfg
 from validator.utils.generic import generic_constants as gcst
 from validator.query_node.src.query_config import Config
 from validator.utils.redis import redis_constants as rcst, redis_dataclasses as rdc
@@ -24,6 +23,8 @@ from opentelemetry import metrics
 from validator.query_node.src import request_models
 from validator.utils.query.query_utils import load_sse_jsons
 import validator.utils.redis.redis_utils as rutils
+from validator.entry_node.src.models import request_models as entry_request_models
+from core.models import payload_models
 
 logger = get_logger(__name__)
 
@@ -42,6 +43,8 @@ QUERY_NODE_FAILED_SYNTHETIC_TASKS_COUNTER = metrics.get_meter(__name__).create_c
 
 COUNTER_TEXT_GENERATION_ERROR = metrics.get_meter(__name__).create_counter("validator.query_node.text.error")
 COUNTER_TEXT_GENERATION_SUCCESS = metrics.get_meter(__name__).create_counter("validator.query_node.text.success")
+COUNTER_IMAGE_ERROR = metrics.get_meter(__name__).create_counter("validator.query_node.image.error")
+COUNTER_IMAGE_SUCCESS = metrics.get_meter(__name__).create_counter("validator.query_node.image.success")
 GAUGE_TOKENS_PER_SEC = metrics.get_meter(__name__).create_gauge(
     "validator.query_node.text.tokens_per_sec",
     description="Average tokens per second metric for LLM streaming"
@@ -55,6 +58,7 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
 
 def create_redis_pool(host: str) -> BlockingConnectionPool:
     return BlockingConnectionPool(
@@ -164,6 +168,84 @@ async def process_organic_stream(
             "error": type(e).__name__
         })
         raise
+
+async def process_image_request(
+    config: Config,
+    payload: payload_models.TextToImagePayload | payload_models.ImageToImagePayload | payload_models.InpaintPayload | payload_models.AvatarPayload,
+    task: str
+) -> JSONResponse:
+    task = task.replace("_", "-")
+    task_config = tcfg.get_enabled_task_config(task)
+    if task_config is None:
+        COUNTER_IMAGE_ERROR.add(1, {"reason": "no_task_config"})
+        logger.error(f"Task config not found for task: {task}")
+        raise HTTPException(status_code=400, detail=f"Invalid model {task}")
+        
+    job_id = rutils.generate_job_id()
+    message = rdc.QueryQueueMessage(
+        task=task,
+        query_type=gcst.ORGANIC,
+        job_id=job_id,
+        query_payload=payload.model_dump()
+    )
+    
+    try:
+        generator = process_organic_task(config, message)
+        response_content = None
+        
+        async for chunk in generator:
+            try:
+                data = chunk.replace("data: ", "").strip()
+                if data == "[DONE]":
+                    break
+                    
+                content = json.loads(data)
+                if gcst.CONTENT in content:
+                    response_content = content[gcst.CONTENT]
+                    break
+            except json.JSONDecodeError:
+                continue
+                
+        if not response_content:
+            raise HTTPException(status_code=500, detail="No response received")
+            
+        image_response = payload_models.ImageResponse(**json.loads(response_content))
+        if image_response.is_nsfw:
+            COUNTER_IMAGE_ERROR.add(1, {"task": task, "kind": "nsfw"})
+            raise HTTPException(status_code=403, detail="NSFW content detected")
+            
+        if not image_response.image_b64:
+            COUNTER_IMAGE_ERROR.add(1, {"task": task, "kind": "no_image"})
+            raise HTTPException(status_code=500, detail="No image generated")
+            
+        COUNTER_IMAGE_SUCCESS.add(1, {"task": task})
+        return JSONResponse(content={"image_b64": image_response.image_b64})
+        
+    except Exception as e:
+        COUNTER_IMAGE_ERROR.add(1, {"task": task, "error": str(e)})
+        if isinstance(e, HTTPException):
+            raise
+        raise HTTPException(status_code=500, detail=str(e))
+    
+
+@app.post("/v1/text-to-image", response_model=None)
+async def text_to_image(
+    request: entry_request_models.TextToImageRequest,
+    config: Config = Depends(load_config)
+) -> JSONResponse:
+    payload = entry_request_models.text_to_image_to_payload(request)
+    return await process_image_request(config, payload, payload.model)
+
+@app.get("/v1/models", response_model=None)
+async def models() -> list[dict[str, Any]]:
+    models = tcfg.get_public_task_configs()
+    new_models = []
+    for model in models:
+        new_model = {"model_name": model["task"]} 
+        new_model.update({k: v for k, v in model.items() if k != "task"})
+        new_models.append(new_model)
+    return new_models
+
 
 @app.post("/v1/chat/completions", response_model=None)
 async def chat(

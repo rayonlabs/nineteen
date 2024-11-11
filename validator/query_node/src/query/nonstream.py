@@ -1,25 +1,22 @@
-import json
 import time
-from httpx import Response
+from typing import AsyncGenerator
+from httpx import Response 
 from pydantic import ValidationError
 from core.models import utility_models
 from core.models.payload_models import ImageResponse
 from validator.query_node.src.query_config import Config
-from validator.utils.generic import generic_constants as gcst
 from validator.models import Contender
-import validator.utils.redis.redis_utils as rutils
 from fiber.networking.models import NodeWithFernet as Node
 from fiber.validator import client
 from core import task_config as tcfg
 from fiber.logging_utils import get_logger
 from validator.query_node.src import utils
-from validator.utils.redis import redis_constants as rcst
+import json
 
 logger = get_logger(__name__)
 
-
 def _get_500_query_result(node_id: int, contender: Contender) -> utility_models.QueryResult:
-    query_result = utility_models.QueryResult(
+    return utility_models.QueryResult(
         formatted_response=None,
         node_id=node_id,
         node_hotkey=contender.node_hotkey,
@@ -28,19 +25,14 @@ def _get_500_query_result(node_id: int, contender: Contender) -> utility_models.
         status_code=500,
         success=False,
     )
-    return query_result
-
 
 def get_formatted_response(
     response: Response,
     response_model: type[ImageResponse],
 ) -> ImageResponse | None:
     if response and response.status_code == 200:
-        formatted_response = _extract_response(response, response_model)
-        return formatted_response
-    else:
-        return None
-
+        return _extract_response(response, response_model)
+    return None
 
 def _extract_response(response: Response, response_model: type[ImageResponse]) -> ImageResponse | None:
     try:
@@ -56,43 +48,8 @@ def _extract_response(response: Response, response_model: type[ImageResponse]) -
 
         return formatted_response
     except ValidationError as e:
-        logger.error(f"Failed to deserialize for some reason: {e}")
+        logger.error(f"Failed to deserialize response: {e}")
         return None
-
-
-async def handle_nonstream_event(
-    config: Config,
-    content: str | None,
-    synthetic_query: bool,
-    job_id: str,
-    status_code: int,
-    error_message: str | None = None,
-) -> None:
-    if synthetic_query:
-        return
-
-    response_queue = await rutils.get_response_queue_key(job_id)
-    
-    if content is not None:
-        if isinstance(content, dict):
-            content = json.dumps(content)
-        event_data = json.dumps({
-            gcst.CONTENT: content,
-            gcst.STATUS_CODE: status_code,
-            gcst.JOB_ID: job_id 
-        })
-    else:
-        event_data = json.dumps({
-            gcst.ERROR_MESSAGE: error_message or "Failed to process request",
-            gcst.STATUS_CODE: status_code or 500,
-            gcst.JOB_ID: job_id
-        })
-        logger.error(f"Pushing error to queue {response_queue}: {error_message} - {event_data}")
-    
-    try:
-        await config.redis_db.rpush(response_queue, event_data)
-    except Exception as e:
-        logger.error(f"Failed to push response to queue: {e}")
 
 async def query_nonstream(
     config: Config,
@@ -101,17 +58,19 @@ async def query_nonstream(
     payload: dict,
     response_model: type[ImageResponse],
     synthetic_query: bool,
-    job_id: str,
-) -> bool:
+) -> bool | AsyncGenerator[str, None]:
     node_id = contender.node_id
 
     assert node.fernet is not None
     assert node.symmetric_key_uuid is not None
     task_config = tcfg.get_enabled_task_config(contender.task)
     time_before_query = time.time()
+    
     if task_config is None:
         logger.error(f"Task config not found for task: {contender.task}")
-        return False
+        if synthetic_query:
+            return False
+        return empty_generator()
 
     try:
         response = await client.make_non_streamed_post(
@@ -136,7 +95,9 @@ async def query_nonstream(
         await utils.adjust_contender_from_result(
             config=config, query_result=query_result, contender=contender, synthetic_query=synthetic_query, payload=payload
         )
-        return False
+        if synthetic_query:
+            return False
+        return empty_generator()
 
     response_time = time.time() - time_before_query
     try:
@@ -147,7 +108,9 @@ async def query_nonstream(
         await utils.adjust_contender_from_result(
             config=config, query_result=query_result, contender=contender, synthetic_query=synthetic_query, payload=payload
         )
-        return False
+        if synthetic_query:
+            return False
+        return empty_generator()
 
     if formatted_response is not None:
         query_result = utility_models.QueryResult(
@@ -160,13 +123,15 @@ async def query_nonstream(
             success=True,
         )
         logger.info(f"✅ Queried node: {node_id} for task: {contender.task} - time: {response_time}")
-        await handle_nonstream_event(
-            config, formatted_response.model_dump_json(), synthetic_query, job_id, status_code=response.status_code
-        )
+        
         await utils.adjust_contender_from_result(
             config=config, query_result=query_result, contender=contender, synthetic_query=synthetic_query, payload=payload
         )
-        return True
+
+        if synthetic_query:
+            return True
+        else:
+            return create_response_generator(formatted_response.model_dump())
     else:
         query_result = utility_models.QueryResult(
             formatted_response=None,
@@ -183,4 +148,19 @@ async def query_nonstream(
         await utils.adjust_contender_from_result(
             config=config, query_result=query_result, contender=contender, synthetic_query=synthetic_query, payload=payload
         )
-        return False
+        if synthetic_query:
+            return False
+        return empty_generator()
+
+async def empty_generator() -> AsyncGenerator[str, None]:
+    if False:  # this ensures the generator is empty but properly typed
+        yield ""
+
+async def create_response_generator(response_json: dict) -> AsyncGenerator[str, None]:
+    data = {
+        "choices": [{
+            "delta": {"content": json.dumps(response_json)}
+        }]
+    }
+    yield f"data: {json.dumps(data)}\n\n"
+    yield "data: [DONE]\n\n"

@@ -72,7 +72,6 @@ async def _handle_stream_synthetic(
         success = await streaming.consume_synthetic_generator(
             config=config,
             generator=generator,
-            job_id=message.job_id,
             contender=contender,
             node=node,
             payload=message.query_payload,
@@ -114,7 +113,6 @@ async def _handle_stream_organic(
         async for chunk in streaming.consume_organic_generator(
             config=config,
             generator=generator,
-            job_id=message.job_id,
             contender=contender,
             node=node,
             payload=message.query_payload,
@@ -132,33 +130,40 @@ async def _handle_nonstream_query(
     config: Config, 
     message: rdc.QueryQueueMessage, 
     contenders: list[Contender]
-) -> bool:
+) -> bool | AsyncGenerator[str, None]:
+    start = time.time()
+    is_synthetic = message.query_type == gcst.SYNTHETIC
+    
     for contender in contenders:
-        
         node = await get_node(config.psql_db, contender.node_id, config.netuid)
         if not node:
             logger.error(f"Node {contender.node_id} not found in database for netuid {config.netuid}")
             continue
             
-        success = await nonstream.query_nonstream(
+        logger.info(f"Querying node {contender.node_id} for task {contender.task}")
+        result = await nonstream.query_nonstream(
             config=config,
             contender=contender,
             node=node,
             payload=message.query_payload,
             response_model=ImageResponse,
-            synthetic_query=message.query_type == gcst.SYNTHETIC,
-            job_id=message.job_id,
+            synthetic_query=is_synthetic,
         )
-        if success:
-            return True
+        
+        if is_synthetic:
+            if isinstance(result, bool) and result:
+                return True
+        else:
+            if isinstance(result, AsyncGenerator):
+                return result
         
     error_msg = f"Service for task {message.task} is not responding after trying {len(contenders)} contenders"
-    if message.query_type == gcst.SYNTHETIC:
+    if is_synthetic:
         logger.error(error_msg)
         return False
     else:
         raise HTTPException(status_code=500, detail=error_msg)
-
+    
 async def process_synthetic_task(config: Config, message: rdc.QueryQueueMessage) -> bool:
     task = message.task
     
@@ -175,6 +180,7 @@ async def process_synthetic_task(config: Config, message: rdc.QueryQueueMessage)
                 "synthetic_query": "true"
             })
             return False
+            
         async with await config.psql_db.connection() as connection:
             contenders = await _get_contenders(connection, task, message.query_type)
         
@@ -186,7 +192,12 @@ async def process_synthetic_task(config: Config, message: rdc.QueryQueueMessage)
         if task_config.is_stream:
             return await _handle_stream_synthetic(config, message, contenders)
         else:
-            return await _handle_nonstream_query(config, message, contenders)
+            result = await _handle_nonstream_query(config, message, contenders)
+            if isinstance(result, bool):
+                return result
+            else:
+                logger.error(f"Unexpected AsyncGenerator result for synthetic task {task}")
+                return False
 
     except Exception as e:
         logger.error(f"Error processing synthetic task {task}: {e}")
@@ -195,7 +206,6 @@ async def process_synthetic_task(config: Config, message: rdc.QueryQueueMessage)
             "synthetic_query": "true"
         })
         return False
-
 async def process_organic_task(config: Config, message: rdc.QueryQueueMessage) -> AsyncGenerator[str, None]:
     task = message.task
     
@@ -206,6 +216,7 @@ async def process_organic_task(config: Config, message: rdc.QueryQueueMessage) -
                 status_code=500,
                 detail=f"Can't find the task {task}, please try again later"
             )
+            
         async with await config.psql_db.connection() as connection:
             contenders = await _get_contenders(connection, task, message.query_type)
         
@@ -218,12 +229,15 @@ async def process_organic_task(config: Config, message: rdc.QueryQueueMessage) -
             async for chunk in _handle_stream_organic(config, message, contenders):
                 yield chunk
         else:
-            success = await _handle_nonstream_query(config, message, contenders)
-            if not success:
+            result = await _handle_nonstream_query(config, message, contenders)
+            if isinstance(result, bool):
                 raise HTTPException(
                     status_code=500,
-                    detail=f"Failed to process non-streaming task {task}"
+                    detail=f"Unexpected boolean result for organic task {task}"
                 )
+            else:
+                async for chunk in result:
+                    yield chunk
 
     except Exception as e:
         logger.error(f"Error processing organic task {task}: {e}")
@@ -235,7 +249,6 @@ async def process_organic_task(config: Config, message: rdc.QueryQueueMessage) -
             raise
         raise HTTPException(status_code=500, detail=str(e))
     
-
 async def process_task(config: Config, message: rdc.QueryQueueMessage) -> AsyncGenerator[str, None] | bool:
     """Process task based on query type."""
     if message.query_type == gcst.SYNTHETIC:

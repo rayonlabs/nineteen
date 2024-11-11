@@ -6,15 +6,11 @@ import httpx
 from core.models import utility_models
 from validator.query_node.src.query_config import Config
 from validator.query_node.src import utils
-import validator.utils.redis.redis_utils as rutils
-
 from validator.models import Contender
 from fiber.validator import client
 from fiber.networking.models import NodeWithFernet as Node
 from core import task_config as tcfg
 from validator.utils.generic import generic_constants as gcst
-from validator.utils.redis import redis_constants as rcst
-
 from fiber.logging_utils import get_logger
 from validator.utils.query.query_utils import load_sse_jsons
 
@@ -48,33 +44,14 @@ def construct_500_query_result(node: Node, task: str) -> utility_models.QueryRes
         response_time=None,
     )
 
-async def _handle_synthetic_event(
-    config: Config,
-    content: str,
-    job_id: str,
-    status_code: int = 200,
-    ttl: int = rcst.RESPONSE_QUEUE_TTL
-) -> None:
-    response_queue = await rutils.get_response_queue_key(job_id)
-    event_data = json.dumps({
-        gcst.CONTENT: content,
-        gcst.STATUS_CODE: status_code
-    })
-    
-    async with config.redis_db.pipeline() as pipe:
-        await pipe.rpush(response_queue, event_data)
-        await pipe.expire(response_queue, ttl)
-        await pipe.execute()
-
 async def consume_synthetic_generator(
     config: Config,
     generator: AsyncGenerator,
-    job_id: str,
     contender: Contender,
     node: Node,
     payload: dict,
     start_time: float,
-) -> bool:
+) -> bool: 
     task = contender.task
     query_result = None
 
@@ -88,6 +65,7 @@ async def consume_synthetic_generator(
         return False
 
     text_jsons, status_code, first_message = [], 200, True
+    success = False
     try:
         async for text in async_chain(first_chunk, generator):
             if isinstance(text, bytes):
@@ -111,33 +89,13 @@ async def consume_synthetic_generator(
                             break
 
                         text_jsons.append(text_json)
-                        dumped_payload = json.dumps(text_json)
                         first_message = False
-                        
-                        await _handle_synthetic_event(
-                            config=config,
-                            content=f"data: {dumped_payload}\n\n",
-                            job_id=job_id,
-                        )
 
                 except (IndexError, json.JSONDecodeError) as e:
                     logger.warning(f"Error {e} when trying to load text: {text}")
                     break
 
-        if len(text_jsons) > 0:
-            last_payload = _get_formatted_payload("", False, add_finish_reason=True)
-            await _handle_synthetic_event(
-                config=config,
-                content=f"data: {last_payload}\n\n",
-                job_id=job_id,
-            )
-            await _handle_synthetic_event(
-                config=config,
-                content="data: [DONE]\n\n",
-                job_id=job_id,
-                ttl=1
-            )
-            logger.info(f"Queried node: {node.node_id} for task: {task}. Success: {not first_message}.")
+        logger.info(f"Queried node: {node.node_id} for task: {task}. Success: {not first_message}.")
 
         response_time = time.time() - start_time
         query_result = utility_models.QueryResult(
@@ -160,7 +118,7 @@ async def consume_synthetic_generator(
         if query_result is not None:
             await utils.adjust_contender_from_result(config, query_result, contender, True, payload=payload)
 
-        if success:
+        if success and text_jsons:
             character_count = sum([len(text_json["choices"][0]["delta"]["content"]) for text_json in text_jsons])
             logger.debug(f"Success: {success}; Node: {node.node_id}; Task: {task}; response_time: {response_time}; character_count: {character_count}")
     
@@ -169,7 +127,6 @@ async def consume_synthetic_generator(
 async def consume_organic_generator(
     config: Config,
     generator: AsyncGenerator,
-    job_id: str,
     contender: Contender,
     node: Node,
     payload: dict,
