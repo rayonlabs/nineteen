@@ -21,7 +21,7 @@ logger = get_logger(__name__)
 
 PERIOD_SCORE_TIME_DECAYING_FACTOR = 0.5
 METRIC_PERCENTILE = 0.3
-SPEED_BONUS_MAX = 0.5
+SPEED_BONUS_MAX = 0.6
 
 
 def _get_metric_score(metrics: list[float]) -> float:
@@ -165,7 +165,7 @@ def _normalise_volumes_for_task(effective_volumes: dict[str, float]) -> dict[str
 
 
 def _apply_non_linear_transformation(scores: dict[str, float]) -> dict[str, float]:
-    return {hotkey: score**3 for hotkey, score in scores.items()}
+    return {hotkey: score**5 for hotkey, score in scores.items()}
 
 
 async def _normalise_effective_volumes_for_task(effective_volumes: dict[str, float]) -> dict[str, float]:
