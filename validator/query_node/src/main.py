@@ -194,11 +194,7 @@ async def process_image_request(
         
         async for chunk in generator:
             try:
-                data = chunk.replace("data: ", "").strip()
-                if data == "[DONE]":
-                    break
-                    
-                content = json.loads(data)
+                content = json.loads(chunk)
                 if gcst.CONTENT in content:
                     response_content = content[gcst.CONTENT]
                     break
@@ -224,8 +220,7 @@ async def process_image_request(
         COUNTER_IMAGE_ERROR.add(1, {"task": task, "error": str(e)})
         if isinstance(e, HTTPException):
             raise
-        raise HTTPException(status_code=500, detail=str(e))
-    
+        raise HTTPException(status_code=500, detail=str(e))    
 
 @app.post("/v1/text-to-image", response_model=None)
 async def text_to_image(
