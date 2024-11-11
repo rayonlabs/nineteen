@@ -210,6 +210,7 @@ async def process_organic_task(config: Config, message: rdc.QueryQueueMessage) -
     task = message.task
     
     try:
+        await _decrement_requests_remaining(config.redis_db, task)
         task_config = tcfg.get_enabled_task_config(task)
         if not task_config:
             raise HTTPException(

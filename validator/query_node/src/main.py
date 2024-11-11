@@ -348,7 +348,7 @@ class SyntheticTaskProcessor:
                     await asyncio.sleep(0.1)
                     continue
                 
-                message_data = await self.config.redis_db.blpop(rcst.QUERY_QUEUE_KEY, timeout=0.1)
+                message_data = await self.config.redis_db.blpop(rcst.QUERY_QUEUE_KEY, timeout=1)
                 if not message_data:
                     continue
                     
