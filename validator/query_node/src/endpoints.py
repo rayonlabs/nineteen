@@ -1,7 +1,7 @@
 from fastapi import Depends, HTTPException
 from fastapi.responses import JSONResponse, StreamingResponse
 import time
-from typing import Any
+from typing import Any, Annotated
 from core import task_config as tcfg
 from validator.utils.generic import generic_constants as gcst
 from validator.query_node.src.query_config import Config
@@ -25,12 +25,17 @@ async def get_config_dependency():
     config = await load_config()
     return config
 
+async def verify_api_key_dependency(
+    config: Annotated[Any, Depends(get_config_dependency)],
+    credentials: Annotated[HTTPAuthorizationCredentials, Security(auth_scheme)]
+):
+    await verify_api_key_rate_limit(config, credentials.credentials)
+
 async def image_to_image(
     request: request_models.ImageToImageRequest,
-    config: Config = Depends(get_config_dependency),
-    credentials: HTTPAuthorizationCredentials = Security(auth_scheme)
+    config: Annotated[Any, Depends(get_config_dependency)],
+    _: Annotated[None, Depends(verify_api_key_dependency)]
 ) -> JSONResponse:
-    await verify_api_key_rate_limit(config, credentials.credentials)
     payload = await request_models.image_to_image_to_payload(
         request,
         httpx_client=config.httpx_client,
@@ -40,10 +45,9 @@ async def image_to_image(
 
 async def inpaint(
     request: request_models.InpaintRequest,
-    config: Config = Depends(get_config_dependency),
-    credentials: HTTPAuthorizationCredentials = Security(auth_scheme)
+    config: Annotated[Any, Depends(get_config_dependency)],
+    _: Annotated[None, Depends(verify_api_key_dependency)]
 ) -> JSONResponse:
-    await verify_api_key_rate_limit(config, credentials.credentials)
     payload = await request_models.inpaint_to_payload(
         request, 
         httpx_client=config.httpx_client, 
@@ -53,10 +57,9 @@ async def inpaint(
 
 async def avatar(
     request: request_models.AvatarRequest,
-    config: Config = Depends(get_config_dependency),
-    credentials: HTTPAuthorizationCredentials = Security(auth_scheme)
+    config: Annotated[Any, Depends(get_config_dependency)],
+    _: Annotated[None, Depends(verify_api_key_dependency)]
 ) -> JSONResponse:
-    await verify_api_key_rate_limit(config, credentials.credentials)
     payload = await request_models.avatar_to_payload(
         request, 
         httpx_client=config.httpx_client, 
@@ -66,30 +69,27 @@ async def avatar(
 
 async def text_to_image(
     request: request_models.TextToImageRequest,
-    config: Config = Depends(get_config_dependency),
-    credentials: HTTPAuthorizationCredentials = Security(auth_scheme)
+    config: Annotated[Any, Depends(get_config_dependency)],
+    _: Annotated[None, Depends(verify_api_key_dependency)]
 ) -> JSONResponse:
-    await verify_api_key_rate_limit(config, credentials.credentials)
     payload = request_models.text_to_image_to_payload(request)
     return await process_image_request(config, payload, payload.model)
 
 
-image_router = APIRouter(
-    tags=["Image"],
-    dependencies=[Depends(verify_api_key_rate_limit)],
-)
+image_router = APIRouter(tags=["Image"])
 
-image_router.add_api_route("/v1/text-to-image", text_to_image, methods=["POST"])
-image_router.add_api_route("/v1/image-to-image", image_to_image, methods=["POST"])
-image_router.add_api_route("/v1/inpaint", inpaint, methods=["POST"])
-image_router.add_api_route("/v1/avatar", avatar, methods=["POST"])
+image_router.add_api_route("/v1/text-to-image", text_to_image, methods=["POST"], response_model=None)
+image_router.add_api_route("/v1/image-to-image", image_to_image, methods=["POST"], response_model=None)
+image_router.add_api_route("/v1/inpaint", inpaint, methods=["POST"], response_model=None)
+image_router.add_api_route("/v1/avatar", avatar, methods=["POST"], response_model=None)
 
 
 ## text
 
 async def chat(
     chat_request: request_models.ChatRequest,
-    config: Config = Depends(get_config_dependency),
+    config: Annotated[Any, Depends(get_config_dependency)],
+    _: Annotated[None, Depends(verify_api_key_dependency)]
 ) -> StreamingResponse | JSONResponse:
     payload = request_models.chat_to_payload(chat_request)
     job_id = rutils.generate_job_id()
@@ -117,19 +117,20 @@ async def chat(
         raise HTTPException(status_code=500, detail="An unexpected error occurred")
 
 
-text_router = APIRouter()
+text_router = APIRouter(tags=["Text"])
 text_router.add_api_route(
     "/v1/chat/completions",
     chat,
     methods=["POST", "OPTIONS"],
-    tags=["Text"],
     response_model=None,
-    dependencies=[Depends(verify_api_key_rate_limit)],
 )
 
 ## common
 
-async def models() -> list[dict[str, Any]]:
+async def models(
+    config: Annotated[Any, Depends(get_config_dependency)],
+    _: Annotated[None, Depends(verify_api_key_dependency)]
+) -> list[dict[str, Any]]:
     models = tcfg.get_public_task_configs()
     new_models = []
     for model in models:
@@ -138,13 +139,10 @@ async def models() -> list[dict[str, Any]]:
         new_models.append(new_model)
     return new_models
 
-generic_router = APIRouter()
+generic_router = APIRouter(tags=["Models"])
 generic_router.add_api_route(
     "/v1/models",
     models,
     methods=["GET"],
-    tags=["Models"],
     response_model=None,
-    dependencies=[Depends(verify_api_key_rate_limit)],
 )
-
