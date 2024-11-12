@@ -94,48 +94,6 @@ import time
 from fiber.logging_utils import get_logger
 
 logger = get_logger(__name__)
-
-class StreamManager:
-    """Manages stream lifecycle and ensures proper cleanup"""
-    def __init__(self, generator: AsyncGenerator[str, None]):
-        self.generator = generator
-        self.started = False
-        self.error: Exception | None = None
-
-    async def stream(self) -> AsyncGenerator[str, None]:
-        """Wrapper around generator that tracks stream state and errors"""
-        self.started = True
-        try:
-            async for chunk in self.generator:
-                yield chunk
-        except Exception as e:
-            self.error = e
-            logger.error(f"Error during streaming: {str(e)}")
-            # Re-raise to be caught by FastAPI's exception handlers
-            raise
-        finally:
-            # Cleanup if needed
-            if hasattr(self.generator, 'aclose'):
-                await self.generator.aclose()
-
-async def validate_stream(generator: AsyncGenerator[str, None]) -> AsyncGenerator[str, None]:
-    try:
-        first_chunk = await anext(generator)
-        if not first_chunk:
-            raise HTTPException(status_code=500, detail="Empty response from server")
-
-        async def combined_generator() -> AsyncGenerator[str, None]:
-            yield first_chunk
-            async for chunk in generator:
-                yield chunk
-
-        return combined_generator()
-
-    except StopAsyncIteration:
-        raise HTTPException(status_code=500, detail="Empty response from server")
-    except Exception as e:
-        logger.error(f"Stream validation failed: {str(e)}")
-        raise HTTPException(status_code=500, detail="Failed to initialize stream")
     
 async def chat(
     chat_request: request_models.ChatRequest,
@@ -157,26 +115,21 @@ async def chat(
             job_id=job_id,
             query_payload=payload.model_dump()
         )
-        raw_generator = process_organic_stream(config, message, start_time)        
-        validated_generator = await validate_stream(raw_generator)        
-        stream_manager = StreamManager(validated_generator)
+        text_generator = process_organic_stream(config, message, start_time)        
 
         if chat_request.stream:
             return StreamingResponse(
-                stream_manager.stream(),
+                text_generator,
                 media_type="text/event-stream",
-                status_code=200,
-                headers={
-                    "X-Job-ID": job_id
-                }
+                status_code=200
             )
         else:
             try:
-                response = await _handle_no_stream(validated_generator)
+                response = await _handle_no_stream(text_generator)
                 return response
             except Exception as e:
-                if hasattr(validated_generator, 'aclose'):
-                    await validated_generator.aclose()
+                if hasattr(text_generator, 'aclose'):
+                    await text_generator.aclose()
                 raise
 
     except HTTPException:

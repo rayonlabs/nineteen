@@ -142,7 +142,7 @@ async def consume_organic_generator(
         logger.error(f"Error when querying node: {node.node_id} for task: {task}. Error: {error_type} - {str(e)}")
         query_result = construct_500_query_result(node, task)
         await utils.adjust_contender_from_result(config, query_result, contender, False, payload=payload)
-        return
+        raise
 
     text_jsons, first_message = [], True
     try:
