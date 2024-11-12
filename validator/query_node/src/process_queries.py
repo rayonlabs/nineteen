@@ -68,7 +68,7 @@ async def _get_contenders(connection: Connection, task: str, query_type: str) ->
     try:
         async with lock:
             contenders = await get_contenders_for_task(connection, task, 5, query_type)
-        logger.info(f"Selected {len(contenders)} contenders for organic task : {task}")
+        logger.info(f"Selected {len(contenders)} contenders for task : {task}")
         return contenders
     except Exception as e:
         logger.error(f"Error getting contenders: {e}")
