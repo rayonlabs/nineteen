@@ -21,9 +21,13 @@ from fastapi.security import HTTPBearer
 auth_scheme = HTTPBearer()
 logger = get_logger(__name__)
 
+async def get_config_dependency():
+    config = await load_config()
+    return config
+
 async def image_to_image(
     request: request_models.ImageToImageRequest,
-    config: Config = Depends(load_config),
+    config: Config = Depends(get_config_dependency),
     credentials: HTTPAuthorizationCredentials = Security(auth_scheme)
 ) -> JSONResponse:
     await verify_api_key_rate_limit(config, credentials.credentials)
@@ -36,7 +40,7 @@ async def image_to_image(
 
 async def inpaint(
     request: request_models.InpaintRequest,
-    config: Config = Depends(load_config),
+    config: Config = Depends(get_config_dependency),
     credentials: HTTPAuthorizationCredentials = Security(auth_scheme)
 ) -> JSONResponse:
     await verify_api_key_rate_limit(config, credentials.credentials)
@@ -49,7 +53,7 @@ async def inpaint(
 
 async def avatar(
     request: request_models.AvatarRequest,
-    config: Config = Depends(load_config),
+    config: Config = Depends(get_config_dependency),
     credentials: HTTPAuthorizationCredentials = Security(auth_scheme)
 ) -> JSONResponse:
     await verify_api_key_rate_limit(config, credentials.credentials)
@@ -62,7 +66,7 @@ async def avatar(
 
 async def text_to_image(
     request: request_models.TextToImageRequest,
-    config: Config = Depends(load_config),
+    config: Config = Depends(get_config_dependency),
     credentials: HTTPAuthorizationCredentials = Security(auth_scheme)
 ) -> JSONResponse:
     await verify_api_key_rate_limit(config, credentials.credentials)
@@ -85,7 +89,7 @@ image_router.add_api_route("/v1/avatar", avatar, methods=["POST"])
 
 async def chat(
     chat_request: request_models.ChatRequest,
-    config: Config = Depends(load_config),
+    config: Config = Depends(get_config_dependency),
 ) -> StreamingResponse | JSONResponse:
     payload = request_models.chat_to_payload(chat_request)
     job_id = rutils.generate_job_id()
