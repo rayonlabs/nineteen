@@ -1,15 +1,10 @@
 import os
 import asyncio
 from redis.asyncio import Redis, BlockingConnectionPool
-from fastapi import HTTPException
-from fastapi.responses import JSONResponse
-from typing import AsyncGenerator
-import json
 
 from validator.query_node.src.query_config import Config
 from validator.db.src.sql.nodes import get_vali_ss58_address
 from validator.db.src.database import PSQLDB
-from validator.utils.query.query_utils import load_sse_jsons
 from fiber.chain import chain_utils
 from fiber.logging_utils import get_logger
 
