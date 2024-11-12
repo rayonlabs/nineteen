@@ -367,7 +367,7 @@ async def process_organic_image_request(
 
     result = await process_organic_img_task(config, message)
         
-    if result is None or result.content is None:
+    if result is None:
         logger.error(f"No content received for image request. Task: {task}")
         raise HTTPException(status_code=500, detail="Unable to process request")
     image_response = ImageResponse(**json.loads(result.content))
