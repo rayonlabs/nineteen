@@ -159,7 +159,19 @@ async def get_contenders_for_synthetic_task(connection: Connection, task: str, t
 async def get_contenders_for_organic_task(connection: Connection, task: str, top_x: int = 5) -> list[Contender]:
     rows = await connection.fetch(
         f"""
-        WITH ranked_contenders AS (
+        WITH error_stats AS (
+            SELECT 
+                percentile_cont(0.9) WITHIN GROUP (
+                    ORDER BY 
+                        CASE 
+                            WHEN {dcst.TOTAL_REQUESTS_MADE} = 0 THEN NULL 
+                            ELSE CAST({dcst.REQUESTS_500} + {dcst.REQUESTS_429} AS FLOAT) / {dcst.TOTAL_REQUESTS_MADE}
+                        END
+                ) as error_rate_threshold
+            FROM {dcst.CONTENDERS_TABLE}
+            WHERE {dcst.TOTAL_REQUESTS_MADE} > 0
+        ),
+        ranked_contenders AS (
             SELECT DISTINCT ON (c.{dcst.NODE_HOTKEY}, c.{dcst.TASK})
                 c.{dcst.CONTENDER_ID}, c.{dcst.NODE_HOTKEY}, c.{dcst.NODE_ID}, c.{dcst.TASK},
                 c.{dcst.RAW_CAPACITY}, c.{dcst.CAPACITY_TO_SCORE}, c.{dcst.CONSUMED_CAPACITY},
@@ -169,10 +181,14 @@ async def get_contenders_for_organic_task(connection: Connection, task: str, top
             JOIN {dcst.NODES_TABLE} n ON c.{dcst.NODE_ID} = n.{dcst.NODE_ID} AND c.{dcst.NETUID} = n.{dcst.NETUID}
             JOIN {dcst.CONTENDERS_WEIGHTS_STATS_TABLE} s ON c.{dcst.NODE_HOTKEY} = s.{dcst.NODE_HOTKEY} 
                 AND c.{dcst.TASK} = s.{dcst.TASK}
+            CROSS JOIN error_stats
             WHERE c.{dcst.TASK} = $1 
             AND c.{dcst.CAPACITY} > 0 
-            AND c.{dcst.REQUESTS_500} + c.{dcst.REQUESTS_429} < 0.03 * c.{dcst.TOTAL_REQUESTS_MADE}
             AND n.{dcst.SYMMETRIC_KEY_UUID} IS NOT NULL
+            AND (
+                c.{dcst.TOTAL_REQUESTS_MADE} = 0 
+                OR CAST(c.{dcst.REQUESTS_500} + c.{dcst.REQUESTS_429} AS FLOAT) / c.{dcst.TOTAL_REQUESTS_MADE} <= error_rate_threshold
+            )
             ORDER BY c.{dcst.NODE_HOTKEY}, c.{dcst.TASK}, s.{dcst.COLUMN_NORMALISED_NET_SCORE} DESC, s.{dcst.CREATED_AT} DESC
         )
         SELECT *
