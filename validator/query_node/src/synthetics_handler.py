@@ -6,7 +6,7 @@ from fiber.logging_utils import get_logger
 from validator.utils.generic import generic_constants as gcst
 from validator.query_node.src.query_config import Config
 from validator.utils.redis import redis_constants as rcst, redis_dataclasses as rdc
-from validator.query_node.src.process_queries import process_task
+from validator.query_node.src.process_queries import process_synthetic_task
 
 
 logger = get_logger(__name__)
@@ -28,7 +28,7 @@ class SyntheticTaskProcessor:
     def __init__(self, config: Config):
         self.config = config
         self.tasks: set[asyncio.Task] = set()
-        self.MAX_CONCURRENT_TASKS = 1000
+        self.MAX_CONCURRENT_TASKS = 200
         self.running = True
         
     async def process_synthetic_message(self, message_data: bytes):
@@ -39,9 +39,9 @@ class SyntheticTaskProcessor:
                 return
                 
             logger.info(f"Processing synthetic query for task: {message.task}")
-            success = await process_task(self.config, message)
+            success = await process_synthetic_task(self.config, message)
             if not success:
-                logger.warning(f"Failed to process synthetic task: {message.task}")
+                logger.error(f"Failed to process synthetic task: {message.task}")
                 
         except Exception as e:
             logger.error(f"Error processing synthetic message: {e}")

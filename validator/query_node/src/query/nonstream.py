@@ -52,14 +52,14 @@ def _extract_response(response: Response, response_model: type[ImageResponse]) -
         logger.error(f"Failed to deserialize response: {e}")
         return None
 
-async def query_nonstream(
+async def query_nonstream_img(
     config: Config,
     contender: Contender,
     node: Node,
     payload: dict,
     response_model: type[ImageResponse],
     synthetic_query: bool,
-) -> bool | AsyncGenerator[str, None]:
+) -> ImageResponse | None:
     node_id = contender.node_id
 
     assert node.fernet is not None
@@ -69,13 +69,11 @@ async def query_nonstream(
     
     if task_config is None:
         logger.error(f"Task config not found for task: {contender.task}")
-        if synthetic_query:
-            return False
-        return empty_generator()
+        return None
 
     try:
         response = await client.make_non_streamed_post(
-            httpx_client=httpx.AsyncClient(),
+            httpx_client=config.httpx_client,
             server_address=client.construct_server_address(
                 node,
                 replace_with_docker_localhost=config.replace_with_docker_localhost,
@@ -96,9 +94,7 @@ async def query_nonstream(
         await utils.adjust_contender_from_result(
             config=config, query_result=query_result, contender=contender, synthetic_query=synthetic_query, payload=payload
         )
-        if synthetic_query:
-            return False
-        return empty_generator()
+        return None
 
     response_time = time.time() - time_before_query
     try:
@@ -109,9 +105,7 @@ async def query_nonstream(
         await utils.adjust_contender_from_result(
             config=config, query_result=query_result, contender=contender, synthetic_query=synthetic_query, payload=payload
         )
-        if synthetic_query:
-            return False
-        return empty_generator()
+        return None
 
     if formatted_response is not None:
         query_result = utility_models.QueryResult(
@@ -129,10 +123,7 @@ async def query_nonstream(
             config=config, query_result=query_result, contender=contender, synthetic_query=synthetic_query, payload=payload
         )
 
-        if synthetic_query:
-            return True
-        else:
-            return create_response_generator(formatted_response.model_dump())
+        return formatted_response
     else:
         query_result = utility_models.QueryResult(
             formatted_response=None,
@@ -149,19 +140,4 @@ async def query_nonstream(
         await utils.adjust_contender_from_result(
             config=config, query_result=query_result, contender=contender, synthetic_query=synthetic_query, payload=payload
         )
-        if synthetic_query:
-            return False
-        return empty_generator()
-
-async def empty_generator() -> AsyncGenerator[str, None]:
-    if False:  # this ensures the generator is empty but properly typed
-        yield ""
-
-async def create_response_generator(response_json: dict) -> AsyncGenerator[str, None]:
-    data = {
-        "choices": [{
-            "delta": {"content": json.dumps(response_json)}
-        }]
-    }
-    yield f"data: {json.dumps(data)}\n\n"
-    yield "data: [DONE]\n\n"
+        return None

@@ -73,36 +73,97 @@ async def _get_contenders(connection: Connection, task: str, query_type: str) ->
         logger.error(f"Error getting contenders: {e}")
         raise
 
-async def _handle_no_stream(text_generator: AsyncGenerator[str, None]) -> JSONResponse:
+import asyncio
+from typing import AsyncGenerator
+from fastapi.responses import JSONResponse
+from fastapi import HTTPException
+import json
+from fiber.logging_utils import get_logger
+from validator.utils.query.query_utils import load_sse_jsons
+
+logger = get_logger(__name__)
+
+class StreamProcessingError(Exception):
+    """Custom exception for stream processing errors"""
+    def __init__(self, message: str, partial_content: str = ""):
+        self.message = message
+        self.partial_content = partial_content
+        super().__init__(message)
+
+async def _handle_no_stream(
+    text_generator: AsyncGenerator[str, None], 
+    timeout: float = 30.0
+) -> JSONResponse:
     all_content = ""
+    start_time = time.time()
+    chunks_received = False
     try:
-        async for chunk in text_generator:
+        async for chunk in _timeout_generator(text_generator, timeout):
             try:
                 chunks = load_sse_jsons(chunk)
                 if not isinstance(chunks, list):
-                    raise HTTPException(status_code=500, detail="Invalid response format")
-
-                for chunk in chunks:
-                    content = chunk["choices"][0]["delta"]["content"]
-                    all_content += content
-                    if content == "":
-                        break
-
-            except (json.JSONDecodeError, KeyError, IndexError) as e:
-                logger.error(f"Error processing chunk: {e}")
-                raise HTTPException(status_code=500, detail="Invalid response format")
-
+                    raise StreamProcessingError(
+                        "Invalid response format", 
+                        partial_content=all_content
+                    )
+                for chunk_data in chunks:
+                    try:
+                        content = chunk_data["choices"][0]["delta"]["content"]
+                        chunks_received = True                        
+                        if content == "":
+                            break        
+                        all_content += content
+                    
+                    except (KeyError, IndexError) as e:
+                        raise StreamProcessingError(
+                            f"Invalid chunk format: {str(e)}", 
+                            partial_content=all_content
+                        )
+            except json.JSONDecodeError as e:
+                raise StreamProcessingError(
+                    f"Invalid JSON in chunk: {str(e)}", 
+                    partial_content=all_content
+                )
+        if not chunks_received:
+            raise StreamProcessingError("No valid chunks received")
+        if not all_content:
+            raise StreamProcessingError("Empty response received")
         return JSONResponse({
             "choices": [{
                 "delta": {"content": all_content}
             }]
         })
-    except HTTPException:
-        raise
+
+    except asyncio.TimeoutError:
+        error_msg = f"Response timeout after {timeout}s"
+        if all_content:
+            error_msg += f". Partial content: {all_content[:100]}..."
+        logger.error(error_msg)
+        raise HTTPException(status_code=504, detail="Response timeout")
+        
+    except StreamProcessingError as e:
+        logger.error(f"Stream processing error: {e.message}")
+        if e.partial_content:
+            logger.debug(f"Partial content: {e.partial_content[:100]}...")
+        raise HTTPException(status_code=500, detail=e.message)
+        
     except Exception as e:
-        logger.error(f"Unexpected error in non-streaming response: {str(e)}")
+        error_msg = f"Unexpected error in non-streaming response: {str(e)}"
+        if all_content:
+            error_msg += f". Partial content: {all_content[:100]}..."
+        logger.error(error_msg)
         raise HTTPException(status_code=500, detail="Failed to process response")
 
+async def _timeout_generator(generator: AsyncGenerator, timeout: float):
+    try:
+        while True:
+            try:
+                yield await asyncio.wait_for(generator.__anext__(), timeout=timeout)
+            except StopAsyncIteration:
+                break
+    except asyncio.TimeoutError:
+        logger.error(f"Generator timed out after {timeout}s")
+        raise
 
 async def _handle_stream_synthetic(
     config: Config, 
@@ -185,12 +246,11 @@ async def _handle_stream_organic(
         detail=f"Service for task {message.task} is not responding, please try again"
     )
 
-async def _handle_nonstream_query(
+async def _handle_nonstream_img_query(
     config: Config, 
     message: rdc.QueryQueueMessage, 
     contenders: list[Contender]
-) -> bool | AsyncGenerator[str, None]:
-    start = time.time()
+) -> ImageResponse | None:
     is_synthetic = message.query_type == gcst.SYNTHETIC
     
     for contender in contenders:
@@ -200,7 +260,7 @@ async def _handle_nonstream_query(
             continue
             
         logger.info(f"Querying node {contender.node_id} for task {contender.task}")
-        result = await nonstream.query_nonstream(
+        result = await nonstream.query_nonstream_img(
             config=config,
             contender=contender,
             node=node,
@@ -208,20 +268,12 @@ async def _handle_nonstream_query(
             response_model=ImageResponse,
             synthetic_query=is_synthetic,
         )
-        
-        if is_synthetic:
-            if isinstance(result, bool) and result:
-                return True
-        else:
-            if isinstance(result, AsyncGenerator):
-                return result
+        if result:
+            return result
         
     error_msg = f"Service for task {message.task} is not responding after trying {len(contenders)} contenders"
-    if is_synthetic:
-        logger.error(error_msg)
-        return False
-    else:
-        raise HTTPException(status_code=500, detail=error_msg)
+    logger.error(error_msg)
+    raise HTTPException(status_code=500, detail=error_msg)
     
 async def process_synthetic_task(config: Config, message: rdc.QueryQueueMessage) -> bool:
     task = message.task
@@ -232,7 +284,6 @@ async def process_synthetic_task(config: Config, message: rdc.QueryQueueMessage)
 
         task_config = tcfg.get_enabled_task_config(task)
         if not task_config:
-            error_msg = f"Can't find the task {task}, please try again later"
             logger.error(f"Can't find the task {task} in the query node!")
             COUNTER_FAILED_QUERIES.add(1, {
                 "task": task,
@@ -251,9 +302,9 @@ async def process_synthetic_task(config: Config, message: rdc.QueryQueueMessage)
         if task_config.is_stream:
             return await _handle_stream_synthetic(config, message, contenders)
         else:
-            result = await _handle_nonstream_query(config, message, contenders)
+            result = await _handle_nonstream_img_query(config, message, contenders)
             if isinstance(result, bool):
-                return result
+                return True
             else:
                 logger.error(f"Unexpected AsyncGenerator result for synthetic task {task}")
                 return False
@@ -265,7 +316,8 @@ async def process_synthetic_task(config: Config, message: rdc.QueryQueueMessage)
             "synthetic_query": "true"
         })
         return False
-async def process_organic_task(config: Config, message: rdc.QueryQueueMessage) -> AsyncGenerator[str, None]:
+    
+async def process_organic_img_task(config: Config, message: rdc.QueryQueueMessage) -> ImageResponse:
     task = message.task
     
     try:
@@ -285,19 +337,8 @@ async def process_organic_task(config: Config, message: rdc.QueryQueueMessage) -
             "synthetic_query": "false"
         })
         
-        if task_config.is_stream:
-            async for chunk in _handle_stream_organic(config, message, contenders):
-                yield chunk
-        else:
-            result = await _handle_nonstream_query(config, message, contenders)
-            if isinstance(result, bool):
-                raise HTTPException(
-                    status_code=500,
-                    detail=f"Unexpected boolean result for organic task {task}"
-                )
-            else:
-                async for chunk in result:
-                    yield chunk
+        result = await _handle_nonstream_img_query(config, message, contenders)
+        return result
 
     except Exception as e:
         logger.error(f"Error processing organic task {task}: {e}")
@@ -309,12 +350,40 @@ async def process_organic_task(config: Config, message: rdc.QueryQueueMessage) -
             raise
         raise HTTPException(status_code=500, detail=str(e))
     
-async def process_task(config: Config, message: rdc.QueryQueueMessage) -> AsyncGenerator[str, None] | bool:
-    """Process task based on query type."""
-    if message.query_type == gcst.SYNTHETIC:
-        return await process_synthetic_task(config, message)
-    else:
-        return process_organic_task(config, message)
+    
+
+async def get_organic_stream(config: Config, message: rdc.QueryQueueMessage) -> AsyncGenerator[str, None]:
+    task = message.task
+    
+    try:
+        await _decrement_requests_remaining(config.redis_db, task)
+        task_config = tcfg.get_enabled_task_config(task)
+        if not task_config:
+            raise HTTPException(
+                status_code=500,
+                detail=f"Can't find the task {task}, please try again later"
+            )
+            
+        async with await config.psql_db.connection() as connection:
+            contenders = await _get_contenders(connection, task, message.query_type)
+        
+        COUNTER_TOTAL_QUERIES.add(1, {
+            "task": task,
+            "synthetic_query": "false"
+        })
+        
+        async for chunk in _handle_stream_organic(config, message, contenders):
+            yield chunk
+
+    except Exception as e:
+        logger.error(f"Error processing organic task {task}: {e}")
+        COUNTER_FAILED_QUERIES.add(1, {
+            "task": task,
+            "synthetic_query": "false"
+        })
+        if isinstance(e, HTTPException):
+            raise
+        raise HTTPException(status_code=500, detail=str(e))
     
 async def process_organic_stream(
     config: Config,
@@ -323,7 +392,7 @@ async def process_organic_stream(
 ) -> AsyncGenerator[str, None]:
     try:
         num_tokens = 0
-        async for chunk in process_organic_task(config, message):
+        async for chunk in get_organic_stream(config, message):
             num_tokens += 1
             yield chunk
 
@@ -340,7 +409,7 @@ async def process_organic_stream(
         })
         raise
 
-async def process_image_request(
+async def process_organic_image_request(
     config: Config,
     payload: payload_models.TextToImagePayload | payload_models.ImageToImagePayload | payload_models.InpaintPayload | payload_models.AvatarPayload,
     task: str
@@ -352,75 +421,26 @@ async def process_image_request(
         logger.error(f"Task config not found for task: {task}")
         raise HTTPException(status_code=400, detail=f"Invalid model {task}")
         
-    job_id = rutils.generate_job_id()
     message = rdc.QueryQueueMessage(
         task=task,
         query_type=gcst.ORGANIC,
-        job_id=job_id,
+        job_id=rutils.generate_job_id(),
         query_payload=payload.model_dump()
     )
+
+    result = await process_organic_img_task(config, message)
         
-    try:
-        generator = process_organic_task(config, message)
-        response_content = None
-        
-        async for chunk in generator:
-            try:
-                chunks = load_sse_jsons(chunk)                
-                if not isinstance(chunks, list):
-                    logger.error(f"Expected list of chunks but got {type(chunks)}")
-                    continue
-                for chunk_data in chunks:
-                    try:
-                        content = chunk_data["choices"][0]["delta"]["content"]
-                        try:
-                            response_json = json.loads(content)
-                            response_content = response_json
-                            break
-                        except json.JSONDecodeError as e:
-                            logger.error(f"Failed to parse content as JSON: {e}")
-                            continue
-                    except (KeyError, IndexError) as e:
-                        logger.error(f"Error extracting content from chunk_data: {e}")
-                        continue
-                if response_content:
-                    break
-                    
-            except (json.JSONDecodeError, KeyError, IndexError) as e:
-                logger.error(f"Error processing chunk: {e}")
-                continue
-                
-        if not response_content:
-            logger.error(f"No valid response content received for job {job_id}")
-            raise HTTPException(status_code=500, detail="No response received")
-            
-        try:
-            logger.debug(f"Attempting to create ImageResponse from: {response_content}")
-            image_response = payload_models.ImageResponse(**response_content)
-        except Exception as e:
-            logger.error(f"Failed to create ImageResponse: {e}")
-            logger.error(f"Response content that caused error: {response_content}")
-            raise HTTPException(status_code=500, detail="Invalid response format")
-            
-        if image_response.is_nsfw:
-            logger.warning(f"NSFW content detected for job {job_id}")
-            COUNTER_IMAGE_ERROR.add(1, {"task": task, "kind": "nsfw"})
-            raise HTTPException(status_code=403, detail="NSFW content detected")
-            
-        if not image_response.image_b64:
-            logger.error(f"No image data received for job {job_id}")
-            COUNTER_IMAGE_ERROR.add(1, {"task": task, "kind": "no_image"})
-            raise HTTPException(status_code=500, detail="No image generated")
-            
-        COUNTER_IMAGE_SUCCESS.add(1, {"task": task})
-        return JSONResponse(content={"image_b64": image_response.image_b64})
-        
-    except Exception as e:
-        logger.error(f"Error processing image request for job {job_id}: {str(e)}")
-        logger.error(f"Error type: {type(e).__name__}")
-        logger.error(f"Traceback: {''.join(traceback.format_tb(e.__traceback__))}")
-        COUNTER_IMAGE_ERROR.add(1, {"task": task, "error": str(e)})
-        if isinstance(e, HTTPException):
-            raise
-        raise HTTPException(status_code=500, detail=str(e))
-    
+    if result is None or result.content is None:
+        logger.error(f"No content received for image request. Task: {task}")
+        raise HTTPException(status_code=500, detail="Unable to process request")
+    image_response = ImageResponse(**json.loads(result.content))
+    if image_response.is_nsfw:
+        COUNTER_IMAGE_ERROR.add(1, {"task": task, "kind": "nsfw", "status_code": 403})
+        raise HTTPException(status_code=403, detail="NSFW content detected")
+
+    if image_response.image_b64 is None:
+        COUNTER_IMAGE_ERROR.add(1, {"task": task, "kind": "no_image", "status_code": 500})
+        raise HTTPException(status_code=500, detail="Unable to process request")
+
+    COUNTER_IMAGE_SUCCESS.add(1, {"task": task, "status_code": 200})
+    return ImageResponse(image_b64=image_response.image_b64)
