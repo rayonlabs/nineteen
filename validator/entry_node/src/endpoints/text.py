@@ -97,7 +97,7 @@ async def make_stream_organic_query(
 
     first_chunk = None
     try:
-        await asyncio.wait_for(_wait_for_acknowledgement(pubsub, job_id), timeout=1)
+        await asyncio.wait_for(_wait_for_acknowledgement(pubsub, job_id), timeout=2)
     except asyncio.TimeoutError:
         logger.error(
             f"Query node down? No confirmation received for job {job_id} within timeout period. Task: {task}, model: {payload['model']}"

@@ -24,7 +24,7 @@ class PSQLDB:
         logger.debug(f"Connecting to {self.connection_string}....")
         if self.pool is None:
             try:
-                self.pool = await asyncpg.create_pool(self.connection_string)
+                self.pool = await asyncpg.create_pool(self.connection_string, min_size=16, max_size=32)
                 if self.pool is None:
                     raise ConnectionError("Failed to create connection pool")
                 else:
