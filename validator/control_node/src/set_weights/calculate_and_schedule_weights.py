@@ -193,10 +193,7 @@ async def main():
 
     mock = os.getenv("MOCK", "false").lower() == "true"
 
-    if not mock:
-        just_once = os.getenv("JUST_ONCE", "false").lower() == "true"
-        await set_weights_periodically(config, just_once=just_once)
-    else:
+    if mock:
         result = await _get_weights_to_set(config, mock = True)
         if result is None:
             logger.info("No weights to set. Skipping weight setting.")
@@ -217,7 +214,9 @@ async def main():
         logger.info(f"Node ids: {all_node_ids}")
         logger.info(f"Node weights: {all_node_weights}")
         logger.info(f"Number of non zero node weights: {sum(1 for weight in all_node_weights if weight != 0)}")
-
+    else:
+        just_once = os.getenv("JUST_ONCE", "false").lower() == "true"
+        await set_weights_periodically(config, just_once=just_once)
 
 
 if __name__ == "__main__":
