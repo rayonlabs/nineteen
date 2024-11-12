@@ -47,22 +47,27 @@ async def generate_text(corpus, n_words):
     random.seed(time()%10000)
     generated_text_parts = []
 
-    current_word_count = sum(len(line.split()) for line in generated_text_parts)
+    current_word_count = 0
     categories = list(corpus.keys())
 
     while current_word_count < n_words:
         random.shuffle(categories)
+        # randomly select text from random categories, until we reach n_words
         for i, category in enumerate(categories):
             sentence = random.choice(corpus[category]).strip()
             sentences_in_category = split_sentences(sentence)
+
             if not sentences_in_category:
                 continue
+
             if i > 0 and i%3 == 0:
                 sentence_part = await get_random_text_from_file()
             else:    
                 sentence_part = random.choice(sentences_in_category)
+
             if not sentence_part:
                 continue
+            
             sentence_word_count = len(word_tokenize(sentence_part))
             if current_word_count + sentence_word_count > n_words:
                 remaining_words = n_words - current_word_count
@@ -70,17 +75,23 @@ async def generate_text(corpus, n_words):
                 generated_text_parts.append(truncated_part)
                 current_word_count += remaining_words
                 break
+
             generated_text_parts.append(sentence_part)
             current_word_count += sentence_word_count
+
             if current_word_count >= n_words:
                 break
+
         if not generated_text_parts:
             raise ValueError("Unable to generate text, problem with corpus?")
+        
     merged_text = ' '.join(generated_text_parts).strip()
     possible_endings = ['.', '!', '?', '...']
+
     if merged_text and merged_text[-1] not in possible_endings:
         if random.choice([True, False]):
             merged_text += random.choice(possible_endings)
+
     merged_text = re.sub(r'[^\x20-\x7E]', '', merged_text).strip()
     return merged_text
 
@@ -90,11 +101,13 @@ def sampling(size=1, gamma_mean=1000, max_value=8000, gamma_shape=0.5, gaussian_
     gaussian_samples = np.random.normal(gaussian_mean, gaussian_std, size)
     combined_samples = gaussian_weight * gaussian_samples + (1 - gaussian_weight) * gamma_samples
     combined_samples = combined_samples[combined_samples < max_value]
+
     return combined_samples
 
 async def generate_chat_synthetic(model: str, task_config: Any, word_to_token: float = 4) -> payload_models.ChatPayload:
     start = time()
     synth_corpus = await sutils.get_synth_corpus()
+    
     try:
         total_n_words = sampling(size=1, max_value=task_config.orchestrator_server_config.load_model_config['max_model_len']//word_to_token)
         if total_n_words.size == 0:
@@ -103,6 +116,8 @@ async def generate_chat_synthetic(model: str, task_config: Any, word_to_token: f
             total_n_words = int(total_n_words[0])
         total_n_words = total_n_words if total_n_words > 0 else 20
         logger.debug(f"generating prompt with {total_n_words} words for synth")
+
+        # total number of alternating assistant/user messages
         total_messages = random.randint(2, 10)
         n_words_per_message = total_n_words // total_messages
 
@@ -115,11 +130,13 @@ async def generate_chat_synthetic(model: str, task_config: Any, word_to_token: f
             utility_models.Message(content=await generate_text(synth_corpus, n_words_per_message), role=alternate_roles[i % 2])
             for i in range(total_messages - 2)
         ]
+        # make sure we end with a user message
         if messages[-1].role != utility_models.Role.user:
             messages.append(utility_models.Message(
                 content=await generate_text(synth_corpus, 10),
                 role=utility_models.Role.user
             ))
+
         payload = payload_models.ChatPayload(
             messages=messages,
             temperature=round(random.random(), 1),
@@ -128,11 +145,13 @@ async def generate_chat_synthetic(model: str, task_config: Any, word_to_token: f
             model=model,
             top_p=1,
         )
-        real_count = sum([len(word_tokenize(msg.content)) for msg in messages])
-        logger.debug(f"Generated {total_n_words} words chat synth in {round(time()-start, 3)}s - REAL word count : {real_count}")
+
+        logger.debug(f"Generated {total_n_words} words chat synth in {round(time()-start, 3)}s")
         logger.debug(f"prompt : {messages}")
         return payload
+    
     except Exception as e:
+
         logger.error("Error in new version of generate_chat_synthetic: %s", e)
         logger.error(traceback.format_exc())
         logger.error("Rolling back to the old method")
