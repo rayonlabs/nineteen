@@ -155,33 +155,36 @@ async def _handle_stream_organic(
         if not node:
             logger.error(f"Node {contender.node_id} not found in database for netuid {config.netuid}")
             continue
-            
-        logger.info(f"Querying node {contender.node_id} for task {contender.task}")
-        generator = await streaming.query_node_stream(
-            config=config, 
-            contender=contender, 
-            payload=message.query_payload, 
-            node=node
-        )
+        try:
+            logger.info(f"Querying node {contender.node_id} for task {contender.task}")
+            generator = await streaming.query_node_stream(
+                config=config, 
+                contender=contender, 
+                payload=message.query_payload, 
+                node=node
+            )
 
-        if not generator:
-            logger.info(f"Failed to get generator from node {i}")
-            continue
+            if not generator:
+                logger.info(f"Failed to get generator from node {i}")
+                continue
 
-        async for chunk in streaming.consume_organic_generator(
-            config=config,
-            generator=generator,
-            contender=contender,
-            node=node,
-            payload=message.query_payload,
-            start_time=start,
-        ):
-            yield chunk
-        return 
+            async for chunk in streaming.consume_organic_generator(
+                config=config,
+                generator=generator,
+                contender=contender,
+                node=node,
+                payload=message.query_payload,
+                start_time=start,
+            ):
+                yield chunk
+            return 
+        except Exception:
+            logger.error(f"Some issue querying node id {contender.node_id} for task {message.task}\n{traceback.format_exc()}")
+
             
     raise HTTPException(
         status_code=500,
-        detail=f"Service for task {message.task} is not responding, please try again"
+        detail=f"Service for task {message.task} is not responding for all contenders!"
     )
 
 async def _handle_nonstream_img_query(
@@ -247,7 +250,7 @@ async def process_synthetic_task(config: Config, message: rdc.QueryQueueMessage)
                 return False
 
     except Exception as e:
-        logger.error(f"Error processing synthetic task {task}: {e}")
+        logger.error(f"Error processing synthetic task {task}: {e} - \n{traceback.format_exc()}")
         COUNTER_FAILED_QUERIES.add(1, {
             "task": task,
             "synthetic_query": "true"
@@ -278,7 +281,7 @@ async def process_organic_img_task(config: Config, message: rdc.QueryQueueMessag
         return result
 
     except Exception as e:
-        logger.error(f"Error processing organic task {task}: {e}")
+        logger.error(f"Error processing organic task {task}: {e} - \n{traceback.format_exc()}")
         COUNTER_FAILED_QUERIES.add(1, {
             "task": task,
             "synthetic_query": "false"
@@ -313,7 +316,7 @@ async def get_organic_stream(config: Config, message: rdc.QueryQueueMessage) -> 
             yield chunk
 
     except Exception as e:
-        logger.error(f"Error processing organic task {task}: {e}")
+        logger.error(f"Error processing organic task {task}: {e} - \n{traceback.format_exc()}")
         COUNTER_FAILED_QUERIES.add(1, {
             "task": task,
             "synthetic_query": "false"
@@ -339,7 +342,7 @@ async def process_organic_stream(
             GAUGE_TOKENS_PER_SEC.set(num_tokens / completion_time, {"task": message.task})
 
     except Exception as e:
-        logger.error(f"Error in stream processing: {str(e)}")
+        logger.error(f"Error in stream processing: {str(e)} - \n{traceback.format_exc()}")
         COUNTER_TEXT_GENERATION_ERROR.add(1, {
             "task": message.task,
             "error": type(e).__name__

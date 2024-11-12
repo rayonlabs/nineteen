@@ -3,6 +3,7 @@ import time
 from typing import AsyncGenerator, Optional
 
 import httpx
+import traceback
 from core.models import utility_models
 from validator.query_node.src.query_config import Config
 from validator.query_node.src import utils
@@ -59,7 +60,7 @@ async def consume_synthetic_generator(
         first_chunk = await generator.__anext__()
     except (StopAsyncIteration, httpx.ConnectError, httpx.ReadError, httpx.HTTPError, httpx.ReadTimeout, Exception) as e:
         error_type = type(e).__name__
-        logger.error(f"Error when querying node: {node.node_id} for task: {task}. Error: {error_type} - {str(e)}")
+        logger.error(f"Error when querying node: {node.node_id} for task: {task}. Error: {error_type} - {str(e)} - \n{traceback.format_exc()}")
         query_result = construct_500_query_result(node, task)
         await utils.adjust_contender_from_result(config, query_result, contender, True, payload=payload)
         return False
@@ -110,7 +111,7 @@ async def consume_synthetic_generator(
         success = not first_message
 
     except Exception as e:
-        logger.error(f"Unexpected exception when querying node: {node.node_id} for task: {task}. Error: {e}")
+        logger.error(f"Unexpected exception when querying node: {node.node_id} for task: {task}. Error: {e} - \n{traceback.format_exc()}")
         query_result = construct_500_query_result(node, task)
         success = False
 
@@ -131,7 +132,7 @@ async def consume_organic_generator(
     node: Node,
     payload: dict,
     start_time: float,
-) -> AsyncGenerator[str, None]:
+) -> AsyncGenerator[str, None] :
     task = contender.task
     query_result = None
 
@@ -139,10 +140,10 @@ async def consume_organic_generator(
         first_chunk = await generator.__anext__()
     except (StopAsyncIteration, httpx.ConnectError, httpx.ReadError, httpx.HTTPError, httpx.ReadTimeout, Exception) as e:
         error_type = type(e).__name__
-        logger.error(f"Error when querying node: {node.node_id} for task: {task}. Error: {error_type} - {str(e)}")
+        logger.error(f"Error when querying node: {node.node_id} for task: {task}. Error: {error_type} - {str(e)} - \n{traceback.format_exc()}")
         query_result = construct_500_query_result(node, task)
         await utils.adjust_contender_from_result(config, query_result, contender, False, payload=payload)
-        raise
+        return
 
     text_jsons, first_message = [], True
     try:
