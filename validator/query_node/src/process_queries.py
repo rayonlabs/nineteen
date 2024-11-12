@@ -90,117 +90,19 @@ class StreamProcessingError(Exception):
         self.partial_content = partial_content
         super().__init__(message)
 
-async def _handle_no_stream(
-    text_generator: AsyncGenerator[str, None], 
-    timeout: float = 30.0
-) -> JSONResponse:
-    """
-    Handle non-streaming response by collecting all chunks with proper error handling
-    """
+async def _handle_no_stream(text_generator: AsyncGenerator[str, str]) -> JSONResponse:
     all_content = ""
-    start_time = time.time()
-    chunks_received = False
-    
-    try:
-        async for chunk in _timeout_generator(text_generator, timeout):
-            try:
-                # Handle different chunk types
-                if isinstance(chunk, bytes):
-                    chunk = chunk.decode('utf-8')
-                elif not isinstance(chunk, str):
-                    raise StreamProcessingError(
-                        f"Invalid chunk type: {type(chunk)}", 
-                        partial_content=all_content
-                    )
-
-                # Parse SSE format
-                if chunk.startswith('data: '):
-                    chunk = chunk.split('data: ')[1].strip()
-                    
-                # Handle [DONE] message
-                if chunk == '[DONE]':
+    async for chunk in text_generator:
+        chunks = load_sse_jsons(chunk)
+        if isinstance(chunks, list):
+            for chunk in chunks:
+                content = chunk["choices"][0]["delta"]["content"]
+                all_content += content
+                if content == "":
                     break
 
-                # Parse JSON content
-                try:
-                    chunks = load_sse_jsons(chunk)
-                except json.JSONDecodeError as e:
-                    logger.warning(f"Failed to parse chunk as JSON: {chunk[:100]}...")
-                    continue
+    return JSONResponse({"choices": [{"delta": {"content": all_content}}]})
 
-                if not isinstance(chunks, list):
-                    raise StreamProcessingError(
-                        "Invalid response format", 
-                        partial_content=all_content
-                    )
-
-                # Process each chunk
-                for chunk_data in chunks:
-                    try:
-                        # Extract content safely
-                        delta = chunk_data.get("choices", [{}])[0].get("delta", {})
-                        content = delta.get("content", "")
-                        
-                        if content is not None:  # Handle explicit null content
-                            chunks_received = True
-                            all_content += content
-
-                    except (KeyError, IndexError) as e:
-                        logger.warning(f"Malformed chunk data: {str(e)}")
-                        continue
-
-            except json.JSONDecodeError as e:
-                raise StreamProcessingError(
-                    f"Invalid JSON in chunk: {str(e)}", 
-                    partial_content=all_content
-                )
-
-        # Validate final response
-        if not chunks_received:
-            raise StreamProcessingError("No valid chunks received")
-            
-        if not all_content.strip():  # Use strip() to check for whitespace-only content
-            raise StreamProcessingError("Empty response received")
-
-        return JSONResponse({
-            "choices": [{
-                "delta": {"content": all_content}
-            }]
-        })
-
-    except asyncio.TimeoutError:
-        error_msg = f"Response timeout after {timeout}s"
-        if all_content:
-            error_msg += f". Partial content: {all_content[:100]}..."
-        logger.error(error_msg)
-        raise HTTPException(status_code=504, detail="Response timeout")
-        
-    except StreamProcessingError as e:
-        logger.error(f"Stream processing error: {e.message}")
-        if e.partial_content:
-            logger.debug(f"Partial content: {e.partial_content[:100]}...")
-        raise HTTPException(status_code=500, detail=e.message)
-        
-    except Exception as e:
-        error_msg = f"Unexpected error in non-streaming response: {str(e)}"
-        if all_content:
-            error_msg += f". Partial content: {all_content[:100]}..."
-        logger.error(error_msg)
-        raise HTTPException(status_code=500, detail="Failed to process response")
-
-async def _timeout_generator(generator: AsyncGenerator, timeout: float) -> AsyncGenerator:
-    """Wrap generator with timeout protection"""
-    try:
-        while True:
-            try:
-                item = await asyncio.wait_for(generator.__anext__(), timeout=timeout)
-                yield item
-            except StopAsyncIteration:
-                break
-    except asyncio.TimeoutError:
-        logger.error(f"Generator timed out after {timeout}s")
-        raise
-    
 async def _handle_stream_synthetic(
     config: Config, 
     message: rdc.QueryQueueMessage, 
