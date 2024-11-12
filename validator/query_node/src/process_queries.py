@@ -6,12 +6,15 @@ from core.models.payload_models import ImageResponse
 from validator.utils.query.query_utils import load_sse_jsons
 from fastapi.responses import JSONResponse
 import json
+import validator.utils.redis.redis_utils as rutils
 from validator.models import Contender
 from validator.query_node.src.query_config import Config
+from core.models import payload_models
 from core import task_config as tcfg
 from validator.utils.contender import contender_utils as putils
 from fiber.logging_utils import get_logger
 from asyncpg import Connection
+import traceback
 from validator.utils.redis import redis_dataclasses as rdc
 from validator.query_node.src.query import nonstream, streaming
 from validator.db.src.sql.contenders import get_contenders_for_task
