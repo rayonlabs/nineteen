@@ -313,7 +313,7 @@ async def process_organic_stream(
     config: Config,
     message: rdc.QueryQueueMessage,
     start_time: float
-) -> AsyncGenerator[str, None]:
+) -> AsyncGenerator[str, str]:
     try:
         num_tokens = 0
         async for chunk in get_organic_stream(config, message):
@@ -323,7 +323,8 @@ async def process_organic_stream(
         COUNTER_TEXT_GENERATION_SUCCESS.add(1, {"task": message.task})
         if num_tokens > 0:
             completion_time = time.time() - start_time
-            GAUGE_TOKENS_PER_SEC.set(num_tokens / completion_time, {"task": message.task})
+            tps = num_tokens / completion_time
+            GAUGE_TOKENS_PER_SEC.set(tps, {"task": message.task})
 
     except Exception as e:
         logger.error(f"Error in stream processing: {str(e)} - \n{traceback.format_exc()}")

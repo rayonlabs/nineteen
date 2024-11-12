@@ -125,7 +125,7 @@ async def chat(
             )
         else:
             try:
-                response = await _handle_no_stream(text_generator)
+                response = await _handle_no_stream(text_generator) # type: ignore
                 return response
             except Exception as e:
                 if hasattr(text_generator, 'aclose'):
