@@ -3,6 +3,9 @@ from typing import AsyncGenerator
 from fastapi import HTTPException
 from redis.asyncio import Redis
 from core.models.payload_models import ImageResponse
+from validator.utils.query.query_utils import load_sse_jsons
+from fastapi.responses import JSONResponse
+import json
 from validator.models import Contender
 from validator.query_node.src.query_config import Config
 from core import task_config as tcfg
@@ -28,6 +31,28 @@ COUNTER_FAILED_QUERIES = metrics.get_meter(__name__).create_counter(
     description="Number of failed queries within `process_task`",
 )
 
+QUERY_NODE_REQUESTS_PROCESSING_GAUGE = metrics.get_meter(__name__).create_gauge(
+    name="validator.query_node.src.concurrent_synthetic_queries_processing",
+    description="concurrent number of synthetic requests currently being processed",
+    unit="1"
+)
+
+QUERY_NODE_FAILED_SYNTHETIC_TASKS_COUNTER = metrics.get_meter(__name__).create_counter(
+    name="validator.query_node.src.query_node_failed_synthetic_tasks",
+    description="number of failed synthetic `process_task` instances",
+    unit="1"
+)
+
+COUNTER_TEXT_GENERATION_ERROR = metrics.get_meter(__name__).create_counter("validator.query_node.text.error")
+COUNTER_TEXT_GENERATION_SUCCESS = metrics.get_meter(__name__).create_counter("validator.query_node.text.success")
+COUNTER_IMAGE_ERROR = metrics.get_meter(__name__).create_counter("validator.query_node.image.error")
+COUNTER_IMAGE_SUCCESS = metrics.get_meter(__name__).create_counter("validator.query_node.image.success")
+GAUGE_TOKENS_PER_SEC = metrics.get_meter(__name__).create_gauge(
+    "validator.query_node.text.tokens_per_sec",
+    description="Average tokens per second metric for LLM streaming"
+)
+
+
 async def _decrement_requests_remaining(redis_db: Redis, task: str):
     """Decrement remaining synthetic requests counter."""
     key = f"task_synthetics_info:{task}:requests_remaining"
@@ -44,6 +69,37 @@ async def _get_contenders(connection: Connection, task: str, query_type: str) ->
     except Exception as e:
         logger.error(f"Error getting contenders: {e}")
         raise
+
+async def _handle_no_stream(text_generator: AsyncGenerator[str, None]) -> JSONResponse:
+    all_content = ""
+    try:
+        async for chunk in text_generator:
+            try:
+                chunks = load_sse_jsons(chunk)
+                if not isinstance(chunks, list):
+                    raise HTTPException(status_code=500, detail="Invalid response format")
+
+                for chunk in chunks:
+                    content = chunk["choices"][0]["delta"]["content"]
+                    all_content += content
+                    if content == "":
+                        break
+
+            except (json.JSONDecodeError, KeyError, IndexError) as e:
+                logger.error(f"Error processing chunk: {e}")
+                raise HTTPException(status_code=500, detail="Invalid response format")
+
+        return JSONResponse({
+            "choices": [{
+                "delta": {"content": all_content}
+            }]
+        })
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Unexpected error in non-streaming response: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to process response")
+
 
 async def _handle_stream_synthetic(
     config: Config, 
@@ -256,3 +312,112 @@ async def process_task(config: Config, message: rdc.QueryQueueMessage) -> AsyncG
         return await process_synthetic_task(config, message)
     else:
         return process_organic_task(config, message)
+    
+async def process_organic_stream(
+    config: Config,
+    message: rdc.QueryQueueMessage,
+    start_time: float
+) -> AsyncGenerator[str, None]:
+    try:
+        num_tokens = 0
+        async for chunk in process_organic_task(config, message):
+            num_tokens += 1
+            yield chunk
+
+        COUNTER_TEXT_GENERATION_SUCCESS.add(1, {"task": message.task})
+        if num_tokens > 0:
+            completion_time = time.time() - start_time
+            GAUGE_TOKENS_PER_SEC.set(num_tokens / completion_time, {"task": message.task})
+
+    except Exception as e:
+        logger.error(f"Error in stream processing: {str(e)}")
+        COUNTER_TEXT_GENERATION_ERROR.add(1, {
+            "task": message.task,
+            "error": type(e).__name__
+        })
+        raise
+
+async def process_image_request(
+    config: Config,
+    payload: payload_models.TextToImagePayload | payload_models.ImageToImagePayload | payload_models.InpaintPayload | payload_models.AvatarPayload,
+    task: str
+) -> JSONResponse:
+    task = task.replace("_", "-")
+    task_config = tcfg.get_enabled_task_config(task)
+    if task_config is None:
+        COUNTER_IMAGE_ERROR.add(1, {"reason": "no_task_config"})
+        logger.error(f"Task config not found for task: {task}")
+        raise HTTPException(status_code=400, detail=f"Invalid model {task}")
+        
+    job_id = rutils.generate_job_id()
+    message = rdc.QueryQueueMessage(
+        task=task,
+        query_type=gcst.ORGANIC,
+        job_id=job_id,
+        query_payload=payload.model_dump()
+    )
+        
+    try:
+        generator = process_organic_task(config, message)
+        response_content = None
+        
+        async for chunk in generator:
+            try:
+                chunks = load_sse_jsons(chunk)                
+                if not isinstance(chunks, list):
+                    logger.error(f"Expected list of chunks but got {type(chunks)}")
+                    continue
+                for chunk_data in chunks:
+                    try:
+                        content = chunk_data["choices"][0]["delta"]["content"]
+                        try:
+                            response_json = json.loads(content)
+                            response_content = response_json
+                            break
+                        except json.JSONDecodeError as e:
+                            logger.error(f"Failed to parse content as JSON: {e}")
+                            continue
+                    except (KeyError, IndexError) as e:
+                        logger.error(f"Error extracting content from chunk_data: {e}")
+                        continue
+                if response_content:
+                    break
+                    
+            except (json.JSONDecodeError, KeyError, IndexError) as e:
+                logger.error(f"Error processing chunk: {e}")
+                continue
+                
+        if not response_content:
+            logger.error(f"No valid response content received for job {job_id}")
+            raise HTTPException(status_code=500, detail="No response received")
+            
+        try:
+            logger.debug(f"Attempting to create ImageResponse from: {response_content}")
+            image_response = payload_models.ImageResponse(**response_content)
+        except Exception as e:
+            logger.error(f"Failed to create ImageResponse: {e}")
+            logger.error(f"Response content that caused error: {response_content}")
+            raise HTTPException(status_code=500, detail="Invalid response format")
+            
+        if image_response.is_nsfw:
+            logger.warning(f"NSFW content detected for job {job_id}")
+            COUNTER_IMAGE_ERROR.add(1, {"task": task, "kind": "nsfw"})
+            raise HTTPException(status_code=403, detail="NSFW content detected")
+            
+        if not image_response.image_b64:
+            logger.error(f"No image data received for job {job_id}")
+            COUNTER_IMAGE_ERROR.add(1, {"task": task, "kind": "no_image"})
+            raise HTTPException(status_code=500, detail="No image generated")
+            
+        COUNTER_IMAGE_SUCCESS.add(1, {"task": task})
+        return JSONResponse(content={"image_b64": image_response.image_b64})
+        
+    except Exception as e:
+        logger.error(f"Error processing image request for job {job_id}: {str(e)}")
+        logger.error(f"Error type: {type(e).__name__}")
+        logger.error(f"Traceback: {''.join(traceback.format_tb(e.__traceback__))}")
+        COUNTER_IMAGE_ERROR.add(1, {"task": task, "error": str(e)})
+        if isinstance(e, HTTPException):
+            raise
+        raise HTTPException(status_code=500, detail=str(e))
+    
