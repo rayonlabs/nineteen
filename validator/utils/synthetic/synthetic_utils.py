@@ -23,9 +23,20 @@ import random
 import requests
 import os
 import fcntl
-
+import json
+from aiocache import cached
 
 logger = get_logger(__name__)
+
+@cached(ttl=None)
+async def get_synth_corpus():
+    try:
+        with open("assets/synth_corpus.json", "r") as fh:
+            synth_corpus = json.load(fh)
+    except FileNotFoundError:
+        with open("validator/control_node/assets/synth_corpus.json", "r") as fh:
+            synth_corpus = json.load(fh)
+    return synth_corpus
 
 async def fetch_random_text():
     n_paragraphes = random.randint(2, 4)

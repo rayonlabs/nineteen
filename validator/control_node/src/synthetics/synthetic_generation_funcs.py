@@ -26,13 +26,6 @@ import binascii
 
 logger = get_logger(__name__)
 
-try:
-    with open("assets/synth_corpus.json", "r") as fh:
-        synth_corpus = json.load(fh)
-except FileNotFoundError:
-    with open("validator/control_node/assets/synth_corpus.json", "r") as fh:
-        synth_corpus = json.load(fh)
-
 
 def split_sentences(text):
     fragments = sent_tokenize(text)
@@ -101,6 +94,7 @@ def sampling(size=1, gamma_mean=1000, max_value=8000, gamma_shape=0.5, gaussian_
 
 async def generate_chat_synthetic(model: str, task_config: Any, word_to_token: float = 4) -> payload_models.ChatPayload:
     start = time()
+    synth_corpus = await sutils.get_synth_corpus()
     try:
         total_n_words = sampling(size=1, max_value=task_config.orchestrator_server_config.load_model_config['max_model_len']//word_to_token)
         if total_n_words.size == 0:
