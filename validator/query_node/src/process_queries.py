@@ -370,14 +370,13 @@ async def process_organic_image_request(
     if result is None:
         logger.error(f"No content received for image request. Task: {task}")
         raise HTTPException(status_code=500, detail="Unable to process request")
-    image_response = ImageResponse(**json.loads(result.content))
-    if image_response.is_nsfw:
+    if result.is_nsfw:
         COUNTER_IMAGE_ERROR.add(1, {"task": task, "kind": "nsfw", "status_code": 403})
         raise HTTPException(status_code=403, detail="NSFW content detected")
 
-    if image_response.image_b64 is None:
+    if result.image_b64 is None:
         COUNTER_IMAGE_ERROR.add(1, {"task": task, "kind": "no_image", "status_code": 500})
         raise HTTPException(status_code=500, detail="Unable to process request")
 
     COUNTER_IMAGE_SUCCESS.add(1, {"task": task, "status_code": 200})
-    return ImageResponse(image_b64=image_response.image_b64)
+    return result
