@@ -5,7 +5,6 @@ from redis.asyncio import Redis
 from core.models.payload_models import ImageResponse
 from validator.utils.query.query_utils import load_sse_jsons
 from fastapi.responses import JSONResponse
-import json
 import validator.utils.redis.redis_utils as rutils
 from validator.models import Contender
 from validator.query_node.src.query_config import Config
@@ -21,6 +20,7 @@ from validator.db.src.sql.contenders import get_contenders_for_task
 from validator.db.src.sql.nodes import get_node
 from validator.utils.generic import generic_constants as gcst
 from opentelemetry import metrics
+import asyncio
 
 logger = get_logger(__name__)
 
@@ -55,40 +55,23 @@ GAUGE_TOKENS_PER_SEC = metrics.get_meter(__name__).create_gauge(
     description="Average tokens per second metric for LLM streaming"
 )
 
+lock = asyncio.Lock()
+
 
 async def _decrement_requests_remaining(redis_db: Redis, task: str):
     """Decrement remaining synthetic requests counter."""
     key = f"task_synthetics_info:{task}:requests_remaining"
     await redis_db.decr(key)
 
-import asyncio
-lock = asyncio.Lock()
-
 async def _get_contenders(connection: Connection, task: str, query_type: str) -> list[Contender]:
     try:
         async with lock:
             contenders = await get_contenders_for_task(connection, task, 5, query_type)
+        logger.info(f"Selected {len(contenders)} contenders for organic task : {task}")
         return contenders
     except Exception as e:
         logger.error(f"Error getting contenders: {e}")
         raise
-
-import asyncio
-from typing import AsyncGenerator
-from fastapi.responses import JSONResponse
-from fastapi import HTTPException
-import json
-from fiber.logging_utils import get_logger
-from validator.utils.query.query_utils import load_sse_jsons
-
-logger = get_logger(__name__)
-
-class StreamProcessingError(Exception):
-    """Custom exception for stream processing errors"""
-    def __init__(self, message: str, partial_content: str = ""):
-        self.message = message
-        self.partial_content = partial_content
-        super().__init__(message)
 
 async def _handle_no_stream(text_generator: AsyncGenerator[str, str]) -> JSONResponse:
     all_content = ""
