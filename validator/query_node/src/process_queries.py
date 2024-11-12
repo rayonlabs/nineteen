@@ -303,10 +303,9 @@ async def process_synthetic_task(config: Config, message: rdc.QueryQueueMessage)
             return await _handle_stream_synthetic(config, message, contenders)
         else:
             result = await _handle_nonstream_img_query(config, message, contenders)
-            if isinstance(result, bool):
+            if result:
                 return True
             else:
-                logger.error(f"Unexpected AsyncGenerator result for synthetic task {task}")
                 return False
 
     except Exception as e:
