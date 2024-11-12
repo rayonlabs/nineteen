@@ -1,5 +1,4 @@
 import time
-from typing import AsyncGenerator
 from httpx import Response 
 from pydantic import ValidationError
 from core.models import utility_models
@@ -11,8 +10,8 @@ from fiber.validator import client
 from core import task_config as tcfg
 from fiber.logging_utils import get_logger
 from validator.query_node.src import utils
-import json
-import httpx
+import traceback
+
 
 logger = get_logger(__name__)
 
