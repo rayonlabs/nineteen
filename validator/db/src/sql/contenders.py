@@ -198,10 +198,10 @@ async def get_contenders_for_organic_task(connection: Connection, task: str, top
             
             selected_contenders = random.choices(combined_contenders, weights=combined_weights, k=min(top_x, len(combined_contenders)))
 
-            logger.debug(f"Selected contenders for task {task} : {selected_contenders}")
+            logger.info(f"Selected contenders for task {task} : {selected_contenders}")
             return selected_contenders
         else:
-            logger.debug(f"Number of contenders ({len(contenders)}) < top_x ({top_x}). Returning all contenders. Falling back to synthetic queries logic.")
+            logger.info(f"Number of contenders ({len(contenders)}) < top_x ({top_x}). Returning all contenders. Falling back to synthetic queries logic.")
             return await get_contenders_for_synthetic_task(connection, task, top_x)
     else:
         logger.debug(f"Contenders selection for organic queries with task {task} yielded nothing (probably statistiques table is empty), falling back to synthetic queries logic.")
