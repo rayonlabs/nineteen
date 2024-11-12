@@ -35,6 +35,8 @@ COPY validator/models.py /app/validator/models.py
 COPY validator/db /app/validator/db
 
 COPY validator/query_node/src ./src
+COPY validator/query_node/core ./core
+
 COPY validator/query_node/pyproject.toml .
 
 
