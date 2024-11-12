@@ -12,16 +12,57 @@ from core.models import config_models as cmodels
 
 import base64
 from io import BytesIO
-
+import asyncio
 import aiohttp
 import diskcache
 from PIL import Image
 import uuid
 import numpy as np
 from fiber.logging_utils import get_logger
+import random
+import requests
+import os
+import fcntl
 
 
 logger = get_logger(__name__)
+
+async def fetch_random_text():
+    n_paragraphes = random.randint(2, 4)
+    n_sentences = random.randint(1, 6)
+    url = f'http://metaphorpsum.com/paragraphs/{n_paragraphes}/{n_sentences}'
+    response = requests.get(url)
+    if response.status_code == 200:
+        return response.text, n_paragraphes, n_sentences
+    else:
+        raise logger.error(f"Failed to fetch text from metaphorpsum.com: {response.status_code}")
+
+async def get_save_random_text() -> None:
+    if not os.path.exists(scst.RANDOM_TEXT_FILE):
+        open(scst.RANDOM_TEXT_FILE, 'w').close()
+        
+    while True:
+        try:
+            with open(scst.RANDOM_TEXT_FILE, 'r') as file:
+                lines = file.readlines()
+            queue_size = len(lines)            
+            if queue_size < 500:
+                text, n_paragraphes, n_sentences = await fetch_random_text()
+                n_words = len(text.split())                
+                with open(scst.RANDOM_TEXT_FILE, 'a') as file:
+                    try:
+                        fcntl.flock(file, fcntl.LOCK_EX)
+                        file.write(text + '\n')
+                        logger.debug(f"Pushed random metaphorpsum.com text with {n_words} words, {n_paragraphes} paragraphs, and {n_sentences} sentences to text file")
+                    finally:
+                        fcntl.flock(file, fcntl.LOCK_UN)
+            else:
+                logger.debug(f"Text file '{scst.RANDOM_TEXT_FILE}' is full. Skipping text insertion")                
+            await asyncio.sleep(1)
+            
+        except Exception as e:
+            await asyncio.sleep(60)
+            logger.error(f"Error fetching and saving synthetic data: {e} - sleeping for 60s")
 
 
 def _get_random_text_prompt() -> str:

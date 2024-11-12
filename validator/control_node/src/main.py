@@ -14,10 +14,10 @@ from validator.control_node.src.score_results import score_results
 from validator.control_node.src.control_config import load_config
 from validator.control_node.src.synthetics import refresh_synthetic_data  # noqa
 from validator.control_node.src.cycle import execute_cycle  # noqa
+from validator.utils.synthetic import synthetic_utils as sutils
 
 
 logger = get_logger(__name__)
-
 
 async def main() -> None:
     config = load_config()
@@ -28,6 +28,7 @@ async def main() -> None:
         score_results.main(config),
         refresh_synthetic_data.main(config),
         execute_cycle.main(config),
+        sutils.get_save_random_text()
     )
 
 
