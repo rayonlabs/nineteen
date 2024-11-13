@@ -16,8 +16,6 @@ class QueryQueueMessage:
             "job_id": self.job_id
         })
 
-
-
 @dataclass
 class PublicKeypairInfo:
     ss58_address: str

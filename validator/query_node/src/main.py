@@ -19,7 +19,7 @@ from opentelemetry import metrics
 
 logger = get_logger(__name__)
 
-MAX_CONCURRENT_TASKS = 200
+MAX_CONCURRENT_TASKS = 100
 
 QUERY_NODE_REQUESTS_PROCESSING_GAUGE = metrics.get_meter(__name__).create_gauge(
     name="validator.query_node.src.concurrent_queries_processing",

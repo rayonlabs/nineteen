@@ -18,9 +18,6 @@ from opentelemetry import metrics
 
 logger = get_logger(__name__)
 
-MAX_CONCURRENT_TASKS = 10
-
-
 COUNTER_TOTAL_QUERIES = metrics.get_meter(__name__).create_counter(
     name="validator.query_node.process.total_queries",
     description="Number of total queries sent to `process_task`",
