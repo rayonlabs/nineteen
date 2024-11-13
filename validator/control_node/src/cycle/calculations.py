@@ -300,10 +300,10 @@ async def calculate_scores_for_settings_weights(
             )
 
             if contender:
-                hotkey_metrics = metrics.get(hotkey, [])
-                average_metric = (
-                    sum(hotkey_metrics) / len(hotkey_metrics) if hotkey_metrics else 0
-                )
+                # hotkey_metrics = metrics.get(hotkey, [])
+                # average_metric = (
+                #     sum(hotkey_metrics) / len(hotkey_metrics) if hotkey_metrics else 0
+                # )
                 scores_info_object = ContenderWeightsInfoPostObject(
                     version_key=ccst.VERSION_KEY,
                     netuid=netuid,
@@ -313,7 +313,7 @@ async def calculate_scores_for_settings_weights(
                     task=task,
                     average_quality_score=average_quality_scores.get(hotkey, 0),
                     metric_bonus=metric_bonuses.get(hotkey, 0),
-                    metric=average_metric,
+                    metric=0,
                     combined_quality_score=combined_quality_scores.get(hotkey, 0),
                     period_score_multiplier=period_score_multipliers.get(hotkey, 0),
                     normalised_period_score=normalised_period_scores.get(hotkey, 0),
