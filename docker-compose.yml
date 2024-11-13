@@ -46,7 +46,6 @@ services:
         condition: on-failure
 
   query_node:
-    container_name: query_node
     build:
       context: .
       dockerfile: dockerfiles/query_node.dockerfile
@@ -76,6 +75,7 @@ services:
       - .vali.env
 
   entry_node:
+    container_name: entry_node
     build:
       context: .
       dockerfile: dockerfiles/entry_node.dockerfile
