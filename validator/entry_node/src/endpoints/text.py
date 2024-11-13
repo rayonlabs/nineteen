@@ -142,7 +142,6 @@ async def chat(
     config: Config = Depends(get_config),
 ) -> StreamingResponse | JSONResponse:
     payload = request_models.chat_to_payload(chat_request)
-    payload.temperature = 0.5
 
     try:
         text_generator = await make_stream_organic_query(
