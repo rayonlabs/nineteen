@@ -183,12 +183,14 @@ async def consume_generator(
             mean_interval = sum(time_between_chunks) / len(time_between_chunks)
             std_dev_interval = statistics.stdev(time_between_chunks, mean_interval)
             
-            sporadic_count = sum(1 for interval in time_between_chunks if abs(interval - mean_interval) > 2 * std_dev_interval)
+            sporadic_count = sum(1 for interval in time_between_chunks if abs(interval - mean_interval) > std_dev_interval)
+            extra_sporadic_count = sum(1 for interval in time_between_chunks if abs(interval - mean_interval) > 3 *std_dev_interval)
 
             # Assign penalty for inconsistent streaming, i.e, if either or both: 
-            # (i) if streaming interval of at least 10% chunk is outside 2 standard deviation of the mean 
+            # (i) if streaming interval of at least 10% chunk is outside standard deviation of the mean 
             # (ii) if bundled chunk during streaming are >10% of total chunks
-            if bundled_chunks > 0.1 * total_chunks or sporadic_count > 0.1 * len(time_between_chunks) :
+            # (iii) if sporadic chunk outliers mostly lie beyond both 1xstd and 3xstd (that means chunky streaming seams pushed the overall mean higher)
+            if bundled_chunks > 0.1 * total_chunks or sporadic_count > 0.1 * len(time_between_chunks) or extra_sporadic_count >= 0.5 * sporadic_count:
                 response_time_penalty_multiplier = CHUNKING_PERCENTAGE_PENALTY_FACTOR
 
         query_result = utility_models.QueryResult(
