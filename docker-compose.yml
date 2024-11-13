@@ -76,7 +76,6 @@ services:
       - .vali.env
 
   entry_node:
-    container_name: entry_node
     build:
       context: .
       dockerfile: dockerfiles/entry_node.dockerfile
