@@ -162,7 +162,7 @@ async def consume_generator(
                 time_between_chunks.append(time.time() - latest_counter)
                 latest_counter = time.time()
             else:
-                time_between_chunks.append(time.time() - time_to_first_chunk)
+                # time_between_chunks.append(time.time() - time_to_first_chunk)
                 latest_counter = time.time()
         
         if len(text_jsons) > 0:
@@ -183,7 +183,7 @@ async def consume_generator(
             mean_interval = sum(time_between_chunks) / len(time_between_chunks)
             std_dev_interval = statistics.stdev(time_between_chunks, mean_interval)
             
-            sporadic_count = sum(1 for interval in time_between_chunks if abs(interval - mean_interval) > 2 * std_dev_interval)
+            sporadic_count = sum(1 for interval in time_between_chunks if abs(interval - mean_interval) > std_dev_interval)
 
             # Assign penalty for inconsistent streaming, i.e, if either or both: 
             # (i) if streaming interval of at least 10% chunk is outside 2 standard deviation of the mean 
