@@ -192,6 +192,7 @@ async def main():
     await config.psql_db.connect()
 
     mock = os.getenv("MOCK", "false").lower() == "true"
+    just_once = os.getenv("JUST_ONCE", "false").lower() == "true"
 
     if mock:
         result = await _get_weights_to_set(config, mock = True)
@@ -214,8 +215,7 @@ async def main():
         logger.info(f"Node ids: {all_node_ids}")
         logger.info(f"Node weights: {all_node_weights}")
         logger.info(f"Number of non zero node weights: {sum(1 for weight in all_node_weights if weight != 0)}")
-    else:
-        just_once = os.getenv("JUST_ONCE", "false").lower() == "true"
+    if just_once:
         await set_weights_periodically(config, just_once=just_once)
 
 
