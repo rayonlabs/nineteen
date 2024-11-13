@@ -8,6 +8,10 @@ tasks:
     cmds:
       -  docker compose --env-file .vali.env -f docker-compose.yml run -e LOCALHOST=false -e JUST_ONCE=true --entrypoint "python src/set_weights/calculate_and_schedule_weights.py" weight_setter
 
+  set_weights_mock:
+    cmds:
+      -  docker compose --env-file .vali.env -f docker-compose.yml run -e LOCALHOST=false -e MOCK=true --entrypoint "python src/set_weights/calculate_and_schedule_weights.py" weight_setter
+
   show_stats:
     cmds:
       - docker compose --env-file .vali.env -f docker-compose.yml run -e LOCALHOST=false --entrypoint "python src/collect_statistics.py" control_node
