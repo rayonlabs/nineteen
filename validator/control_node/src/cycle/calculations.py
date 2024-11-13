@@ -234,7 +234,7 @@ def _normalise_volumes_for_task(
 
 
 def _apply_non_linear_transformation(scores: dict[str, float]) -> dict[str, float]:
-    return {hotkey: score**4 for hotkey, score in scores.items()}
+    return {hotkey: score**3 for hotkey, score in scores.items()}
 
 
 async def _normalise_effective_volumes_for_task(
@@ -255,7 +255,8 @@ async def _normalise_effective_volumes_for_task(
 
 
 async def calculate_scores_for_settings_weights(
-    config_main: Config, contenders: list[Contender], mock: bool = False
+    config_main: Config,
+    contenders: list[Contender]
 ) -> tuple[list[int], list[float]]:
     psql_db = config_main.psql_db
     netuid = config_main.netuid
@@ -344,22 +345,13 @@ async def calculate_scores_for_settings_weights(
         )
         miner_weights_objects.append(miner_weight_object)
 
-    if not mock:
-        await _post_scoring_stats_to_local_db(
-            config_main, contender_weights_info_objects, miner_weights_objects
-        )
-        await _post_scoring_stats_to_nineteen(
-            config_main, contender_weights_info_objects, miner_weights_objects
-        )
-
-        scoring_stats_to_delete_locally = datetime.now() - timedelta(days=7)
-        async with await config_main.psql_db.connection() as connection:
-            await delete_weights_info_older_than(
-                connection, scoring_stats_to_delete_locally
-            )
-            await delete_miner_weights_older_than(
-                connection, scoring_stats_to_delete_locally
-            )
+    await _post_scoring_stats_to_local_db(config_main, contender_weights_info_objects, miner_weights_objects)
+    await _post_scoring_stats_to_nineteen(config_main, contender_weights_info_objects, miner_weights_objects)
+    
+    scoring_stats_to_delete_locally = datetime.now() - timedelta(days=7)
+    async with await config_main.psql_db.connection() as connection:
+        await delete_weights_info_older_than(connection, scoring_stats_to_delete_locally)
+        await delete_miner_weights_older_than(connection, scoring_stats_to_delete_locally)
 
     return node_ids, node_weights
 
