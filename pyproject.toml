@@ -5,3 +5,11 @@ reportMissingTypeStubs = false
 pythonVersion = "3.10"
 pythonPlatform = "Linux"
 reportMissingModuleSource = false
+
+[tool.typos.default]
+extend-ignore-identifiers-re = [
+    "datas",
+]
+
+[tool.typos.default.extend-words]
+ninteen = "nineteen"
