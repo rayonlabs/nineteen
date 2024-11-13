@@ -50,12 +50,8 @@ services:
     build:
       context: .
       dockerfile: dockerfiles/query_node.dockerfile
+    scale: 4
     deploy:
-      replicas: 1
-      resources:
-        limits:
-          cpus: '1.0'
-          memory: 1G
       restart_policy:
         condition: on-failure
     depends_on:
