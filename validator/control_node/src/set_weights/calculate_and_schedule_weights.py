@@ -26,7 +26,7 @@ from fiber.chain.interface import get_substrate
 logger = get_logger(__name__)
 
 
-async def _get_weights_to_set(config: Config, mock: bool = False) -> tuple[list[int], list[float]] | None:
+async def _get_weights_to_set(config: Config) -> tuple[list[int], list[float]] | None:
     async with await config.psql_db.connection() as connection:
         contenders = await fetch_all_contenders(connection, None)
 
@@ -35,7 +35,7 @@ async def _get_weights_to_set(config: Config, mock: bool = False) -> tuple[list[
         return None
     else:
         logger.info(f"Found {len(contenders)} contenders to get weights for")
-    node_ids, node_weights = await calculations.calculate_scores_for_settings_weights(config, contenders, mock)
+    node_ids, node_weights = await calculations.calculate_scores_for_settings_weights(config, contenders)
 
     return node_ids, node_weights
 
@@ -191,32 +191,8 @@ async def main():
     logger.debug(f"Config: {config}")
     await config.psql_db.connect()
 
-    mock = os.getenv("MOCK", "false").lower() == "true"
     just_once = os.getenv("JUST_ONCE", "false").lower() == "true"
-
-    if mock:
-        result = await _get_weights_to_set(config, mock = True)
-        if result is None:
-            logger.info("No weights to set. Skipping weight setting.")
-            return
-        node_ids, node_weights = result
-        if len(node_ids) == 0:
-            logger.info("No nodes to set weights for. Skipping weight setting.")
-            return
-
-        logger.info("Weights calculated, about to set...")
-
-        all_nodes: list[Node] = fetch_nodes.get_nodes_for_netuid(config.substrate, config.netuid)
-        all_node_ids = [node.node_id for node in all_nodes]
-        all_node_weights = [0.0 for _ in all_nodes]
-        for node_id, node_weight in zip(node_ids, node_weights):
-            all_node_weights[node_id] = node_weight
-
-        logger.info(f"Node ids: {all_node_ids}")
-        logger.info(f"Node weights: {all_node_weights}")
-        logger.info(f"Number of non zero node weights: {sum(1 for weight in all_node_weights if weight != 0)}")
-    if just_once:
-        await set_weights_periodically(config, just_once=just_once)
+    await set_weights_periodically(config, just_once=just_once)
 
 
 if __name__ == "__main__":
