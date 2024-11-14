@@ -31,7 +31,7 @@ async def insert_scoring_stats(connection: Connection, scoring_stats: list[Conte
             {dcst.COLUMN_METRIC},
             {dcst.COLUMN_AVG_RESPONSE_TIME_MULTIPLIER}
         )
-        VALUES ($1, $2, $3, NOW(), $4, $5, $6, $7, $8, $9, $10, $11, $12)
+        VALUES ($1, $2, $3, NOW(), $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
         """,
         [
             (
