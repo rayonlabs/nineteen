@@ -360,8 +360,11 @@ async def calculate_scores_for_settings_weights(
         )
         miner_weights_objects.append(miner_weight_object)
 
-    await _post_scoring_stats_to_local_db(config_main, contender_weights_info_objects, miner_weights_objects)
-    await _post_scoring_stats_to_nineteen(config_main, contender_weights_info_objects, miner_weights_objects)
+    try:
+        await _post_scoring_stats_to_local_db(config_main, contender_weights_info_objects, miner_weights_objects)
+        await _post_scoring_stats_to_nineteen(config_main, contender_weights_info_objects, miner_weights_objects)
+    except Exception as e:
+        logger.error(f"Failed to post scoring stats to local db or nineteen: {e}") 
     
     scoring_stats_to_delete_locally = datetime.now() - timedelta(days=7)
     async with await config_main.psql_db.connection() as connection:
