@@ -3,7 +3,6 @@ python-dotenv==1.0
 redis==5.0
 asyncpg==0.29.0
 colorama==0.4.6
-aiocache==0.12.2
 
 opentelemetry-distro==0.47b0
 opentelemetry-exporter-otlp-proto-http==1.26.0
