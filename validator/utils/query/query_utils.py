@@ -24,7 +24,7 @@ async def check_prompt_length(messages: list[utility_models.Message],
                               task: str,
                               char_to_token: float = 5) -> bool:
     max_len = await get_max_model_len(task)
-    return (sum([len(message.content) for message in messages])+n_output_tokens)/char_to_token < max_len
+    return sum([len(message.content) for message in messages])/char_to_token + n_output_tokens < max_len
 
 
 def load_sse_jsons(chunk: str) -> list[dict[str, Any]] | dict[str, str]:
