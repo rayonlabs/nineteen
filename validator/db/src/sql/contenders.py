@@ -172,7 +172,7 @@ async def get_contenders_for_organic_task(psql_db: PSQLDB, task: str, top_x: int
                 JOIN {dcst.CONTENDERS_WEIGHTS_STATS_TABLE} s ON c.{dcst.NODE_HOTKEY} = s.{dcst.NODE_HOTKEY} 
                     AND c.{dcst.TASK} = s.{dcst.TASK}
                 WHERE c.{dcst.TASK} = $1 
-                AND c.{dcst.CAPACITY} > 0 
+                AND c.{dcst.CONSUMED_CAPACITY} < c.{dcst.CAPACITY}  
                 AND n.{dcst.SYMMETRIC_KEY_UUID} IS NOT NULL
                 ORDER BY c.{dcst.NODE_HOTKEY}, c.{dcst.TASK}, s.{dcst.COLUMN_NORMALISED_NET_SCORE} DESC, s.{dcst.CREATED_AT} DESC
             )
