@@ -143,7 +143,8 @@ async def chat(
     payload = request_models.chat_to_payload(chat_request)
     payload.temperature = 0.5
     
-    if not check_prompt_length(payload.messages, payload.model):
+    prompt_len_check = await check_prompt_length(payload.messages, payload.model)
+    if not prompt_len_check:
         raise HTTPException(
             status_code=400,
             detail=f"Request exceeds maximum allowed prompt length for the model {payload.model}"
