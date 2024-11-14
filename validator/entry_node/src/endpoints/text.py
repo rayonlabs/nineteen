@@ -14,7 +14,7 @@ from validator.utils.redis import redis_constants as rcst
 from validator.utils.generic import generic_constants as gcst
 from validator.entry_node.src.models import request_models
 import asyncio
-from validator.utils.query.query_utils import load_sse_jsons, check_prompt_length
+from validator.utils.query.query_utils import load_sse_jsons
 from redis.asyncio.client import PubSub
 import time 
 from opentelemetry import metrics
@@ -142,12 +142,6 @@ async def chat(
 ) -> StreamingResponse | JSONResponse:
     payload = request_models.chat_to_payload(chat_request)
     payload.temperature = 0.5
-    
-    if not await check_prompt_length(payload.messages, payload.model):
-        raise HTTPException(
-            status_code=400,
-            detail=f"Request exceeds maximum allowed prompt length for the model {payload.model}"
-        )
     
     try:
         text_generator = await make_stream_organic_query(
