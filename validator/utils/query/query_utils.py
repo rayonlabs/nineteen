@@ -8,7 +8,7 @@ from aiocache import cached
 
 
 @cached(ttl=None)
-def get_max_model_len(task: str) -> int:
+async def get_max_model_len(task: str) -> int:
     task_config = tcfg.get_enabled_task_config(task)
     if task_config:
         return task_config.orchestrator_server_config.load_model_config['max_model_len']
@@ -19,12 +19,11 @@ def get_max_model_len(task: str) -> int:
         )
 
 
-def check_prompt_length(messages: list[utility_models.Message], 
+async def check_prompt_length(messages: list[utility_models.Message], 
                               task: str,
                               char_to_token: float = 5) -> bool:
-    max_len = get_max_model_len(task)
-    return sum([len(message.content) for message in messages])/char_to_token < max_len
-
+    max_len = await get_max_model_len(task)
+    return sum(len(message.content) for message in messages) / char_to_token < max_len
 
 def load_sse_jsons(chunk: str) -> list[dict[str, Any]] | dict[str, str]:
     try:
