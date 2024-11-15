@@ -65,11 +65,10 @@ tasks:
 
   shutdown:
     cmds:
-      - docker compose --env-file .vali.env  --remove-orphans
-
+      - docker compose --env-file .vali.env
   shutdown_and_delete:
     cmds:
-      - docker compose --env-file .vali.env  --remove-orphans -v
+      - docker compose --env-file .vali.env -v
 
   postgres:
     cmds:
