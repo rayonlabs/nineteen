@@ -33,7 +33,7 @@ fi
 if [ -n "$ORGANIC_SERVER_PORT" ] && [ "${ORGANIC_SERVER_PORT,,}" != "none" ]; then
   if is_valid_number "$ORGANIC_SERVER_PORT"; then
     echo "ORGANIC_SERVER_PORT is set to '$ORGANIC_SERVER_PORT'. changing port for nginx."
-    ./update-nginx-port.sh
+    ./update-nginx-port.sh -p $ORGANIC_SERVER_PORT
     docker compose --env-file .vali.env -f docker-compose.yml up -d --build --remove-orphans
   else
     echo "ORGANIC_SERVER_PORT is not a valid number. Removing it from .vali.env and starting without entry_node service."
