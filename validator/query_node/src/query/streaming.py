@@ -56,6 +56,7 @@ async def consume_synthetic_generator(
     task = contender.task
     query_result = None
 
+    success = False
     try:
         first_chunk = await generator.__anext__()
     except (StopAsyncIteration, httpx.ConnectError, httpx.ReadError, httpx.HTTPError, httpx.ReadTimeout, Exception) as e:
@@ -63,10 +64,9 @@ async def consume_synthetic_generator(
         logger.error(f"Error when querying node: {node.node_id} for task: {task}. Error: {error_type} - {str(e)} - \n{traceback.format_exc()}")
         query_result = construct_500_query_result(node, task)
         await utils.adjust_contender_from_result(config, query_result, contender, True, payload=payload)
-        return False
+        return success
 
     text_jsons, status_code, first_message = [], 200, True
-    success = False
     try:
         async for text in async_chain(first_chunk, generator):
             if isinstance(text, bytes):

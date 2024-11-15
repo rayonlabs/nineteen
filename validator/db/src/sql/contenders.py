@@ -155,7 +155,7 @@ async def get_contenders_for_synthetic_task(connection: Connection, task: str, t
 
     return [Contender(**row) for row in rows]
     
-
+import math
 async def get_contenders_for_organic_task(connection: Connection, task: str, top_x: int = 5) -> list[Contender]:
     rows = await connection.fetch(
         f"""
@@ -183,7 +183,7 @@ async def get_contenders_for_organic_task(connection: Connection, task: str, top
                 AND c.{dcst.TASK} = s.{dcst.TASK}
             CROSS JOIN error_stats
             WHERE c.{dcst.TASK} = $1 
-            AND c.{dcst.CAPACITY} > 0 
+            AND c.{dcst.CAPACITY} > c.{dcst.CONSUMED_CAPACITY} 
             AND n.{dcst.SYMMETRIC_KEY_UUID} IS NOT NULL
             AND (
                 c.{dcst.TOTAL_REQUESTS_MADE} = 0 
@@ -196,6 +196,79 @@ async def get_contenders_for_organic_task(connection: Connection, task: str, top
         """,
         task,
     )
+
+    contenders = [Contender(**row) for row in rows]
+    
+    if not contenders:
+        logger.debug(f"No contenders for task {task}, falling back to synthetic queries logic.")
+        return await get_contenders_for_synthetic_task(connection, task, top_x)
+        
+    if len(contenders) <= top_x:
+        logger.info(f"Number of contenders ({len(contenders)}) <= top_x ({top_x}). Falling back to synthetic queries logic.")
+        return await get_contenders_for_synthetic_task(connection, task, top_x)
+
+    # calculate load factor for each contender
+    lf = {}
+    for contender in contenders:
+        load_factor = contender.consumed_capacity / contender.capacity if contender.capacity > 0 else 1.0
+        lf[contender.node_id] = load_factor
+
+    # sort by both performance score and load factor
+    sorted_contenders = sorted(
+        contenders,
+        key=lambda c: (
+            -lf[c.node_id],  # negative to sort ascending by load
+            c.total_requests_made
+        )
+    )
+
+    # take top 75% of contenders
+    cutoff = max(1, int(gcst.ORGANIC_SELECT_CONTENDER_LOW_POURC * len(sorted_contenders)))
+    eligible_contenders = sorted_contenders[:cutoff]
+
+    weights = []
+    for contender in eligible_contenders:
+        # base weight inversely proportional to load
+        base_weight = 1.0 - lf[contender.node_id]
+        
+        # penalty for high request count
+        request_factor = math.exp(-0.1 * contender.total_requests_made)
+        
+        weight = base_weight * request_factor
+        
+        weight = max(0.1, weight)
+        weights.append(weight)
+
+    # normalize weights
+    total_weight = sum(weights)
+    if total_weight > 0:
+        weights = [w/total_weight for w in weights]
+    else:
+        weights = [1.0/len(eligible_contenders)] * len(eligible_contenders)
+
+
+    # select contenders using normalized weights
+    selected_contenders = random.choices(
+        eligible_contenders,
+        weights=weights,
+        k=min(top_x, len(eligible_contenders))
+    )
+
+    # ensure no duplicates
+    selected_contenders = list(dict.fromkeys(selected_contenders))
+    
+    # if we got fewer than requested due to deduplication, add more
+    while len(selected_contenders) < top_x and len(eligible_contenders) > len(selected_contenders):
+        remaining = [c for c in eligible_contenders if c not in selected_contenders]
+        if not remaining:
+            break
+        additional = random.choices(remaining, k=1)[0]
+        selected_contenders.append(additional)
+
+    logger.info(f"Selected contenders for task {task} : {selected_contenders}")
+    return selected_contenders
+
+    """
     logger.debug(f"Number of valid contenders for task {task} for organic query : {len(rows)}")
 
     contenders = [Contender(**row) for row in rows]
@@ -222,6 +295,7 @@ async def get_contenders_for_organic_task(connection: Connection, task: str, top
     else:
         logger.debug(f"Contenders selection for organic queries with task {task} yielded nothing (probably statistiques table is empty), falling back to synthetic queries logic.")
         return await get_contenders_for_synthetic_task(connection, task, top_x)
+    """
 
 
 

@@ -60,7 +60,6 @@ lock = asyncio.Lock()
 
 
 async def _decrement_requests_remaining(redis_db: Redis, task: str):
-    """Decrement remaining synthetic requests counter."""
     key = f"task_synthetics_info:{task}:requests_remaining"
     await redis_db.decr(key)
 
@@ -92,6 +91,7 @@ async def _handle_stream_synthetic(
     message: rdc.QueryQueueMessage, 
     contenders: list[Contender]
 ) -> bool:
+    
     start = time.time()
     for i, contender in enumerate(contenders):
         node = await get_node(config.psql_db, contender.node_id, config.netuid)
@@ -132,7 +132,7 @@ async def _handle_stream_organic(
     message: rdc.QueryQueueMessage, 
     contenders: list[Contender]
 ) -> AsyncGenerator[str, None]:
-    """Handle streaming organic queries."""
+
     start = time.time()
     for i, contender in enumerate(contenders):
         node = await get_node(config.psql_db, contender.node_id, config.netuid)
