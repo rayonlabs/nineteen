@@ -176,7 +176,7 @@ async def get_contenders_for_organic_task(connection: Connection, task: str, top
                 c.{dcst.CONTENDER_ID}, c.{dcst.NODE_HOTKEY}, c.{dcst.NODE_ID}, c.{dcst.TASK},
                 c.{dcst.RAW_CAPACITY}, c.{dcst.CAPACITY_TO_SCORE}, c.{dcst.CONSUMED_CAPACITY},
                 c.{dcst.TOTAL_REQUESTS_MADE}, c.{dcst.REQUESTS_429}, c.{dcst.REQUESTS_500}, 
-                c.{dcst.CAPACITY}, c.{dcst.PERIOD_SCORE}, c.{dcst.NETUID}
+                c.{dcst.CAPACITY}, c.{dcst.PERIOD_SCORE}, c.{dcst.NETUID}, s.{dcst.COLUMN_NORMALISED_NET_SCORE}
             FROM {dcst.CONTENDERS_TABLE} c
             JOIN {dcst.NODES_TABLE} n ON c.{dcst.NODE_ID} = n.{dcst.NODE_ID} AND c.{dcst.NETUID} = n.{dcst.NETUID}
             JOIN {dcst.CONTENDERS_WEIGHTS_STATS_TABLE} s ON c.{dcst.NODE_HOTKEY} = s.{dcst.NODE_HOTKEY} 
@@ -197,82 +197,48 @@ async def get_contenders_for_organic_task(connection: Connection, task: str, top
         task,
     )
 
-    contenders = [Contender(**row) for row in rows]
+    contenders = [Contender(**{k:v for k,v in row.items() if k != dcst.COLUMN_NORMALISED_NET_SCORE}) for row in rows]
+    scores = {c.node_id: row[dcst.COLUMN_NORMALISED_NET_SCORE] for c, row in zip(contenders, rows)}
     
-    if not contenders:
-        logger.debug(f"No contenders for task {task}, falling back to synthetic queries logic.")
-        return await get_contenders_for_synthetic_task(connection, task, top_x)
-        
     if len(contenders) <= top_x:
-        logger.info(f"Number of contenders ({len(contenders)}) <= top_x ({top_x}). Falling back to synthetic queries logic.")
         return await get_contenders_for_synthetic_task(connection, task, top_x)
 
-    # calculate load factor for each contender
-    lf = {}
-    for contender in contenders:
-        load_factor = contender.consumed_capacity / contender.capacity if contender.capacity > 0 else 1.0
-        lf[contender.node_id] = load_factor
+    # load factor
+    load_factors = {c.node_id: (c.consumed_capacity / c.capacity if c.capacity > 0 else 0) for c in contenders}
+    
+    # calculate a ranking based on scores & load factors
+    max_score = max(scores.values(), default=0)
+    rankings = {
+        c.node_id: (scores[c.node_id] / max_score * (1 - load_factors[c.node_id]) if max_score > 0 else 0) + (1 - load_factors[c.node_id]) * 0.5
+        for c in contenders
+    }
 
-    # sort by both performance score and load factor
-    sorted_contenders = sorted(
-        contenders,
-        key=lambda c: (
-            -lf[c.node_id],  # negative to sort ascending by load
-            c.total_requests_made
-        )
-    )
-
-    # take top 75% of contenders
-    cutoff = max(1, int(gcst.ORGANIC_SELECT_CONTENDER_LOW_POURC * len(sorted_contenders)))
-    eligible_contenders = sorted_contenders[:cutoff]
-
-    weights = []
-    for contender in eligible_contenders:
-        # base weight inversely proportional to load
-        base_weight = 1.0 - lf[contender.node_id]
-        
-        # penalty for high request count
-        request_factor = math.exp(-0.1 * contender.total_requests_made)
-        
-        weight = base_weight * request_factor
-        
-        weight = max(0.1, weight)
-        weights.append(weight)
-
-    # normalize weights
-    total_weight = sum(weights)
-    if total_weight > 0:
-        weights = [w/total_weight for w in weights]
-    else:
-        weights = [1.0/len(eligible_contenders)] * len(eligible_contenders)
-
-
-    # select contenders using normalized weights
-    selected_contenders = random.choices(
-        eligible_contenders,
-        weights=weights,
-        k=min(top_x, len(eligible_contenders))
-    )
+    cutoff = max(1, int(0.9 * len(contenders)))
+    eligible_contenders = sorted(contenders, key=lambda c: rankings[c.node_id], reverse=True)[:cutoff]
+    # penalizing for high load
+    request_penalties = {c.node_id: math.exp(-0.1 * c.total_requests_made) for c in eligible_contenders}
+    
+    weights = [rankings[c.node_id] * request_penalties[c.node_id] for c in eligible_contenders]
+    weight_sum = sum(weights)
+    normalized_weights = [w/weight_sum for w in weights] if weight_sum > 0 else [1.0/len(eligible_contenders)] * len(eligible_contenders)
 
     seen = set()
-    unique_contenders = []
-    for contender in selected_contenders:
-        if contender.node_hotkey not in seen:
-            seen.add(contender.node_hotkey)
-            unique_contenders.append(contender)
-    
-    # if we got fewer than requested due to deduplication, add more
-    while len(unique_contenders) < top_x and len(eligible_contenders) > len(seen):
+    selected = []    
+    for c in random.choices(eligible_contenders, weights=normalized_weights, k=top_x * 2):
+        if c.node_hotkey not in seen and len(selected) < top_x:
+            seen.add(c.node_hotkey)
+            selected.append(c)
+            if len(selected) == top_x:
+                break
+    # in case we need more
+    if len(selected) < top_x:
         remaining = [c for c in eligible_contenders if c.node_hotkey not in seen]
-        if not remaining:
-            break
-        additional = random.choices(remaining, k=1)[0]
-        seen.add(additional.node_hotkey)
-        unique_contenders.append(additional)
+        while remaining and len(selected) < top_x:
+            c = random.choice(remaining)
+            selected.append(c)
+            remaining = [r for r in remaining if r.node_hotkey != c.node_hotkey]
 
-    logger.info(f"Selected contenders for task {task} : {unique_contenders}")
-    return unique_contenders
-
+    return selected
     """
     logger.debug(f"Number of valid contenders for task {task} for organic query : {len(rows)}")
 
