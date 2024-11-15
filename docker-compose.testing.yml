@@ -21,11 +21,11 @@ services:
       POSTGRES_HOST: test_db
       ENV: test
 
-  query_node:
-    container_name: test_query_node
+  hybrid_node:
+    container_name: test_hybrid_node
     build:
       context: .
-      dockerfile: dockerfiles/query_node.dockerfile
+      dockerfile: dockerfiles/hybrid_node.dockerfile
     deploy:
       resources:
         limits:
@@ -44,7 +44,7 @@ services:
       - test_db
     volumes:
       - .:/app
-    entrypoint: ["python", "-u", "/app/validator/query_node/src/main.py"]
+    entrypoint: ["python", "-u", "/app/validator/hybrid_node/src/main.py"]
     environment:
       POSTGRES_USER: test_user
       POSTGRES_PASSWORD: test_password

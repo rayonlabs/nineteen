@@ -34,7 +34,7 @@ COPY validator/utils /app/validator/utils
 COPY validator/models.py /app/validator/models.py
 COPY validator/db /app/validator/db
 
-COPY validator/hybrid_node ./hybrid_node
+COPY validator/hybrid_node /app/validator/hybrid_node
 COPY validator/hybrid_node/pyproject.toml .
 
 
