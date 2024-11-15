@@ -20,7 +20,9 @@ from validator.utils.query.query_utils import load_sse_jsons
 
 logger = get_logger(__name__)
 
-CHUNKING_PERCENTAGE_PENALTY_FACTOR = 1.2
+TTFB_PENALTY_FACTOR = 1.2
+CHUNKING_PERCENTAGE_PENALTY_FACTOR = 1.3
+TTFB_THRESHOLD = 1.0
 
 def _get_formatted_payload(content: str, first_message: bool, add_finish_reason: bool = False) -> str:
     delta_payload = {"content": content}
@@ -110,6 +112,7 @@ async def consume_generator(
     time_to_first_chunk = time.time() - start_time
 
     text_jsons, status_code, first_message =  [], 200, True
+    ttfb = None
     try:
 
         total_chunks = 0
@@ -163,8 +166,13 @@ async def consume_generator(
                 latest_counter = time.time()
             else:
                 # time_between_chunks.append(time.time() - time_to_first_chunk)
+                ttfb = time.time() - time_to_first_chunk
                 latest_counter = time.time()
         
+        response_time_penalty_multiplier = 1.0
+
+        if ttfb > TTFB_THRESHOLD:
+            response_time_penalty_multiplier = TTFB_PENALTY_FACTOR
         if len(text_jsons) > 0:
             last_payload = _get_formatted_payload("", False, add_finish_reason=True)
             await _handle_event(
@@ -177,7 +185,6 @@ async def consume_generator(
 
         response_time = time.time() - start_time
 
-        response_time_penalty_multiplier = 1
         # Penalize for inconsistent interval between chunks
         if len(time_between_chunks) > 0:
             mean_interval = sum(time_between_chunks) / len(time_between_chunks)
@@ -191,7 +198,7 @@ async def consume_generator(
             # (ii) if bundled chunk during streaming are >10% of total chunks
             # (iii) if sporadic chunk outliers mostly lie beyond both 1xstd and 3xstd (that means chunky streaming seams pushed the overall mean higher)
             if bundled_chunks > 0.1 * total_chunks or sporadic_count > 0.1 * len(time_between_chunks) or extra_sporadic_count >= 0.5 * sporadic_count:
-                response_time_penalty_multiplier = CHUNKING_PERCENTAGE_PENALTY_FACTOR
+                response_time_penalty_multiplier = response_time_penalty_multiplier * CHUNKING_PERCENTAGE_PENALTY_FACTOR
 
         query_result = utility_models.QueryResult(
             formatted_response=text_jsons if len(text_jsons) > 0 else None,
