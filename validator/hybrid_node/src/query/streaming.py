@@ -1,19 +1,19 @@
-import json
-import time
-from typing import AsyncGenerator, Optional
-
-import httpx
-import traceback
-from core.models import utility_models
 from validator.query_node.src.query_config import Config
 from validator.query_node.src import utils
 from validator.models import Contender
+from validator.utils.generic import generic_constants as gcst
+from validator.utils.query.query_utils import load_sse_jsons
+from core.models import utility_models
+from core import task_config as tcfg
+
+import json
+import time
+from typing import AsyncGenerator, Optional
+import httpx
+import traceback
 from fiber.validator import client
 from fiber.networking.models import NodeWithFernet as Node
-from core import task_config as tcfg
-from validator.utils.generic import generic_constants as gcst
 from fiber.logging_utils import get_logger
-from validator.utils.query.query_utils import load_sse_jsons
 
 logger = get_logger(__name__)
 

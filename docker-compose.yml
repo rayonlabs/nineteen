@@ -45,10 +45,10 @@ services:
       restart_policy:
         condition: on-failure
 
-  query_node:
+  hybrid_node:
     build:
       context: .
-      dockerfile: dockerfiles/query_node.dockerfile
+      dockerfile: dockerfiles/hybrid_node.dockerfile
     scale: 4
     deploy:
       restart_policy:
@@ -60,7 +60,7 @@ services:
       - 6919
     volumes:
       - ${HOME}/.bittensor/wallets:/root/.bittensor/wallets
-    entrypoint: ["opentelemetry-instrument", "--logs_exporter", "otlp", "--traces_exporter", "otlp", "--metrics_exporter", "otlp", "--service_name", "query_node", "python", "-u", "/app/validator/query_node/src/main.py"]
+    entrypoint: ["opentelemetry-instrument", "--logs_exporter", "otlp", "--traces_exporter", "otlp", "--metrics_exporter", "otlp", "--service_name", "hybrid_node", "python", "-u", "/app/validator/hybrid_node/src/main.py"]
     environment:
       OTEL_EXPORTER_OTLP_PROTOCOL: "http/protobuf"
       OTEL_EXPORTER_OTLP_ENDPOINT: "http://otel-collector:4317"
@@ -88,7 +88,7 @@ services:
     volumes:
       - ./nginx/nginx.conf:/etc/nginx/nginx.conf
     depends_on:
-      - query_node
+      - hybrid_node
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:6919/health"]
       interval: 30s

@@ -1,12 +1,12 @@
-import asyncio
-import json
-from opentelemetry import metrics
-
-from fiber.logging_utils import get_logger
 from validator.utils.generic import generic_constants as gcst
 from validator.query_node.src.query_config import Config
 from validator.utils.redis import redis_constants as rcst, redis_dataclasses as rdc
-from validator.query_node.src.process_queries import process_synthetic_task
+from validator.query_node.src.handlers.process_queries import process_synthetic_task
+
+import asyncio
+import json
+from opentelemetry import metrics
+from fiber.logging_utils import get_logger
 
 
 logger = get_logger(__name__)

@@ -1,14 +1,19 @@
+from validator.query_node.src.api.core.configuration import load_config
+from validator.query_node.src.handlers.synthetics_handler import SyntheticTaskProcessor
+from validator.query_node.src.api.routers.text import text_router
+from validator.query_node.src.api.routers.image import image_router
+from validator.query_node.src.api.routers.generic import generic_router
+
 import os
 import asyncio
+import uvicorn
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-import uvicorn
 from fiber.logging_utils import get_logger
-from validator.query_node.core.configuration import load_config
-from validator.query_node.src.synthetics_handler import SyntheticTaskProcessor
-from validator.query_node.src.endpoints import image_router, text_router, generic_router
 
 logger = get_logger(__name__)
+
 
 app = FastAPI()
 app.add_middleware(
@@ -37,6 +42,3 @@ async def main():
         task_processor.listen(),
         server.serve(),
     )
-
-if __name__ == "__main__":
-    asyncio.run(main())
