@@ -20,10 +20,6 @@ tasks:
     cmds: 
       - LOCALHOST=true ENV_FILE=.vali.env python -m validator.hybrid_node.src.main
 
-  entry_node_dev:
-    cmds:
-      - LOCALHOST=true uvicorn validator.entry_node.src.server:app --reload --host 0.0.0.0 --port 8090 --env-file .vali.env
-    
   weight_setter_dev:
     cmds:
       - LOCALHOST=true ENV_FILE=.vali.env python -m validator.control_node.src.set_weights.calculate_and_schedule_weights
@@ -35,9 +31,7 @@ tasks:
       - "
         docker compose 
           --env-file .vali.env 
-          --profile entry_node_profile 
           up -d --build 
-          --scale entry_node=0 
           --scale hybrid_node=0 
           --scale control_node=0 
           --scale weight_setter=0 
@@ -59,7 +53,6 @@ tasks:
   update_docker_fiber_version:
     cmds:
       - docker run --rm nineteen-control_node sh -c "pip install git+https://github.com/rayonlabs/fiber.git@1.0.0 --upgrade"
-      - docker run --rm nineteen-entry_node sh -c "pip install git+https://github.com/rayonlabs/fiber.git@1.0.0 --upgrade"
       - docker run --rm nineteen-hybrid_node sh -c "pip install git+https://github.com/rayonlabs/fiber.git@1.0.0 --upgrade"
 
   createm:
@@ -68,20 +61,20 @@ tasks:
 
   startup:
     cmds:
-      - docker compose --env-file .vali.env --profile entry_node_profile up -d --build
+      - docker compose --env-file .vali.env  -d --build
 
   shutdown:
     cmds:
-      - docker compose --env-file .vali.env --profile entry_node_profile down --remove-orphans
+      - docker compose --env-file .vali.env  --remove-orphans
 
   shutdown_and_delete:
     cmds:
-      - docker compose --env-file .vali.env --profile entry_node_profile down --remove-orphans -v
+      - docker compose --env-file .vali.env  --remove-orphans -v
 
   postgres:
     cmds:
-      - docker compose --env-file .vali.env --profile entry_node_profile exec -it postgresql psql -U$POSTGRES_USER $POSTGRES_DB
+      - docker compose --env-file .vali.env  exec -it postgresql psql -U$POSTGRES_USER $POSTGRES_DB
 
   redis:
     cmds:
-      - docker compose --env-file .vali.env --profile entry_node_profile exec -it redis redis-cli
+      - docker compose --env-file .vali.env  exec -it redis redis-cli

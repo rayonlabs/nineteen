@@ -1,25 +1,5 @@
 # this should be layered on top of docker-compose.yml
 services:
-  entry_node:
-    container_name: test_entry_node
-    build:
-      context: .
-      dockerfile: dockerfiles/entry_node.dockerfile
-    depends_on:
-      - redis
-      - test_db
-    volumes:
-      - .:/app
-    entrypoint: ["python", "-u", "/app/validator/entry_node/src/main.py"]
-    ports:
-      - "8000:8000"
-    environment:
-      POSTGRES_USER: test_user
-      POSTGRES_PASSWORD: test_password
-      POSTGRES_DB: test_db
-      POSTGRES_PORT: 5432
-      POSTGRES_HOST: test_db
-      ENV: test
 
   hybrid_node:
     container_name: test_hybrid_node
