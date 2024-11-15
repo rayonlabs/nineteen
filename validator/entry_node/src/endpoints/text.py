@@ -136,14 +136,13 @@ async def _handle_no_stream(text_generator: AsyncGenerator[str, str]) -> JSONRes
 
     return JSONResponse({"choices": [{"delta": {"content": all_content}}]})
 
-
 async def chat(
     chat_request: request_models.ChatRequest,
     config: Config = Depends(get_config),
 ) -> StreamingResponse | JSONResponse:
     payload = request_models.chat_to_payload(chat_request)
     payload.temperature = 0.5
-
+    
     try:
         text_generator = await make_stream_organic_query(
             redis_db=config.redis_db,
