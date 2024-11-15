@@ -37,7 +37,7 @@ async def main():
 
     # with organic traffic
     if port : 
-        app_config = uvicorn.Config(app, host="0.0.0.0", port=port, log_level="info")
+        app_config = uvicorn.Config(app, host="0.0.0.0", port=6919, log_level="info")
         server = uvicorn.Server(app_config)
 
         await asyncio.gather(

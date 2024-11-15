@@ -84,11 +84,11 @@ services:
   nginx_lb:
     image: nginx:latest
     ports:
-      - "80:6919"
+      - "ORGANIC_PORT:6919"
     volumes:
       - ./nginx/nginx.conf:/etc/nginx/nginx.conf
     depends_on:
-      - hybrid_node
+      - query_node
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:6919/health"]
       interval: 30s
