@@ -12,7 +12,7 @@ Welcome to S19 Mining 🔥
 
 
 # Overview
-A miner consists of serveral parts, fitting into two categories:
+A miner consists of several parts, fitting into two categories:
 
 - Proxy
 - Workers

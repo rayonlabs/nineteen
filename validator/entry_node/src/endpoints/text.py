@@ -3,6 +3,7 @@ from typing import Any, AsyncGenerator
 import uuid
 from fastapi import Depends, HTTPException
 from fastapi.responses import JSONResponse, StreamingResponse
+from opentelemetry import metrics
 from redis.asyncio import Redis
 from fiber.logging_utils import get_logger
 from fastapi.routing import APIRouter
@@ -13,11 +14,20 @@ from validator.utils.redis import redis_constants as rcst
 from validator.utils.generic import generic_constants as gcst
 from validator.entry_node.src.models import request_models
 import asyncio
-from validator.utils.query.query_utils import load_sse_jsons
+from validator.utils.query.query_utils import load_sse_jsons, check_prompt_length
 from redis.asyncio.client import PubSub
+import time 
+from opentelemetry import metrics
 
 logger = get_logger(__name__)
 
+
+COUNTER_TEXT_GENERATION_ERROR = metrics.get_meter(__name__).create_counter("validator.entry_node.text.error")
+COUNTER_TEXT_GENERATION_SUCCESS = metrics.get_meter(__name__).create_counter("validator.entry_node.text.success")
+GAUGE_TOKENS_PER_SEC = metrics.get_meter(__name__).create_gauge(
+    "validator.entry_node.text.tokens_per_sec",
+    description="Average tokens per second metric for LLM streaming for an organic LLM query"
+)
 
 def _construct_organic_message(payload: dict, job_id: str, task: str) -> str:
     return json.dumps({"query_type": gcst.ORGANIC, "query_payload": payload, "task": task, "job_id": job_id})
@@ -33,8 +43,9 @@ async def _wait_for_acknowledgement(pubsub: PubSub, job_id: str) -> bool:
     return True
 
 
-async def _stream_results(pubsub: PubSub, job_id: str, first_chunk: str) -> AsyncGenerator[str, str]:
+async def _stream_results(pubsub: PubSub, job_id: str, task: str, first_chunk: str, start_time: float) -> AsyncGenerator[str, str]:
     yield first_chunk
+    num_tokens = 0
     async for message in pubsub.listen():
         channel = message["channel"].decode()
 
@@ -44,12 +55,21 @@ async def _stream_results(pubsub: PubSub, job_id: str, first_chunk: str) -> Asyn
                 continue
             status_code = result[gcst.STATUS_CODE]
             if status_code >= 400:
+                COUNTER_TEXT_GENERATION_ERROR.add(1, {"task": task, "kind": "nth_chunk_timeout", "status_code": status_code})
                 raise HTTPException(status_code=status_code, detail=result[gcst.ERROR_MESSAGE])
 
             content = result[gcst.CONTENT]
+            num_tokens += 1
             yield content
             if "[DONE]" in content:
                 break
+    COUNTER_TEXT_GENERATION_SUCCESS.add(1, {"task": task, "status_code": 200})
+    completion_time = time.time() - start_time
+
+    tps = num_tokens / completion_time
+    GAUGE_TOKENS_PER_SEC.set(tps, {"task": task})
+    logger.info(f"Tokens per second for job_id: {job_id}, task: {task}: {tps}")
+
     await pubsub.unsubscribe(f"{rcst.JOB_RESULTS}:{job_id}")
 
 
@@ -82,21 +102,25 @@ async def make_stream_organic_query(
         logger.error(
             f"Query node down? No confirmation received for job {job_id} within timeout period. Task: {task}, model: {payload['model']}"
         )
-        raise HTTPException(status_code=500, detail="Unable to process request")
+        COUNTER_TEXT_GENERATION_ERROR.add(1, {"task": task, "kind": "redis_acknowledgement_timeout", "status_code": 500})
+        raise HTTPException(status_code=500, detail="Unable to process request ; redis_acknowledgement_timeout")
 
     await pubsub.subscribe(f"{rcst.JOB_RESULTS}:{job_id}")
     logger.info("Here waiting for a message!")
+    start_time = time.time()
     try:
         first_chunk = await asyncio.wait_for(_get_first_chunk(pubsub, job_id), timeout=2)
     except asyncio.TimeoutError:
         logger.error(
             f"Query node down? Timed out waiting for the first chunk of results for job {job_id}. Task: {task}, model: {payload['model']}"
         )
-        raise HTTPException(status_code=500, detail="Unable to process request")
+        COUNTER_TEXT_GENERATION_ERROR.add(1, {"task": task, "kind": "first_chunk_timeout", "status_code": 500})
+        raise HTTPException(status_code=500, detail="Unable to process request ; first_chunk_timeout")
 
     if first_chunk is None:
-        raise HTTPException(status_code=500, detail="Unable to process request")
-    return _stream_results(pubsub, job_id, first_chunk)
+        COUNTER_TEXT_GENERATION_ERROR.add(1, {"task": task, "kind": "first_chunk_missing", "status_code": 500})
+        raise HTTPException(status_code=500, detail="Unable to process request ; first_chunk_missing")
+    return _stream_results(pubsub, job_id, task, first_chunk, start_time)
 
 
 async def _handle_no_stream(text_generator: AsyncGenerator[str, str]) -> JSONResponse:
@@ -112,27 +136,40 @@ async def _handle_no_stream(text_generator: AsyncGenerator[str, str]) -> JSONRes
 
     return JSONResponse({"choices": [{"delta": {"content": all_content}}]})
 
-
 async def chat(
     chat_request: request_models.ChatRequest,
     config: Config = Depends(get_config),
 ) -> StreamingResponse | JSONResponse:
     payload = request_models.chat_to_payload(chat_request)
     payload.temperature = 0.5
-
+    
+    if not await check_prompt_length(payload.messages, payload.model):
+        raise HTTPException(
+            status_code=400,
+            detail=f"Request exceeds maximum allowed prompt length for the model {payload.model}"
+        )
+    
     try:
         text_generator = await make_stream_organic_query(
-            redis_db=config.redis_db, payload=payload.model_dump(), task=payload.model
+            redis_db=config.redis_db,
+            payload=payload.model_dump(),
+            task=payload.model,
         )
+
         logger.info("Here returning a response!")
+
         if chat_request.stream:
             return StreamingResponse(text_generator, media_type="text/event-stream")
         else:
             return await _handle_no_stream(text_generator)
+
     except HTTPException as http_exc:
+        COUNTER_TEXT_GENERATION_ERROR.add(1, {"task": payload.model, "kind": type(http_exc).__name__, "status_code": 500})
         logger.info(f"HTTPException in chat endpoint: {str(http_exc)}")
         raise http_exc
+
     except Exception as e:
+        COUNTER_TEXT_GENERATION_ERROR.add(1, {"task": payload.model, "kind": type(e).__name__, "status_code": 500})
         logger.error(f"Unexpected error in chat endpoint: {str(e)}")
         raise HTTPException(status_code=500, detail="An unexpected error occurred")
 
