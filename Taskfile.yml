@@ -65,7 +65,7 @@ tasks:
 
   shutdown:
     cmds:
-      - docker compose --env-file .vali.env
+      - docker compose --env-file .vali.env down
   shutdown_and_delete:
     cmds:
       - docker compose --env-file .vali.env -v
