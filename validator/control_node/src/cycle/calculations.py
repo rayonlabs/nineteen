@@ -103,7 +103,7 @@ async def _calculate_metrics_and_quality_score(
             )
             continue
         metrics[reward_data.node_hotkey] = metrics.get(reward_data.node_hotkey, []) + [
-            reward_data.metric * reward_data.metric
+            reward_data.quality_score * reward_data.metric
         ]
         quality_scores[reward_data.node_hotkey] = quality_scores.get(
             reward_data.node_hotkey, []
@@ -446,7 +446,7 @@ async def calculate_scores_for_settings_weights_debug(
             if reward_data.metric is not None and reward_data.quality_score is not None:
                 metrics[reward_data.node_hotkey] = metrics.get(
                     reward_data.node_hotkey, []
-                ) + [reward_data.quality_score * reward_data.metric]
+                ) + [reward_data.metric]
                 quality_scores[reward_data.node_hotkey] = quality_scores.get(
                     reward_data.node_hotkey, []
                 ) + [reward_data.quality_score]
