@@ -1,8 +1,14 @@
 #!/bin/bash
 
-set -a
-source .vali.env
-set +a
+if [ -f .vali.env ]; then
+  echo "Loading environment variables from .vali.env..."
+  set -a
+  source .vali.env
+  set +a
+else
+  echo "Error: .vali.env file not found. Exiting."
+  exit 1
+fi
 
 # Function to check if a string is a valid number
 is_valid_number() {
@@ -24,7 +30,6 @@ if [ -n "$GRAFANA_PASSWORD" ]; then
   echo GRAFANA_PASSWORD=$GRAFANA_PASSWORD >> .vali.env
 fi
 
-# Check if ORGANIC_SERVER_PORT is set to 'none' - for legacy config reasons
 if [ -n "$ORGANIC_SERVER_PORT" ] && [ "${ORGANIC_SERVER_PORT,,}" != "none" ]; then
   if is_valid_number "$ORGANIC_SERVER_PORT"; then
     echo "ORGANIC_SERVER_PORT is set to '$ORGANIC_SERVER_PORT'. changing port for nginx."

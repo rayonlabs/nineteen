@@ -1,11 +1,16 @@
 #!/bin/bash
 
-# replace port in docker-compose.yml
-sed -i "s/"80:6919"/"${ORGANIC_PORT}:6919"/" docker-compose.yml
+sed -i "s/80:6919/${ORGANIC_PORT}:6919/" docker-compose.yml
+if [ $? -eq 0 ]; then
+    echo "docker-compose.yml updated successfully."
+else
+    echo "Failed to update docker-compose.yml. Please check the file or ORGANIC_PORT value."
+fi
 
-# replace port in nginx.conf
-sed -i "s/listen 80/listen ${ORGANIC_PORT}/" nginx/nginx.conf
-
-# update healthcheck ports
-sed -i "s/:6919\/docs/:$ORGANIC_SERVER_PORT\/docs/" docker-compose.yml
-sed -i "s/:6919\/health/:$ORGANIC_SERVER_PORT\/health/" docker-compose.yml
+echo "Replacing port in nginx/nginx.conf..."
+sed -i "s/listen 80;/listen ${ORGANIC_PORT};/" nginx/nginx.conf
+if [ $? -eq 0 ]; then
+    echo "nginx.conf updated successfully."
+else
+    echo "Failed to update nginx/nginx.conf. Please check the file or ORGANIC_PORT value."
+fi
