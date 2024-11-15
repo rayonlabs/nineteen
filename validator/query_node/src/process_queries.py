@@ -25,34 +25,34 @@ import asyncio
 logger = get_logger(__name__)
 
 COUNTER_TOTAL_QUERIES = metrics.get_meter(__name__).create_counter(
-    name="validator.entry_node.process.total_queries",
+    name="validator.query_node.process.total_queries",
     description="Number of total queries sent to `process_task`",
 )
 
 COUNTER_FAILED_QUERIES = metrics.get_meter(__name__).create_counter(
-    name="validator.entry_node.process.failed_queries",
+    name="validator.query_node.process.failed_queries",
     description="Number of failed queries within `process_task`",
 )
 
 QUERY_NODE_REQUESTS_PROCESSING_GAUGE = metrics.get_meter(__name__).create_gauge(
-    name="validator.entry_node.src.concurrent_synthetic_queries_processing",
+    name="validator.query_node.src.concurrent_synthetic_queries_processing",
     description="concurrent number of synthetic requests currently being processed",
     unit="1"
 )
 
 QUERY_NODE_FAILED_SYNTHETIC_TASKS_COUNTER = metrics.get_meter(__name__).create_counter(
-    name="validator.entry_node.src.query_node_failed_synthetic_tasks",
+    name="validator.query_node.src.query_node_failed_synthetic_tasks",
     description="number of failed synthetic `process_task` instances",
     unit="1"
 )
 
-COUNTER_TEXT_GENERATION_ERROR = metrics.get_meter(__name__).create_counter("validator.entry_node.text.error")
-COUNTER_TEXT_GENERATION_SUCCESS = metrics.get_meter(__name__).create_counter("validator.entry_node.text.success")
-COUNTER_IMAGE_ERROR = metrics.get_meter(__name__).create_counter("validator.entry_node.image.error")
-COUNTER_IMAGE_SUCCESS = metrics.get_meter(__name__).create_counter("validator.entry_node.image.success")
+COUNTER_TEXT_GENERATION_ERROR = metrics.get_meter(__name__).create_counter("validator.query_node.text.error")
+COUNTER_TEXT_GENERATION_SUCCESS = metrics.get_meter(__name__).create_counter("validator.query_node.text.success")
+COUNTER_IMAGE_ERROR = metrics.get_meter(__name__).create_counter("validator.query_node.image.error")
+COUNTER_IMAGE_SUCCESS = metrics.get_meter(__name__).create_counter("validator.query_node.image.success")
 
 GAUGE_TOKENS_PER_SEC = metrics.get_meter(__name__).create_gauge(
-    "validator.entry_node.text.tokens_per_sec",
+    "validator.query_node.text.tokens_per_sec",
     description="Average tokens per second metric for LLM streaming"
 )
 

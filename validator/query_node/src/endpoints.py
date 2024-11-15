@@ -1,10 +1,10 @@
 from fastapi import Depends, HTTPException
 from fastapi.responses import JSONResponse, StreamingResponse
+from fastapi.security import HTTPBearer
 import time
 from typing import Any, Annotated
 from core import task_config as tcfg
 from validator.utils.generic import generic_constants as gcst
-from validator.query_node.src.query_config import Config
 from validator.utils.redis import redis_dataclasses as rdc
 from validator.query_node.src import request_models
 from validator.query_node.src.process_queries import process_organic_image_request, process_organic_stream, _handle_no_stream
@@ -15,7 +15,7 @@ from fastapi import Security
 from fastapi.routing import APIRouter
 from fiber.logging_utils import get_logger
 from validator.query_node.core.configuration import load_config
-from fastapi.security import HTTPBearer
+
 
 
 auth_scheme = HTTPBearer()
@@ -86,26 +86,15 @@ image_router.add_api_route("/v1/avatar", avatar, methods=["POST"], response_mode
 
 ## text
 
-from contextlib import asynccontextmanager
-from typing import AsyncGenerator, Any
-from fastapi import Depends, HTTPException
-from fastapi.responses import StreamingResponse, JSONResponse
-import time
-from fiber.logging_utils import get_logger
-
-logger = get_logger(__name__)
     
 async def chat(
     chat_request: request_models.ChatRequest,
     config: Annotated[Any, Depends(get_config_dependency)],
     _: Annotated[None, Depends(verify_api_key_dependency)]
 ) -> StreamingResponse | JSONResponse:
-    """
-    Chat endpoint with proper error handling and resource management
-    """
+
     job_id = rutils.generate_job_id()
     start_time = time.time()
-    stream_manager = None
 
     try:
         payload = request_models.chat_to_payload(chat_request)
@@ -139,10 +128,6 @@ async def chat(
     except Exception as e:
         error_msg = f"Unexpected error in chat endpoint for job {job_id}: {str(e)}"
         logger.error(error_msg)
-        if stream_manager and stream_manager.started:
-            logger.error("Stream was started before error occurred")
-            if hasattr(stream_manager.generator, 'aclose'):
-                await stream_manager.generator.aclose()
         raise HTTPException(status_code=500, detail="An unexpected error occurred")
 
     finally:
