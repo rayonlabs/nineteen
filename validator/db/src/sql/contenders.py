@@ -254,19 +254,24 @@ async def get_contenders_for_organic_task(connection: Connection, task: str, top
         k=min(top_x, len(eligible_contenders))
     )
 
-    # ensure no duplicates
-    selected_contenders = list(dict.fromkeys(selected_contenders))
+    seen = set()
+    unique_contenders = []
+    for contender in selected_contenders:
+        if contender.node_hotkey not in seen:
+            seen.add(contender.node_hotkey)
+            unique_contenders.append(contender)
     
     # if we got fewer than requested due to deduplication, add more
-    while len(selected_contenders) < top_x and len(eligible_contenders) > len(selected_contenders):
-        remaining = [c for c in eligible_contenders if c not in selected_contenders]
+    while len(unique_contenders) < top_x and len(eligible_contenders) > len(seen):
+        remaining = [c for c in eligible_contenders if c.node_hotkey not in seen]
         if not remaining:
             break
         additional = random.choices(remaining, k=1)[0]
-        selected_contenders.append(additional)
+        seen.add(additional.node_hotkey)
+        unique_contenders.append(additional)
 
-    logger.info(f"Selected contenders for task {task} : {selected_contenders}")
-    return selected_contenders
+    logger.info(f"Selected contenders for task {task} : {unique_contenders}")
+    return unique_contenders
 
     """
     logger.debug(f"Number of valid contenders for task {task} for organic query : {len(rows)}")
