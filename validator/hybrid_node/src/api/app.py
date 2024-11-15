@@ -1,8 +1,8 @@
-from validator.query_node.src.api.core.configuration import load_config
-from validator.query_node.src.handlers.synthetics_handler import SyntheticTaskProcessor
-from validator.query_node.src.api.routers.text import text_router
-from validator.query_node.src.api.routers.image import image_router
-from validator.query_node.src.api.routers.generic import generic_router
+from validator.hybrid_node.src.api.core.configuration import load_config
+from validator.hybrid_node.src.handlers.synthetics_handler import SyntheticTaskProcessor
+from validator.hybrid_node.src.api.routers.text import text_router
+from validator.hybrid_node.src.api.routers.image import image_router
+from validator.hybrid_node.src.api.routers.generic import generic_router
 
 import os
 import asyncio

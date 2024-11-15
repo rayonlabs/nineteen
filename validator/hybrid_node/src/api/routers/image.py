@@ -1,8 +1,8 @@
 
-from validator.query_node.src.api import request_models
-from validator.query_node.src.handlers.process_queries import process_organic_image_request
-from validator.query_node.src.api.dependencies.deps import get_config_dependency
-from validator.query_node.src.api.dependencies.deps import verify_api_key_dependency
+from validator.hybrid_node.src.api import request_models
+from validator.hybrid_node.src.handlers.process_queries import process_organic_image_request
+from validator.hybrid_node.src.api.dependencies.deps import get_config_dependency
+from validator.hybrid_node.src.api.dependencies.deps import verify_api_key_dependency
 
 from fastapi.routing import APIRouter
 from fastapi.responses import JSONResponse

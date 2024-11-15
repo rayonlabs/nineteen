@@ -1,5 +1,5 @@
 from validator.models import Contender
-from validator.query_node.src.query_config import Config
+from validator.hybrid_node.src.query_config import Config
 from validator.utils import work_and_speed_functions
 from validator.db.src import functions as db_functions
 from validator.db.src.sql.contenders import (

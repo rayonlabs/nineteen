@@ -1,4 +1,4 @@
-from validator.query_node.src.query_config import Config
+from validator.hybrid_node.src.query_config import Config
 from validator.db.src.sql.api import get_api_key_rate_limit
 from fastapi import HTTPException
 import time

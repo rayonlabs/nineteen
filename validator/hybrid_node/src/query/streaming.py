@@ -1,5 +1,5 @@
-from validator.query_node.src.query_config import Config
-from validator.query_node.src import utils
+from validator.hybrid_node.src.query_config import Config
+from validator.hybrid_node.src import utils
 from validator.models import Contender
 from validator.utils.generic import generic_constants as gcst
 from validator.utils.query.query_utils import load_sse_jsons
@@ -201,7 +201,7 @@ async def consume_organic_generator(
         if query_result is not None:
             await utils.adjust_contender_from_result(config, query_result, contender, False, payload=payload)
 
-async def query_node_stream(config: Config, contender: Contender, node: Node, payload: dict) -> Optional[AsyncGenerator]:
+async def hybrid_node_stream(config: Config, contender: Contender, node: Node, payload: dict) -> Optional[AsyncGenerator]:
     address = client.construct_server_address(
         node,
         replace_with_docker_localhost=config.replace_with_docker_localhost,

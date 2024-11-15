@@ -1,13 +1,13 @@
 from validator.utils.contender import contender_utils as putils
 from validator.utils.redis import redis_dataclasses as rdc
-from validator.query_node.src.query import nonstream, streaming
+from validator.hybrid_node.src.query import nonstream, streaming
 from validator.db.src.sql.contenders import get_contenders_for_task
 from validator.db.src.sql.nodes import get_node
 from validator.utils.generic import generic_constants as gcst
 from validator.utils.query.query_utils import load_sse_jsons
 import validator.utils.redis.redis_utils as rutils
 from validator.models import Contender
-from validator.query_node.src.query_config import Config
+from validator.hybrid_node.src.query_config import Config
 from core.models.payload_models import ImageResponse
 from core.models import payload_models
 from core import task_config as tcfg
@@ -26,34 +26,34 @@ import asyncio
 logger = get_logger(__name__)
 
 COUNTER_TOTAL_QUERIES = metrics.get_meter(__name__).create_counter(
-    name="validator.query_node.process.total_queries",
+    name="validator.hybrid_node.process.total_queries",
     description="Number of total queries sent to `process_task`",
 )
 
 COUNTER_FAILED_QUERIES = metrics.get_meter(__name__).create_counter(
-    name="validator.query_node.process.failed_queries",
+    name="validator.hybrid_node.process.failed_queries",
     description="Number of failed queries within `process_task`",
 )
 
 QUERY_NODE_REQUESTS_PROCESSING_GAUGE = metrics.get_meter(__name__).create_gauge(
-    name="validator.query_node.src.concurrent_synthetic_queries_processing",
+    name="validator.hybrid_node.src.concurrent_synthetic_queries_processing",
     description="concurrent number of synthetic requests currently being processed",
     unit="1"
 )
 
 QUERY_NODE_FAILED_SYNTHETIC_TASKS_COUNTER = metrics.get_meter(__name__).create_counter(
-    name="validator.query_node.src.query_node_failed_synthetic_tasks",
+    name="validator.hybrid_node.src.hybrid_node_failed_synthetic_tasks",
     description="number of failed synthetic `process_task` instances",
     unit="1"
 )
 
-COUNTER_TEXT_GENERATION_ERROR = metrics.get_meter(__name__).create_counter("validator.query_node.text.error")
-COUNTER_TEXT_GENERATION_SUCCESS = metrics.get_meter(__name__).create_counter("validator.query_node.text.success")
-COUNTER_IMAGE_ERROR = metrics.get_meter(__name__).create_counter("validator.query_node.image.error")
-COUNTER_IMAGE_SUCCESS = metrics.get_meter(__name__).create_counter("validator.query_node.image.success")
+COUNTER_TEXT_GENERATION_ERROR = metrics.get_meter(__name__).create_counter("validator.hybrid_node.text.error")
+COUNTER_TEXT_GENERATION_SUCCESS = metrics.get_meter(__name__).create_counter("validator.hybrid_node.text.success")
+COUNTER_IMAGE_ERROR = metrics.get_meter(__name__).create_counter("validator.hybrid_node.image.error")
+COUNTER_IMAGE_SUCCESS = metrics.get_meter(__name__).create_counter("validator.hybrid_node.image.success")
 
 GAUGE_TOKENS_PER_SEC = metrics.get_meter(__name__).create_gauge(
-    "validator.query_node.text.tokens_per_sec",
+    "validator.hybrid_node.text.tokens_per_sec",
     description="Average tokens per second metric for LLM streaming"
 )
 
@@ -101,7 +101,7 @@ async def _handle_stream_synthetic(
             continue
             
         logger.info(f"Querying node {contender.node_id} for task {contender.task}")
-        generator = await streaming.query_node_stream(
+        generator = await streaming.hybrid_node_stream(
             config=config, 
             contender=contender, 
             payload=message.query_payload, 
@@ -142,7 +142,7 @@ async def _handle_stream_organic(
             continue
         try:
             logger.info(f"Querying node {contender.node_id} for task {contender.task}")
-            generator = await streaming.query_node_stream(
+            generator = await streaming.hybrid_node_stream(
                 config=config, 
                 contender=contender, 
                 payload=message.query_payload, 

@@ -1,6 +1,6 @@
 from typing import Any, Annotated
-from validator.query_node.src.api.core.middleware import verify_api_key_rate_limit
-from validator.query_node.src.api.core.configuration import load_config
+from validator.hybrid_node.src.api.core.middleware import verify_api_key_rate_limit
+from validator.hybrid_node.src.api.core.configuration import load_config
 
 from fastapi.security import HTTPAuthorizationCredentials
 from fastapi import Depends

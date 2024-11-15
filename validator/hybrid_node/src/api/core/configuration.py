@@ -1,4 +1,4 @@
-from validator.query_node.src.query_config import Config
+from validator.hybrid_node.src.query_config import Config
 from validator.db.src.sql.nodes import get_vali_ss58_address
 from validator.db.src.database import PSQLDB
 

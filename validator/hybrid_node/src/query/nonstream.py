@@ -1,6 +1,6 @@
-from validator.query_node.src.query_config import Config
+from validator.hybrid_node.src.query_config import Config
 from validator.models import Contender
-from validator.query_node.src import utils
+from validator.hybrid_node.src import utils
 from core.models import utility_models
 from core.models.payload_models import ImageResponse
 from core import task_config as tcfg

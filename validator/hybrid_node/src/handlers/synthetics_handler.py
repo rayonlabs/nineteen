@@ -1,7 +1,7 @@
 from validator.utils.generic import generic_constants as gcst
-from validator.query_node.src.query_config import Config
+from validator.hybrid_node.src.query_config import Config
 from validator.utils.redis import redis_constants as rcst, redis_dataclasses as rdc
-from validator.query_node.src.handlers.process_queries import process_synthetic_task
+from validator.hybrid_node.src.handlers.process_queries import process_synthetic_task
 
 import asyncio
 import json
@@ -13,13 +13,13 @@ logger = get_logger(__name__)
 
 # Metrics
 QUERY_NODE_REQUESTS_PROCESSING_GAUGE = metrics.get_meter(__name__).create_gauge(
-    name="validator.query_node.src.concurrent_synthetic_queries_processing",
+    name="validator.hybrid_node.src.concurrent_synthetic_queries_processing",
     description="concurrent number of synthetic requests currently being processed",
     unit="1"
 )
 
 QUERY_NODE_FAILED_SYNTHETIC_TASKS_COUNTER = metrics.get_meter(__name__).create_counter(
-    name="validator.query_node.src.query_node_failed_synthetic_tasks",
+    name="validator.hybrid_node.src.hybrid_node_failed_synthetic_tasks",
     description="number of failed synthetic `process_task` instances",
     unit="1"
 )

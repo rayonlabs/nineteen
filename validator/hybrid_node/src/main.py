@@ -1,4 +1,4 @@
-from validator.query_node.src.api.app import main
+from validator.hybrid_node.src.api.app import main
 import asyncio
 
 

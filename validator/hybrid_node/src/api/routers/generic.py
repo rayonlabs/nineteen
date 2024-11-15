@@ -1,6 +1,6 @@
 
-from validator.query_node.src.api.dependencies.deps import get_config_dependency
-from validator.query_node.src.api.dependencies.deps import verify_api_key_dependency
+from validator.hybrid_node.src.api.dependencies.deps import get_config_dependency
+from validator.hybrid_node.src.api.dependencies.deps import verify_api_key_dependency
 from core import task_config as tcfg
 
 from typing import Any, Annotated
