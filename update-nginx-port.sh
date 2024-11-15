@@ -20,6 +20,7 @@ if ! [[ "$PORT" =~ ^[0-9]+$ ]] || [ "$PORT" -lt 1 ] || [ "$PORT" -gt 65535 ]; th
 fi
 
 sed -i "s/80:80/${PORT}:${PORT}/" docker-compose.yml
+sed -i "s/localhost:80\/nginxhealth/localhost:${PORT}\/nginxhealth/" docker-compose.yml
 if [ $? -eq 0 ]; then
     echo "docker-compose.yml updated successfully."
 else
