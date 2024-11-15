@@ -210,12 +210,12 @@ async def get_contenders_for_organic_task(connection: Connection, task: str, top
     max_score = max(scores.values(), default=0)
     rankings = {
         c.node_id: (
-            # High net_score dominates when capacity available
+            # high net_score dominates when capacity available
             scores[c.node_id] / max_score if load_factors[c.node_id] < 0.7
-            # Transition zone - mix of score and capacity
+            # transition zone - mix of score and capacity
             else (scores[c.node_id] / max_score * 0.3 + (1 - load_factors[c.node_id]) * 0.7)
             if load_factors[c.node_id] < 0.9
-            # Almost full - capacity becomes primary concern
+            # almost full - capacity becomes primary concern
             else (1 - load_factors[c.node_id])
         )
         for c in contenders
