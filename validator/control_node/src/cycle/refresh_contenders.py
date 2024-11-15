@@ -137,6 +137,12 @@ async def _get_contenders_from_nodes(config: Config, nodes: list[Node]) -> List[
                 logger.debug(f"Task {task} is not a valid task")
                 continue
 
+            try:
+                declared_capacity = float(declared_capacity)
+            except ValueError:
+                logger.warning(f"Declared capacity for task {task} is not a number: {declared_capacity}")
+                continue
+
             task_config = tcfg.get_enabled_task_config(task)
             if task_config is None or task_config.task_type.value != miner_type:
                 continue
