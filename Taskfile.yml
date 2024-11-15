@@ -61,7 +61,7 @@ tasks:
 
   startup:
     cmds:
-      - docker compose --env-file .vali.env  -d --build
+      - docker compose --env-file .vali.env up -d --build
 
   shutdown:
     cmds:

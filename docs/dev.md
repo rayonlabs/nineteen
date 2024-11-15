@@ -44,5 +44,5 @@ cd nineteen
 
 ## To run the whole system with docker
 ```bash
-docker compose --env-file .vali.env -f docker-compose.yml -f docker-compose.dev.yml  -d --build
+docker compose --env-file .vali.env -f docker-compose.yml -f docker-compose.dev.yml up  -d --build
 ```
