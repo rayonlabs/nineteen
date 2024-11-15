@@ -84,7 +84,7 @@ services:
   nginx_lb:
     image: nginx:latest
     ports:
-      - "80:6919"
+      - "80:80"
     volumes:
       - ./nginx/nginx.conf:/etc/nginx/nginx.conf
     depends_on:
