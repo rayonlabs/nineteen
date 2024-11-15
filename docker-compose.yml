@@ -88,7 +88,7 @@ services:
     volumes:
       - ./nginx/nginx.conf:/etc/nginx/nginx.conf
     depends_on:
-      - query_node
+      - hybrid_node
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:6919/health"]
       interval: 30s
