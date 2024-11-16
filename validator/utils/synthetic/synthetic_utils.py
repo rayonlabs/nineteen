@@ -49,7 +49,7 @@ async def fetch_random_text() -> Tuple[str, int, int]:
             async with session.get(url) as response:
                 if response.status == 200:
                     text = await response.text()
-                    logger.info(f"Fetched random text with {n_paragraphes} parapgraphes & {n_sentences} sentences")
+                    logger.debug(f"Fetched random text with {n_paragraphes} parapgraphes & {n_sentences} sentences")
                     return text, n_paragraphes, n_sentences
                 else:
                     error_msg = f"Failed to fetch text from metaphorpsum.com: {response.status}"
