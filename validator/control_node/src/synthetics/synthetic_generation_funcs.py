@@ -27,7 +27,7 @@ import binascii
 logger = get_logger(__name__)
 
 
-def split_sentences(text):
+async def split_sentences(text):
     fragments = sent_tokenize(text)
     return [frag for frag in fragments if len(frag.split()) > 2]
 
@@ -55,7 +55,7 @@ async def generate_text(corpus, n_words):
         # randomly select text from random categories, until we reach n_words
         for i, category in enumerate(categories):
             sentence = random.choice(corpus[category]).strip()
-            sentences_in_category = split_sentences(sentence)
+            sentences_in_category = await split_sentences(sentence)
 
             if not sentences_in_category:
                 continue
@@ -95,7 +95,7 @@ async def generate_text(corpus, n_words):
     merged_text = re.sub(r'[^\x20-\x7E]', '', merged_text).strip()
     return merged_text
 
-def sampling(size=1, gamma_mean=1000, max_value=8000, gamma_shape=0.5, gaussian_mean=1000, gaussian_weight=0.3, gaussian_std=850):
+async def get_random_int_from_dist(size=1, gamma_mean=1000, max_value=8000, gamma_shape=0.5, gaussian_mean=1000, gaussian_weight=0.3, gaussian_std=850):
     gamma_scale = gamma_mean / gamma_shape
     gamma_samples = np.random.gamma(gamma_shape, gamma_scale, size)
     gaussian_samples = np.random.normal(gaussian_mean, gaussian_std, size)
@@ -106,10 +106,10 @@ def sampling(size=1, gamma_mean=1000, max_value=8000, gamma_shape=0.5, gaussian_
 
 async def generate_chat_synthetic(model: str, task_config: Any, word_to_token: float = 4) -> payload_models.ChatPayload:
     start = time()
-    synth_corpus = await sutils.get_synth_corpus()
+    synth_corpus = sutils.get_synth_corpus()
     
     try:
-        total_n_words = sampling(size=1, max_value=task_config.orchestrator_server_config.load_model_config['max_model_len']//word_to_token)
+        total_n_words = await get_random_int_from_dist(size=1, max_value=task_config.orchestrator_server_config.load_model_config['max_model_len']//word_to_token)
         if total_n_words.size == 0:
             total_n_words = 1000 
         else:
@@ -417,8 +417,7 @@ async def generate_synthetic_data(task: str) -> Any:
     func = getattr(sys.modules[__name__], generative_function_name)
     kwargs = task_config.synthetic_generation_config.kwargs
 
-    if generative_function_name == "generate_chat_synthetic":
+    if generative_function_name == scst.CHAT_SYNTH_GEN_FUNC_NAME:
         kwargs["task_config"] = task_config
-
 
     return await func(**kwargs)

@@ -1,5 +1,5 @@
 import random
-from typing import Any
+from typing import Any, Tuple
 
 from core import task_config as tcfg
 from validator.utils.redis import (
@@ -15,21 +15,21 @@ from io import BytesIO
 import asyncio
 import aiohttp
 import diskcache
+import aiofiles
 from PIL import Image
 import uuid
 import numpy as np
 from fiber.logging_utils import get_logger
 import random
-import requests
 import os
 import fcntl
 import json
-from aiocache import cached
+from functools import lru_cache
 
 logger = get_logger(__name__)
 
-@cached(ttl=None)
-async def get_synth_corpus():
+@lru_cache(maxsize=None)
+def get_synth_corpus():
     try:
         with open("assets/synth_corpus.json", "r") as fh:
             synth_corpus = json.load(fh)
@@ -38,15 +38,29 @@ async def get_synth_corpus():
             synth_corpus = json.load(fh)
     return synth_corpus
 
-async def fetch_random_text():
+async def fetch_random_text() -> Tuple[str, int, int]:
+
     n_paragraphes = random.randint(2, 4)
     n_sentences = random.randint(1, 6)
     url = f'http://metaphorpsum.com/paragraphs/{n_paragraphes}/{n_sentences}'
-    response = requests.get(url)
-    if response.status_code == 200:
-        return response.text, n_paragraphes, n_sentences
-    else:
-        raise logger.error(f"Failed to fetch text from metaphorpsum.com: {response.status_code}")
+    
+    async with aiohttp.ClientSession() as session:
+        try:
+            async with session.get(url) as response:
+                if response.status == 200:
+                    text = await response.text()
+                    logger.info(f"Fetched random text with {n_paragraphes} parapgraphes & {n_sentences} sentences")
+                    return text, n_paragraphes, n_sentences
+                else:
+                    error_msg = f"Failed to fetch text from metaphorpsum.com: {response.status}"
+                    logger.error(error_msg)
+                    raise aiohttp.ClientError(error_msg)
+        except aiohttp.ClientError as e:
+            logger.error(f"Network error while fetching text: {e}")
+            raise
+        except Exception as e:
+            logger.error(f"Unexpected error while fetching text: {e}")
+            raise
 
 async def get_save_random_text() -> None:
     if not os.path.exists(scst.RANDOM_TEXT_FILE):
@@ -54,27 +68,29 @@ async def get_save_random_text() -> None:
         
     while True:
         try:
-            with open(scst.RANDOM_TEXT_FILE, 'r') as file:
-                lines = file.readlines()
+            async with aiofiles.open(scst.RANDOM_TEXT_FILE, 'r') as file:
+                lines = await file.readlines()
             queue_size = len(lines)            
+            
             if queue_size < 500:
                 text, n_paragraphes, n_sentences = await fetch_random_text()
                 n_words = len(text.split())                
-                with open(scst.RANDOM_TEXT_FILE, 'a') as file:
+                
+                async with aiofiles.open(scst.RANDOM_TEXT_FILE, 'a') as file:
                     try:
-                        fcntl.flock(file, fcntl.LOCK_EX)
-                        file.write(text + '\n')
+                        fcntl.flock(file.fileno(), fcntl.LOCK_EX)
+                        await file.write(text + '\n')
                         logger.debug(f"Pushed random metaphorpsum.com text with {n_words} words, {n_paragraphes} paragraphs, and {n_sentences} sentences to text file")
                     finally:
-                        fcntl.flock(file, fcntl.LOCK_UN)
+                        fcntl.flock(file.fileno(), fcntl.LOCK_UN)
             else:
                 logger.debug(f"Text file '{scst.RANDOM_TEXT_FILE}' is full. Skipping text insertion")                
+            
             await asyncio.sleep(1)
             
         except Exception as e:
             await asyncio.sleep(60)
             logger.error(f"Error fetching and saving synthetic data: {e} - sleeping for 60s")
-
 
 def _get_random_text_prompt() -> str:
     nouns = ["king", "man", "woman", "joker", "queen", "child", "doctor", "teacher", "soldier", "merchant"]  # fmt: off
