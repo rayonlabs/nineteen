@@ -82,7 +82,7 @@ async def get_save_random_text() -> None:
                     try:
                         fcntl.flock(file.fileno(), fcntl.LOCK_EX)
                         await file.write(text + '\n')
-                        logger.debug(f"Pushed random metaphorpsum.com text with {n_words} words, {n_paragraphes} paragraphs, and {n_sentences} sentences to text file")
+                        logger.info(f"Pushed random metaphorpsum.com text with {n_words} words, {n_paragraphes} paragraphs, and {n_sentences} sentences to text file")
                     finally:
                         fcntl.flock(file.fileno(), fcntl.LOCK_UN)
             else:
@@ -91,8 +91,8 @@ async def get_save_random_text() -> None:
             await asyncio.sleep(1)
             
         except Exception as e:
-            await asyncio.sleep(60)
             logger.error(f"Error fetching and saving synthetic data: {e} - sleeping for 60s")
+            await asyncio.sleep(60)
 
 def _get_random_text_prompt() -> str:
     nouns = ["king", "man", "woman", "joker", "queen", "child", "doctor", "teacher", "soldier", "merchant"]  # fmt: off
