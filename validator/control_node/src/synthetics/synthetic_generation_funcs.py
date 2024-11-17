@@ -4,7 +4,6 @@ from time import time
 import sys
 from typing import Any
 import re
-import json
 from nltk.tokenize import sent_tokenize, word_tokenize
 from core.models import utility_models
 from validator.utils.synthetic import synthetic_constants as scst
@@ -27,7 +26,7 @@ import binascii
 logger = get_logger(__name__)
 
 
-async def split_sentences(text):
+def split_sentences(text):
     fragments = sent_tokenize(text)
     return [frag for frag in fragments if len(frag.split()) > 2]
 
@@ -55,7 +54,7 @@ async def generate_text(corpus, n_words):
         # randomly select text from random categories, until we reach n_words
         for i, category in enumerate(categories):
             sentence = random.choice(corpus[category]).strip()
-            sentences_in_category = await split_sentences(sentence)
+            sentences_in_category = split_sentences(sentence)
 
             if not sentences_in_category:
                 continue
@@ -95,7 +94,7 @@ async def generate_text(corpus, n_words):
     merged_text = re.sub(r'[^\x20-\x7E]', '', merged_text).strip()
     return merged_text
 
-async def get_random_int_from_dist(size=1, gamma_mean=1000, max_value=8000, gamma_shape=0.5, gaussian_mean=1000, gaussian_weight=0.3, gaussian_std=850):
+def get_random_int_from_dist(size=1, gamma_mean=1000, max_value=8000, gamma_shape=0.5, gaussian_mean=1000, gaussian_weight=0.3, gaussian_std=850):
     gamma_scale = gamma_mean / gamma_shape
     gamma_samples = np.random.gamma(gamma_shape, gamma_scale, size)
     gaussian_samples = np.random.normal(gaussian_mean, gaussian_std, size)
@@ -109,7 +108,7 @@ async def generate_chat_synthetic(model: str, task_config: Any, word_to_token: f
     synth_corpus = sutils.get_synth_corpus()
     
     try:
-        total_n_words = await get_random_int_from_dist(size=1, max_value=task_config.orchestrator_server_config.load_model_config['max_model_len']//word_to_token)
+        total_n_words = get_random_int_from_dist(size=1, max_value=task_config.orchestrator_server_config.load_model_config['max_model_len']//word_to_token)
         if total_n_words.size == 0:
             total_n_words = 1000 
         else:

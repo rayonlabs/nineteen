@@ -1,7 +1,6 @@
 import asyncio
 import datetime
 import json
-import nltk
 import time
 from pydantic import BaseModel
 from core import task_config as tcfg
@@ -55,5 +54,4 @@ async def continuously_fetch_synthetic_data_for_tasks(redis_db: Redis) -> None:
         await update_tasks_synthetic_data(redis_db, slow_sync=True)
 
 async def main(config: Config):
-    nltk.download('punkt_tab')
     await continuously_fetch_synthetic_data_for_tasks(config.redis_db)
