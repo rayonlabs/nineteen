@@ -25,7 +25,7 @@ async def main() -> None:
 
     # NOTE: We could make separate threads if you wanted to be fancy
     await asyncio.gather(
-        sutils.get_save_random_text(),
+        #sutils.get_save_random_text(),
         score_results.main(config),
         refresh_synthetic_data.main(config),
         execute_cycle.main(config)

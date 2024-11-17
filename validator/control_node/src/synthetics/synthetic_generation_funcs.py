@@ -59,10 +59,10 @@ async def generate_text(corpus, n_words):
             if not sentences_in_category:
                 continue
 
-            if i > 0 and i%3 == 0:
-                sentence_part = await get_random_text_from_file()
-            else:    
-                sentence_part = random.choice(sentences_in_category)
+            #if i > 0 and i%3 == 0:
+            #    sentence_part = await get_random_text_from_file()
+            #else:    
+            sentence_part = random.choice(sentences_in_category)
 
             if not sentence_part:
                 continue
