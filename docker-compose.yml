@@ -52,6 +52,7 @@ services:
     deploy:
       restart_policy:
         condition: on-failure
+    scale: 4
     depends_on:
       - redis
       - postgresql
@@ -89,7 +90,7 @@ services:
     depends_on:
       - hybrid_node
     healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost/nginxhealth"]
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:80/nginxhealth"]
       interval: 30s
       timeout: 10s
       retries: 3
