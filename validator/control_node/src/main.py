@@ -1,12 +1,7 @@
 from dotenv import load_dotenv
 import os
-
-
-
-
-load_dotenv(os.getenv("ENV_FILE", ".vali.env"))
-
 import asyncio
+import nltk
 
 from fiber.logging_utils import get_logger
 
@@ -16,10 +11,13 @@ from validator.control_node.src.synthetics import refresh_synthetic_data  # noqa
 from validator.control_node.src.cycle import execute_cycle  # noqa
 from validator.utils.synthetic import synthetic_utils as sutils
 
+load_dotenv(os.getenv("ENV_FILE", ".vali.env"))
 
 logger = get_logger(__name__)
 
 async def main() -> None:
+    nltk.download('punkt_tab')
+    
     config = load_config()
     await config.psql_db.connect()
 

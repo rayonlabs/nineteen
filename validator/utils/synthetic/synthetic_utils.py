@@ -66,7 +66,6 @@ async def fetch_random_text() -> Tuple[str, int, int]:
 async def get_save_random_text() -> None:
     if not os.path.exists(scst.RANDOM_TEXT_FILE):
         open(scst.RANDOM_TEXT_FILE, 'w').close()
-    nltk.download('punkt_tab')
         
     while True:
         try:
