@@ -3,16 +3,12 @@ import random
 from time import time
 import sys
 from typing import Any
-import re
-from nltk.tokenize import sent_tokenize, word_tokenize
 from core.models import utility_models
 from validator.utils.synthetic import synthetic_constants as scst
 from core import task_config as tcfg
 from core.models import payload_models
-from typing import Optional
 from PIL import Image
 import io
-import numpy as np
 import base64
 import markovify
 import datasets
@@ -26,86 +22,12 @@ import binascii
 logger = get_logger(__name__)
 
 
-def split_sentences(text):
-    fragments = sent_tokenize(text)
-    return [frag for frag in fragments if len(frag.split()) > 2]
-
-async def get_random_text_from_queue(): 
-    try:
-        if not sutils.random_text_queue.empty():
-            return await sutils.random_text_queue.get()
-        return None
-    except Exception as e:
-        logger.error(f"Error retrieving text from queue: {e}")
-        return None
-
-async def generate_text(corpus, n_words):
-    random.seed(time()%10000)
-    generated_text_parts = []
-
-    current_word_count = 0
-    categories = list(corpus.keys())
-
-    while current_word_count < n_words:
-        random.shuffle(categories)
-        # randomly select text from random categories, until we reach n_words
-        for i, category in enumerate(categories):
-            sentence = random.choice(corpus[category]).strip()
-            sentences_in_category = split_sentences(sentence)
-
-            if not sentences_in_category:
-                continue
-
-            if i > 0 and i%3 == 0:
-                sentence_part = await get_random_text_from_queue()
-            else:    
-                sentence_part = random.choice(sentences_in_category)
-
-            if not sentence_part:
-                continue
-            
-            sentence_word_count = len(word_tokenize(sentence_part))
-            if current_word_count + sentence_word_count > n_words:
-                remaining_words = n_words - current_word_count
-                truncated_part = ' '.join(sentence_part.split()[:remaining_words])
-                generated_text_parts.append(truncated_part)
-                current_word_count += remaining_words
-                break
-
-            generated_text_parts.append(sentence_part)
-            current_word_count += sentence_word_count
-
-            if current_word_count >= n_words:
-                break
-
-        if not generated_text_parts:
-            raise ValueError("Unable to generate text, problem with corpus?")
-        
-    merged_text = ' '.join(generated_text_parts).strip()
-    possible_endings = ['.', '!', '?', '...']
-
-    if merged_text and merged_text[-1] not in possible_endings:
-        if random.choice([True, False]):
-            merged_text += random.choice(possible_endings)
-
-    merged_text = re.sub(r'[^\x20-\x7E]', '', merged_text).strip()
-    return merged_text
-
-def get_random_int_from_dist(size=1, gamma_mean=1000, max_value=8000, gamma_shape=0.5, gaussian_mean=1000, gaussian_weight=0.3, gaussian_std=850):
-    gamma_scale = gamma_mean / gamma_shape
-    gamma_samples = np.random.gamma(gamma_shape, gamma_scale, size)
-    gaussian_samples = np.random.normal(gaussian_mean, gaussian_std, size)
-    combined_samples = gaussian_weight * gaussian_samples + (1 - gaussian_weight) * gamma_samples
-    combined_samples = combined_samples[combined_samples < max_value]
-
-    return combined_samples
-
 async def generate_chat_synthetic(model: str, task_config: Any, word_to_token: float = 4) -> payload_models.ChatPayload:
     start = time()
     synth_corpus = sutils.get_synth_corpus()
     
     try:
-        total_n_words = get_random_int_from_dist(size=1, max_value=task_config.orchestrator_server_config.load_model_config['max_model_len']//word_to_token)
+        total_n_words = sutils.get_random_int_from_dist(size=1, max_value=task_config.orchestrator_server_config.load_model_config['max_model_len']//word_to_token)
         if total_n_words.size == 0:
             total_n_words = 1000 
         else:
@@ -118,18 +40,18 @@ async def generate_chat_synthetic(model: str, task_config: Any, word_to_token: f
         n_words_per_message = total_n_words // total_messages
 
         messages = [
-            utility_models.Message(content=await generate_text(synth_corpus, n_words_per_message), role=utility_models.Role.system),
-            utility_models.Message(content=await generate_text(synth_corpus, n_words_per_message), role=utility_models.Role.user)
+            utility_models.Message(content=await sutils.generate_text(synth_corpus, n_words_per_message), role=utility_models.Role.system),
+            utility_models.Message(content=await sutils.generate_text(synth_corpus, n_words_per_message), role=utility_models.Role.user)
         ]
         alternate_roles = [utility_models.Role.assistant, utility_models.Role.user]
         messages += [
-            utility_models.Message(content=await generate_text(synth_corpus, n_words_per_message), role=alternate_roles[i % 2])
+            utility_models.Message(content=await sutils.generate_text(synth_corpus, n_words_per_message), role=alternate_roles[i % 2])
             for i in range(total_messages - 2)
         ]
         # make sure we end with a user message
         if messages[-1].role != utility_models.Role.user:
             messages.append(utility_models.Message(
-                content=await generate_text(synth_corpus, 10),
+                content=await sutils.generate_text(synth_corpus, 10),
                 role=utility_models.Role.user
             ))
 
@@ -155,7 +77,7 @@ async def generate_chat_synthetic(model: str, task_config: Any, word_to_token: f
 
 
 async def generate_chat_synthetic_markov(model: str) -> payload_models.ChatPayload:
-    user_content = await _get_markov_sentence(max_words=140)
+    user_content = await _get_markov_sentence(max_words=random.randint(50, 2000))
     messages = [utility_models.Message(content=user_content, role=utility_models.Role.user)]
 
     if random.random() < 0.1:
