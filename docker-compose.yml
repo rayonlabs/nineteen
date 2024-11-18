@@ -91,8 +91,8 @@ services:
       - hybrid_node
     healthcheck:
       test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:80/nginxhealth"]
-      interval: 30s
-      timeout: 10s
+      interval: 5s
+      timeout: 1s
       retries: 3
 
   postgresql:
