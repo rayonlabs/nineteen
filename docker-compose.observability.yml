@@ -26,6 +26,7 @@ services:
       - ./config/otel-config.yaml:/etc/otelcol-contrib/config.yaml
 
   tempo-init:
+    scale: 0
     container_name: nineteen-tempo-init
     image: grafana/tempo:latest
     restart: on-failure
@@ -38,6 +39,7 @@ services:
       - tempo:/var/tempo
 
   tempo:
+    scale: 0
     container_name: nineteen-tempo
     image: grafana/tempo:latest
     restart: always
