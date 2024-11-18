@@ -57,7 +57,7 @@ services:
       - redis
       - postgresql
     ports:
-      - 6919
+      - "6919:6919"
     volumes:
       - ${HOME}/.bittensor/wallets:/root/.bittensor/wallets
     entrypoint: ["opentelemetry-instrument", "--logs_exporter", "otlp", "--traces_exporter", "otlp", "--metrics_exporter", "otlp", "--service_name", "hybrid_node", "python", "-u", "/app/validator/hybrid_node/src/main.py"]
