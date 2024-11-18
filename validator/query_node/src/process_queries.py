@@ -11,10 +11,11 @@ from validator.utils.redis import redis_constants as rcst
 from fiber.logging_utils import get_logger
 from validator.utils.redis import redis_dataclasses as rdc
 from validator.query_node.src.query import nonstream, streaming
-from validator.db.src.sql.contenders import get_contenders_for_task
+from validator.db.src.sql.contenders import get_contenders_for_task, update_total_requests_made
 from validator.db.src.sql.nodes import get_node
 from validator.utils.generic import generic_constants as gcst
 from opentelemetry import metrics
+
 
 logger = get_logger(__name__)
 
@@ -50,10 +51,11 @@ async def _handle_stream_query(config: Config, message: rdc.QueryQueueMessage, c
             continue
         logger.debug(f"Querying node {contender.node_id} for task {contender.task} with payload: {message.query_payload}")
         start_time = time.time()
+
+        await update_total_requests_made(config.psql_db, contender)
         generator = await streaming.query_node_stream(
             config=config, contender=contender, payload=message.query_payload, node=node
         )
-
         # TODO: Make sure we still punish if generator is None
         if generator is None:
             continue
@@ -92,6 +94,8 @@ async def _handle_nonstream_query(config: Config, message: rdc.QueryQueueMessage
         if node is None:
             logger.error(f"Node {contender.node_id} not found in database for netuid {config.netuid}")
             continue
+
+        await update_total_requests_made(config.psql_db, contender)
         success = await nonstream.query_nonstream(
             config=config,
             contender=contender,

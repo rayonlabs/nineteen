@@ -63,7 +63,7 @@ def calculate_period_score(
     rate_limit_punishment_factor = percentage_of_429s * percentage_of_volume_unqueried
     server_error_punishment_factor = percentage_of_500s * percentage_of_volume_unqueried
 
-    return max(percentage_of_good_requests * (1 - rate_limit_punishment_factor) * (1 - server_error_punishment_factor), 0)
+    return max(percentage_of_good_requests * (1 - rate_limit_punishment_factor) * (1 - server_error_punishment_factor)**2, 0)
 
 
 class RewardData(BaseModel):
