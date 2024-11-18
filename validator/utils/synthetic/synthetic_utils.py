@@ -13,6 +13,7 @@ from core.models import config_models as cmodels
 import base64
 from io import BytesIO
 import asyncio
+from contextlib import contextmanager
 import aiohttp
 import diskcache
 import aiofiles
@@ -29,6 +30,8 @@ from functools import lru_cache
 
 logger = get_logger(__name__)
 
+random_text_queue = asyncio.Queue(maxsize=500)
+
 @lru_cache(maxsize=None)
 def get_synth_corpus():
     try:
@@ -38,6 +41,7 @@ def get_synth_corpus():
         with open("validator/control_node/assets/synth_corpus.json", "r") as fh:
             synth_corpus = json.load(fh)
     return synth_corpus
+
 
 async def fetch_random_text() -> Tuple[str, int, int]:
 
@@ -64,34 +68,23 @@ async def fetch_random_text() -> Tuple[str, int, int]:
             raise
 
 async def get_save_random_text() -> None:
-    if not os.path.exists(scst.RANDOM_TEXT_FILE):
-        open(scst.RANDOM_TEXT_FILE, 'w').close()
-        
     while True:
         try:
-            async with aiofiles.open(scst.RANDOM_TEXT_FILE, 'r') as file:
-                lines = await file.readlines()
-            queue_size = len(lines)            
+            queue_size = random_text_queue.qsize()
             
             if queue_size < 500:
-                text, n_paragraphes, n_sentences = await fetch_random_text()
-                n_words = len(text.split())                
-                
-                async with aiofiles.open(scst.RANDOM_TEXT_FILE, 'a') as file:
-                    try:
-                        fcntl.flock(file.fileno(), fcntl.LOCK_EX)
-                        await file.write(text + '\n')
-                        logger.info(f"Pushed random metaphorpsum.com text with {n_words} words, {n_paragraphes} paragraphs, and {n_sentences} sentences to text file")
-                    finally:
-                        fcntl.flock(file.fileno(), fcntl.LOCK_UN)
+                text, n_paragraphes, n_sentences = await fetch_random_text()                
+                await random_text_queue.put(text)
+                logger.info(f"Pushed random metaphorpsum.com text with {n_paragraphes} paragraphs, and {n_sentences} sentences to queue")
             else:
-                logger.debug(f"Text file '{scst.RANDOM_TEXT_FILE}' is full. Skipping text insertion")                
+                logger.info("Queue is full. Skipping text insertion")                
             
             await asyncio.sleep(1)
             
         except Exception as e:
             logger.error(f"Error fetching and saving synthetic data: {e} - sleeping for 60s")
             await asyncio.sleep(60)
+
 
 def _get_random_text_prompt() -> str:
     nouns = ["king", "man", "woman", "joker", "queen", "child", "doctor", "teacher", "soldier", "merchant"]  # fmt: off

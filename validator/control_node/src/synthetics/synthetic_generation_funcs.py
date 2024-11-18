@@ -9,8 +9,8 @@ from core.models import utility_models
 from validator.utils.synthetic import synthetic_constants as scst
 from core import task_config as tcfg
 from core.models import payload_models
+from typing import Optional
 from PIL import Image
-import fcntl
 import io
 import numpy as np
 import base64
@@ -30,17 +30,14 @@ def split_sentences(text):
     fragments = sent_tokenize(text)
     return [frag for frag in fragments if len(frag.split()) > 2]
 
-async def get_random_text_from_file(): 
-    first_line = None
-    with open(scst.RANDOM_TEXT_FILE, 'r+') as file:
-        lines = file.readlines()
-        if lines:
-            first_line = lines[0].strip()
-        with open(scst.RANDOM_TEXT_FILE, 'w') as file:
-            fcntl.flock(file, fcntl.LOCK_EX)     
-            file.writelines(lines[1:])
-            fcntl.flock(file, fcntl.LOCK_UN)
-    return first_line
+async def get_random_text_from_queue(): 
+    try:
+        if not sutils.random_text_queue.empty():
+            return await sutils.random_text_queue.get()
+        return None
+    except Exception as e:
+        logger.error(f"Error retrieving text from queue: {e}")
+        return None
 
 async def generate_text(corpus, n_words):
     random.seed(time()%10000)
@@ -59,10 +56,10 @@ async def generate_text(corpus, n_words):
             if not sentences_in_category:
                 continue
 
-            #if i > 0 and i%3 == 0:
-            #    sentence_part = await get_random_text_from_file()
-            #else:    
-            sentence_part = random.choice(sentences_in_category)
+            if i > 0 and i%3 == 0:
+                sentence_part = await get_random_text_from_file()
+            else:    
+                sentence_part = random.choice(sentences_in_category)
 
             if not sentence_part:
                 continue
