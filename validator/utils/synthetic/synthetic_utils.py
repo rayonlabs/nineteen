@@ -146,9 +146,9 @@ async def get_save_random_text() -> None:
             if queue_size < scst.RANDOM_TEXT_QUEUE_MAX_SIZE:
                 text, n_paragraphes, n_sentences = await fetch_random_text()                
                 await random_text_queue.put(text)
-                logger.info(f"Pushed random metaphorpsum.com text with {n_paragraphes} paragraphs, and {n_sentences} sentences to queue")
+                logger.debug(f"Pushed random metaphorpsum.com text with {n_paragraphes} paragraphs, and {n_sentences} sentences to queue")
             else:
-                logger.info("Queue is full. Skipping text insertion")                
+                logger.debug("Queue is full. Skipping text insertion")                
             
             await asyncio.sleep(2)
             

@@ -48,7 +48,7 @@ async def _handle_stream_query(config: Config, message: rdc.QueryQueueMessage, c
         if node is None:
             logger.error(f"Node {contender.node_id} not found in database for netuid {config.netuid}")
             continue
-        logger.info(f"Querying node {contender.node_id} for task {contender.task} with payload: {message.query_payload}")
+        logger.debug(f"Querying node {contender.node_id} for task {contender.task} with payload: {message.query_payload}")
         start_time = time.time()
         generator = await streaming.query_node_stream(
             config=config, contender=contender, payload=message.query_payload, node=node
