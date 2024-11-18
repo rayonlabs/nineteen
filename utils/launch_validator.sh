@@ -45,4 +45,4 @@ else
   docker compose --env-file .vali.env -f docker-compose.yml up -d --build --remove-orphans
 fi
 
-#git stash
+git stash
