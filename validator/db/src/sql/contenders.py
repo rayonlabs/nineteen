@@ -118,7 +118,7 @@ async def get_contenders_for_synthetic_task(psql_db: PSQLDB, task: str, top_x: i
                 FROM {dcst.CONTENDERS_TABLE} c
                 JOIN {dcst.NODES_TABLE} n ON c.{dcst.NODE_ID} = n.{dcst.NODE_ID} AND c.{dcst.NETUID} = n.{dcst.NETUID}
                 WHERE c.{dcst.TASK} = $1 
-                AND c.{dcst.CAPACITY} > 0 
+                AND  c.{dcst.CONSUMED_CAPACITY} < c.{dcst.CAPACITY}
                 AND n.{dcst.SYMMETRIC_KEY_UUID} IS NOT NULL
             )
             SELECT *
@@ -172,7 +172,7 @@ async def get_contenders_for_organic_task(psql_db: PSQLDB, task: str, top_x: int
                 JOIN {dcst.CONTENDERS_WEIGHTS_STATS_TABLE} s ON c.{dcst.NODE_HOTKEY} = s.{dcst.NODE_HOTKEY} 
                     AND c.{dcst.TASK} = s.{dcst.TASK}
                 WHERE c.{dcst.TASK} = $1 
-                AND c.{dcst.CAPACITY} > 0 
+                AND c.{dcst.CONSUMED_CAPACITY} < c.{dcst.CAPACITY}  
                 AND n.{dcst.SYMMETRIC_KEY_UUID} IS NOT NULL
                 ORDER BY c.{dcst.NODE_HOTKEY}, c.{dcst.TASK}, s.{dcst.COLUMN_NORMALISED_NET_SCORE} DESC, s.{dcst.CREATED_AT} DESC
             )
@@ -224,8 +224,7 @@ async def update_contender_capacities(psql_db: PSQLDB, contender: Contender, cap
         await connection.execute(
             f"""
             UPDATE {dcst.CONTENDERS_TABLE}
-            SET {dcst.CONSUMED_CAPACITY} = {dcst.CONSUMED_CAPACITY} + $1, 
-                {dcst.TOTAL_REQUESTS_MADE} = {dcst.TOTAL_REQUESTS_MADE} + 1
+            SET {dcst.CONSUMED_CAPACITY} = {dcst.CONSUMED_CAPACITY} + $1
             WHERE {dcst.CONTENDER_ID} = $2
             """,
             capacitity_consumed,
@@ -233,13 +232,23 @@ async def update_contender_capacities(psql_db: PSQLDB, contender: Contender, cap
         )
 
 
+async def update_total_requests_made(psql_db: PSQLDB, contender: Contender) -> None:
+    async with await psql_db.connection() as connection:
+        await connection.execute(
+            f"""
+            UPDATE {dcst.CONTENDERS_TABLE}
+            SET {dcst.TOTAL_REQUESTS_MADE} = {dcst.TOTAL_REQUESTS_MADE} + 1
+            WHERE {dcst.CONTENDER_ID} = $1
+            """,
+            contender.id,
+        )
+
 async def update_contender_429_count(psql_db: PSQLDB, contender: Contender) -> None:
     async with await psql_db.connection() as connection:
         await connection.execute(
             f"""
             UPDATE {dcst.CONTENDERS_TABLE}
-            SET {dcst.REQUESTS_429} = {dcst.REQUESTS_429} + 1,
-                {dcst.TOTAL_REQUESTS_MADE} = {dcst.TOTAL_REQUESTS_MADE} + 1
+            SET {dcst.REQUESTS_429} = {dcst.REQUESTS_429} + 1
             WHERE {dcst.CONTENDER_ID} = $1
             """,
             contender.id,
@@ -251,8 +260,7 @@ async def update_contender_500_count(psql_db: PSQLDB, contender: Contender) -> N
         await connection.execute(
             f"""
             UPDATE {dcst.CONTENDERS_TABLE}
-            SET {dcst.REQUESTS_500} = {dcst.REQUESTS_500} + 1,
-                {dcst.TOTAL_REQUESTS_MADE} = {dcst.TOTAL_REQUESTS_MADE} + 1
+            SET {dcst.REQUESTS_500} = {dcst.REQUESTS_500} + 1
             WHERE {dcst.CONTENDER_ID} = $1
             """,
             contender.id,
