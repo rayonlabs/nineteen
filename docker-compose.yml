@@ -50,8 +50,6 @@ services:
       context: .
       dockerfile: dockerfiles/hybrid_node.dockerfile
     scale: 4
-    ports:
-      - 6919
     deploy:
       restart_policy:
         condition: on-failure
