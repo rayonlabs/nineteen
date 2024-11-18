@@ -49,7 +49,6 @@ services:
     build:
       context: .
       dockerfile: dockerfiles/hybrid_node.dockerfile
-    scale: 4
     deploy:
       restart_policy:
         condition: on-failure
@@ -71,6 +70,8 @@ services:
       POSTGRES_HOST: ${POSTGRES_HOST}
       ENV: ${ENV}
       NETUID: ${NETUID}
+    expose:
+      - "6919"
     env_file:
       - .vali.env
     healthcheck:
@@ -78,22 +79,20 @@ services:
       interval: 10s
       timeout: 2s
       retries: 3
-      
+
   nginx_lb:
     image: nginx:latest
     ports:
       - "80:80"
     volumes:
-      - ./nginx/nginx.conf:/etc/nginx/nginx.conf
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
     depends_on:
       - hybrid_node
     healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:80/nginxhealth"]
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost/nginxhealth"]
       interval: 30s
       timeout: 10s
       retries: 3
-    dns_search: .
-    dns: 127.0.0.11
 
   postgresql:
     container_name: 0_postgresql
