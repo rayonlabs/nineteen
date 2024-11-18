@@ -1,9 +1,6 @@
 import json
 from typing import Any
 
-
-
-
 def load_sse_jsons(chunk: str) -> list[dict[str, Any]] | dict[str, str]:
     try:
         jsons = []
