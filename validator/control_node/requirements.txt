@@ -8,6 +8,7 @@ datasets==2.20.0
 markovify==0.9.4
 colorama==0.4.6
 asyncpg==0.29.0
+tenacity==9.0.0
 
 opentelemetry-distro==0.47b0
 opentelemetry-exporter-otlp-proto-http==1.26.0
