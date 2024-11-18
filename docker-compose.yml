@@ -56,8 +56,6 @@ services:
     depends_on:
       - redis
       - postgresql
-    ports:
-      - "6919:6919"
     volumes:
       - ${HOME}/.bittensor/wallets:/root/.bittensor/wallets
     entrypoint: ["opentelemetry-instrument", "--logs_exporter", "otlp", "--traces_exporter", "otlp", "--metrics_exporter", "otlp", "--service_name", "hybrid_node", "python", "-u", "/app/validator/hybrid_node/src/main.py"]
@@ -91,7 +89,7 @@ services:
       - hybrid_node
     network_mode: "host"
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:80/nginxhealth"]
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:80/nginxhealth"]
       interval: 30s
       timeout: 10s
       retries: 3

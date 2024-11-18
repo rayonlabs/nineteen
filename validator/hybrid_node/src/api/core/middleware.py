@@ -5,9 +5,6 @@ import time
 
 
 async def verify_api_key_rate_limit(config: Config, api_key: str):
-    # remove before prod
-    if api_key == "39236004-5935-46de-bedf-7f66cc12be35":
-            return True
     # NOTE: abit dangerous but very useful
     if not config.prod:
         if api_key == "test":
