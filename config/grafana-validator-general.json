@@ -1351,7 +1351,7 @@
             "uid": "P8E80F9AEF21F6940"
           },
           "editorMode": "builder",
-          "expr": "{service_name=~\"control_node|hybrid_node|hybrid_node\"} | label_format level=detected_level | line_format `{{.service_name }} - {{__line__}}`",
+          "expr": "{service_name=~\"control_node|hybrid_node\"} | label_format level=detected_level | line_format `{{.service_name }} - {{__line__}}`",
           "legendFormat": "",
           "queryType": "range",
           "refId": "A"

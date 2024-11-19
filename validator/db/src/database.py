@@ -5,6 +5,7 @@ import asyncpg
 from asyncpg import Pool
 
 from validator.utils.database import database_utils as dutils
+import validator.utils.database.database_constants as dcst
 from fiber.logging_utils import get_logger
 
 
@@ -20,10 +21,10 @@ class PSQLDB:
         self.connection_string: str = connection_string
         self.pool: Pool | None = None
         # Add default pool settings
-        self.pool_min_size = 20
-        self.pool_max_size = 100
-        self.pool_max_inactive_connection_lifetime = 300.0  # 5 minutes
-        self.pool_timeout = 30.0  # 30 seconds
+        self.pool_min_size = dcst.PSQL_MIN_POOL_SIZE
+        self.pool_max_size = dcst.PSQL_MAX_POOL_SIZE
+        self.pool_max_inactive_connection_lifetime = dcst.PSQL_MIN_INACTIVE_CNX_LIFETIME
+        self.pool_timeout = dcst.POOL_TIMEOUT
 
     async def connect(self) -> None:
         logger.debug(f"Connecting to {self.connection_string}....")
