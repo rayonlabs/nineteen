@@ -91,6 +91,7 @@ async def _fetch_node_capacity(config: Config, node: Node) -> dict[str, float] |
 async def _fetch_node_capacities(config: Config, nodes: list[Node]) -> list[dict[str, float] | None]:
     async def _fetch_or_none(node: Node):
         if node.fernet is None or node.symmetric_key_uuid is None:
+            logger.info(f"Couldn't fetch capacities for node {node.node_id} because fernet/symmetric_key_uuid is None")
             return None
         return await _fetch_node_capacity(config, node)
 
