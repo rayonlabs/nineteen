@@ -144,6 +144,7 @@ async def get_contenders_for_synthetic_task(psql_db: PSQLDB, task: str, top_x: i
                 WHERE c.{dcst.TASK} = $1 
                 AND c.{dcst.CAPACITY} > 0 
                 AND n.{dcst.SYMMETRIC_KEY_UUID} IS NOT NULL
+                AND c{dcst.CONSECUTIVE_FAILS} < 3
                 ORDER BY c.{dcst.TOTAL_REQUESTS_MADE} ASC
                 LIMIT $2
                 OFFSET $3

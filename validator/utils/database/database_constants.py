@@ -27,7 +27,7 @@ RATE_LIMIT_PER_MINUTE = "rate_limit_per_minute"
 ENDPOINT = "endpoint"
 COST = "cost"
 CREATED_AT = "created_at"
-
+CONSECUTIVE_FAILS = "consecutive_fails"
 
 
 # Hotkey info table
