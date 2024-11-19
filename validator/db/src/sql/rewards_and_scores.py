@@ -230,6 +230,8 @@ async def select_recent_reward_data_for_a_task(
 
     query += f" ORDER BY {dcst.COLUMN_CREATED_AT} DESC"
 
+
+
     return await connection.fetch(
         query,
         *params,
