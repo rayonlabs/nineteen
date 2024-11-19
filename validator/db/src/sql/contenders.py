@@ -247,35 +247,6 @@ async def get_contenders_for_organic_task(connection: Connection, task: str, top
             remaining = [r for r in remaining if r.node_hotkey != c.node_hotkey]
 
     return selected
-    """
-    logger.debug(f"Number of valid contenders for task {task} for organic query : {len(rows)}")
-
-    contenders = [Contender(**row) for row in rows]
-    
-    if contenders:
-        if len(contenders) > top_x:
-            top_x_percent = contenders[:max(1, int(gcst.ORGANIC_SELECT_CONTENDER_LOW_POURC * len(contenders)))]  # top 75%
-            best_top_x_percent = top_x_percent[:max(1, int(gcst.ORGANIC_TOP_POURC * len(top_x_percent)))]  # top 25% within the top 75%
-            remaining_top_x_percent = top_x_percent[len(best_top_x_percent):]
-
-            best_top_x_weights = [gcst.ORGANIC_TOP_POURC_FACTOR / (len(top_x_percent) + 1) for _ in range(len(best_top_x_percent))]  # higher weight for top 25%
-            remaining_top_x_weights = [1 / (len(top_x_percent) + 1) for _ in range(len(remaining_top_x_percent))]
-            
-            combined_contenders = best_top_x_percent + remaining_top_x_percent
-            combined_weights = best_top_x_weights + remaining_top_x_weights
-            
-            selected_contenders = random.choices(combined_contenders, weights=combined_weights, k=min(top_x, len(combined_contenders)))
-
-            logger.info(f"Selected contenders for task {task} : {selected_contenders}")
-            return selected_contenders
-        else:
-            logger.info(f"Number of contenders ({len(contenders)}) < top_x ({top_x}). Returning all contenders. Falling back to synthetic queries logic.")
-            return await get_contenders_for_synthetic_task(connection, task, top_x)
-    else:
-        logger.debug(f"Contenders selection for organic queries with task {task} yielded nothing (probably statistiques table is empty), falling back to synthetic queries logic.")
-        return await get_contenders_for_synthetic_task(connection, task, top_x)
-    """
-
 
 
 async def get_contenders_for_task(connection: Connection, task: str, top_x: int = 5, 
