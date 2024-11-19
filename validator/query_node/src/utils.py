@@ -40,7 +40,7 @@ async def adjust_contender_from_result(
         logger.debug(f"Capacity consumed: {capacity_consumed}")
 
         await update_contender_capacities(config.psql_db, contender, capacity_consumed)
-        await update_contender_consecutive_fails(config.psql_db, contender, -1)
+        await update_contender_consecutive_fails(config.psql_db, contender, True)
 
         await db_functions.potentially_store_result_in_db(
             config.psql_db, query_result, query_result.task, synthetic_query=synthetic_query, payload=payload
@@ -50,9 +50,9 @@ async def adjust_contender_from_result(
     elif query_result.status_code == 429:
         logger.debug(f"❌ 💔 429 error;  Adjusting node {contender.node_id} for task {query_result.task}.")
         await update_contender_429_count(config.psql_db, contender)
-        await update_contender_consecutive_fails(config.psql_db, contender, 1)
+        await update_contender_consecutive_fails(config.psql_db, contender, False)
     else:
         logger.debug(f"❌ 💔 500 error; Adjusting node {contender.node_id} for task {query_result.task}.")
         await update_contender_500_count(config.psql_db, contender)
-        await update_contender_consecutive_fails(config.psql_db, contender, 1)
+        await update_contender_consecutive_fails(config.psql_db, contender, False)
     return query_result
