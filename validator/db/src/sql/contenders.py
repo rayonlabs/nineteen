@@ -255,6 +255,16 @@ async def update_contender_429_count(psql_db: PSQLDB, contender: Contender) -> N
             contender.id,
         )
 
+async def update_contender_consecutive_fails(psql_db: PSQLDB, contender: Contender) -> None:
+    async with await psql_db.connection() as connection:
+        await connection.execute(
+            f"""
+            UPDATE {dcst.CONTENDERS_TABLE}
+            SET {dcst.CONSECUTIVE_FAILS} = {dcst.CONSECUTIVE_FAILS} + 1
+            WHERE {dcst.CONTENDER_ID} = $1
+            """,
+            contender.id,
+        )
 
 async def update_contender_500_count(psql_db: PSQLDB, contender: Contender) -> None:
     async with await psql_db.connection() as connection:
