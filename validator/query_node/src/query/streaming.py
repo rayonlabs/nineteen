@@ -88,28 +88,31 @@ async def consume_generator(
     node: Node,
     payload: dict,
     start_time: float,
-    debug: bool = False,
+    debug: bool = False,  # TODO: remove unused variable
 ) -> bool:
     assert job_id
     task = contender.task
     query_result = None
 
     try:
-        first_chunk = await generator.__anext__()
-    except (StopAsyncIteration, httpx.ConnectError, httpx.ReadError, httpx.HTTPError, httpx.ReadTimeout, Exception) as e:
-        error_type = type(e).__name__
-        error_details = str(e)
+        first_chunk = await generator.__anext__()  # TODO: use `anext(generator)`
 
-        logger.error(f"Error when querying node: {node.node_id} for task: {task}. Error: {error_type} - {error_details}")
+    except (StopAsyncIteration, httpx.ConnectError, httpx.ReadError, httpx.HTTPError, httpx.ReadTimeout, Exception) as e:
+        logger.error(f"Error when querying node: {node.node_id} for task: {task}.")
+        logger.exception(e)  # drop the stacktrace while we're here
+
         query_result = construct_500_query_result(node, task)
         await utils.adjust_contender_from_result(config, query_result, contender, synthetic_query, payload=payload)
+
         return False
 
-    text_jsons, status_code, first_message =  [], 200, True
+    text_jsons, status_code, first_message = [], 200, True  # TODO: remove unused variable
+
     try:
         async for text in async_chain(first_chunk, generator):
             if isinstance(text, bytes):
                 text = text.decode()
+
             if isinstance(text, str):
                 try:
                     loaded_jsons = load_sse_jsons(text)
@@ -126,6 +129,7 @@ async def consume_generator(
                         logger.debug(f"Invalid text_json because its not a dict?: {text_json}")
                         first_message = True  # NOTE: Janky, but so we mark it as a fail
                         break
+
                     try:
                         _ = text_json["choices"][0]["delta"]["content"]
                     except KeyError:
@@ -136,6 +140,7 @@ async def consume_generator(
                     text_jsons.append(text_json)
                     dumped_payload = json.dumps(text_json)
                     first_message = False
+
                     await _handle_event(
                         config,
                         content=f"data: {dumped_payload}\n\n",
