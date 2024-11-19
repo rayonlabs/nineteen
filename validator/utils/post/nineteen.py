@@ -7,7 +7,7 @@ from pydantic import BaseModel
 from fiber.logging_utils import get_logger
 from fiber import Keypair
 from core import constants as ccst
-
+from datetime import datetime
 from validator.models import RewardData
 
 logger = get_logger(__name__)
@@ -19,7 +19,8 @@ class DataTypeToPost(enum.Enum):
     MINER_CAPACITIES = 3
     VALIDATOR_INFO = 4
     MINER_TYPES = 5
-
+    MINER_WEIGHTS = 6
+    CONTENDER_WEIGHTS_INFO = 7
 
 
 data_type_to_url = {
@@ -28,6 +29,8 @@ data_type_to_url = {
     DataTypeToPost.MINER_CAPACITIES: ccst.BASE_NINETEEN_API_URL + "v1/store/miner_capacities",
     DataTypeToPost.VALIDATOR_INFO: ccst.BASE_NINETEEN_API_URL + "v1/store/validator_info",
     DataTypeToPost.MINER_TYPES: ccst.BASE_NINETEEN_API_URL + "v1/store/miner_types",
+    DataTypeToPost.MINER_WEIGHTS: ccst.BASE_NINETEEN_API_URL + "v1/store/miner_weights",
+    DataTypeToPost.CONTENDER_WEIGHTS_INFO: ccst.BASE_NINETEEN_API_URL + "v1/store/contender_weights_info",
 }
 
 # Turn off if you don't wanna post your validator info to nineteen.ai
@@ -57,7 +60,7 @@ async def post_to_nineteen_ai(
         "x-signature": signed_timestamp,
         "x-public-key": public_address,
     }
-
+    resp = None
     async with httpx.AsyncClient(timeout=timeout) as client:
         try:
             resp = await client.post(
@@ -65,17 +68,28 @@ async def post_to_nineteen_ai(
                 data=json.dumps(data_to_post),
                 headers=headers,
             )
-            logger.info(f"Resp status code from {ccst.BASE_NINETEEN_API_URL}: {resp.status_code} for post type {data_type_to_post}")
+            logger.info(
+                f"Resp status code from {ccst.BASE_NINETEEN_API_URL}: {resp.status_code} for post type {data_type_to_post}"
+            )
             resp.raise_for_status()
             return resp
         except Exception as e:
-            logger.error(f"Error when posting to {ccst.BASE_NINETEEN_API_URL} to store data for {data_type_to_post}: {repr(e)}")
+            if resp is not None and resp.status_code == 403:
+                logger.info(
+                    f"403 when posting to {ccst.BASE_NINETEEN_API_URL} to store data for {data_type_to_post}. "
+                    "Either you're on testnet, dont have enough stake, or this will resolve itself soon"
+                )
+            else:
+                logger.error(
+                    f"Error when posting to {ccst.BASE_NINETEEN_API_URL} to store data for {data_type_to_post}: {repr(e)}"
+                )
 
 
 class MinerTypesPostBody(BaseModel):
     validator_hotkey: str
     miner_hotkey: str
     miner_type: str
+
 
 class RewardDataPostBody(RewardData):
     testnet: bool
@@ -92,6 +106,36 @@ class MinerCapacitiesPostObject(BaseModel):
     task: str
     volume: float
     validator_hotkey: str
+
+
+class MinerWeightsPostObject(BaseModel):
+    version_key: int
+    netuid: int
+    validator_hotkey: str
+    created_at: datetime
+    miner_hotkey: str
+    node_weight: float
+
+
+class ContenderWeightsInfoPostObject(BaseModel):
+    version_key: int
+    netuid: int
+    validator_hotkey: str
+    created_at: datetime
+    miner_hotkey: str
+    task: str
+
+    average_quality_score: float
+    metric_bonus: float
+    metric: float
+    combined_quality_score: float
+
+    period_score_multiplier: float
+    normalised_period_score: float
+
+    contender_capacity: float
+
+    normalised_net_score: float
 
 
 class ContenderPayload(BaseModel):

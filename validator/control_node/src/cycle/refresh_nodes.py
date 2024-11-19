@@ -17,6 +17,7 @@ from fiber.validator import handshake, client
 import httpx
 from datetime import datetime, timedelta
 from cryptography.fernet import Fernet
+from tenacity import retry, stop_after_attempt, retry_if_exception_type, wait_exponential
 
 logger = get_logger(__name__)
 
@@ -69,6 +70,21 @@ async def update_our_validator_node(config: Config):
         await update_our_vali_node_in_db(connection, config.keypair.ss58_address, config.netuid)
 
 
+@retry(
+    stop=stop_after_attempt(3),
+    retry=retry_if_exception_type((httpx.HTTPStatusError, httpx.RequestError, httpx.ConnectError)),
+    wait=wait_exponential(multiplier=1, min=2, max=5)
+)
+async def _try_handshake(
+    async_client: httpx.AsyncClient,
+    server_address: str,
+    keypair,
+    hotkey
+) -> tuple:
+    return await handshake.perform_handshake(
+        async_client, server_address, keypair, hotkey
+    )
+
 async def _handshake(config: Config, node: Node, async_client: httpx.AsyncClient) -> Node:
     node_copy = node.model_copy()
     server_address = client.construct_server_address(
@@ -78,7 +94,7 @@ async def _handshake(config: Config, node: Node, async_client: httpx.AsyncClient
     )
 
     try:
-        symmetric_key, symmetric_key_uid = await handshake.perform_handshake(
+        symmetric_key, symmetric_key_uid = await _try_handshake(
             async_client, server_address, config.keypair, node.hotkey
         )
     except Exception as e:

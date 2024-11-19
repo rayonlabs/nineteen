@@ -15,7 +15,7 @@ from fiber.logging_utils import get_logger
 logger = get_logger(__name__)
 
 
-# TOOD: Change to mapping
+# TODO: Change to mapping
 async def _store_synthetic_data_in_redis(redis_db: Redis, task: str, synthetic_data: BaseModel) -> None:
     pipe = redis_db.pipeline(transaction=True)
 
@@ -26,7 +26,6 @@ async def _store_synthetic_data_in_redis(redis_db: Redis, task: str, synthetic_d
     await pipe.hset(rcst.SYNTHETIC_DATA_VERSIONS_KEY, task, current_time)  # type: ignore
 
     await pipe.execute()
-
 
 async def update_tasks_synthetic_data(redis_db: Redis, slow_sync: bool = True, fixed_task: str | None = None) -> None:
     if fixed_task is not None:
@@ -49,13 +48,10 @@ async def update_tasks_synthetic_data(redis_db: Redis, slow_sync: bool = True, f
             if slow_sync:
                 await asyncio.sleep(0.1)
 
-
 async def continuously_fetch_synthetic_data_for_tasks(redis_db: Redis) -> None:
     await update_tasks_synthetic_data(redis_db, slow_sync=False)
-
     while True:
         await update_tasks_synthetic_data(redis_db, slow_sync=True)
-
 
 async def main(config: Config):
     await continuously_fetch_synthetic_data_for_tasks(config.redis_db)

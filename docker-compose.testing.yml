@@ -1,6 +1,7 @@
+# this should be layered on top of docker-compose.yml
 services:
-
   entry_node:
+    container_name: test_entry_node
     build:
       context: .
       dockerfile: dockerfiles/entry_node.dockerfile
@@ -9,13 +10,9 @@ services:
       - test_db
     volumes:
       - .:/app
-    networks:
-      - postgres_network
-      - redis_network
     entrypoint: ["python", "-u", "/app/validator/entry_node/src/main.py"]
     ports:
       - "8000:8000"
-    container_name: test_entry_node
     environment:
       POSTGRES_USER: test_user
       POSTGRES_PASSWORD: test_password
@@ -25,6 +22,7 @@ services:
       ENV: test
 
   query_node:
+    container_name: test_query_node
     build:
       context: .
       dockerfile: dockerfiles/query_node.dockerfile
@@ -46,11 +44,7 @@ services:
       - test_db
     volumes:
       - .:/app
-    networks:
-      - postgres_network
-      - redis_network
     entrypoint: ["python", "-u", "/app/validator/query_node/src/main.py"]
-    container_name: test_query_node
     environment:
       POSTGRES_USER: test_user
       POSTGRES_PASSWORD: test_password
@@ -61,6 +55,7 @@ services:
       NETUID: 19
 
   chain_node:
+    container_name: test_chain_node
     build:
       context: .
       dockerfile: dockerfiles/chain_node.dockerfile
@@ -69,11 +64,7 @@ services:
       - redis
     volumes:
       - .:/app
-    networks:
-      - postgres_network
-      - redis_network
     entrypoint: ["python", "-u", "/app/validator/chain_node/src/main.py"]
-    container_name: test_chain_node
     environment:
       POSTGRES_USER: test_user
       POSTGRES_PASSWORD: test_password
@@ -88,6 +79,7 @@ services:
       SECONDS_BETWEEN_SYNC: 60
 
   control_node:
+    container_name: test_control_node
     build:
       context: .
       dockerfile: dockerfiles/control_node.dockerfile
@@ -96,11 +88,7 @@ services:
       - test_db
     volumes:
       - .:/app
-    networks:
-      - postgres_network
-      - redis_network
     entrypoint: ["python", "-u", "/app/validator/control_node/src/main.py"]
-    container_name: test_control_node
     environment:
       POSTGRES_USER: test_user
       POSTGRES_PASSWORD: test_password
@@ -109,16 +97,9 @@ services:
       POSTGRES_HOST: test_db
       ENV: test
 
-  redis:
-    image: redis/redis-stack:latest
-    networks:
-      - redis_network
-    ports:
-      - "6379:6379"
-    container_name: 0_redis
-
   test_db:
-    image: postgres:13
+    container_name: test_db
+    image: postgres:latest
     environment:
       POSTGRES_DB: test_db
       POSTGRES_USER: test_user
@@ -126,25 +107,6 @@ services:
       POSTGRES_HOST: test_db
     ports:
       - "5433:5432"
-    networks:
-      - postgres_network
-    container_name: 0_test_db
-
-  prometheus:
-    image: prom/prometheus:latest
-    volumes:
-      - ./prometheus.yml:/etc/prometheus/prometheus.yml
-    container_name: 0_prometheus
-    ports:
-      - "9090:9090"
-
-  grafana:
-    image: grafana/grafana:latest
-    depends_on:
-      - prometheus
-    container_name: 0_grafana
-    ports:
-      - "3000:3000"
 
   dbmate:
     image: amacneil/dbmate
@@ -154,9 +116,6 @@ services:
     depends_on:
       test_db:
         condition: service_started
-    networks:
-      - postgres_network
-    container_name: 0_dbmate
     environment:
       POSTGRES_USER: test_user
       POSTGRES_PASSWORD: test_password
@@ -165,26 +124,17 @@ services:
       POSTGRES_HOST: test_db
       DATABASE_URL: "postgres://test_user:test_password@test_db:5432/test_db?sslmode=disable"
 
-  adminer:
+  test_adminer:
     image: adminer
     restart: always
     ports:
-      - "5052:8080"
+      - 5052:8080
     environment:
       ADMINER_DEFAULT_SERVER: postgresql
       ADMINER_DESIGN: nette
       ADMINER_PLUGINS: tables-filter tinymce
-    networks:
-      - postgres_network
     depends_on:
       - test_db
-    container_name: 0_test_adminer
-
-networks:
-  postgres_network:
-    driver: bridge
-  redis_network:
-    driver: bridge
 
 volumes:
   postgres_data:
