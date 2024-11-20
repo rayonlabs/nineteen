@@ -139,8 +139,8 @@ async def consume_organic_generator(
     try:
         first_chunk = await generator.__anext__()
     except (StopAsyncIteration, httpx.ConnectError, httpx.ReadError, httpx.HTTPError, httpx.ReadTimeout, Exception) as e:
-        error_type = type(e).__name__
-        logger.error(f"Error when querying node: {node.node_id} for task: {task}. Error: {error_type} - {str(e)} - \n{traceback.format_exc()}")
+        logger.error(f"Error when querying node: {node.node_id} for task: {task}.")
+        logger.exception(e)
         query_result = construct_500_query_result(node, task)
         await utils.adjust_contender_from_result(config, query_result, contender, False, payload=payload)
         return
