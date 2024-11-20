@@ -68,7 +68,7 @@ async def _get_contenders(connection: Connection, task: str, query_type: str) ->
     try:
         async with lock:
             contenders = await get_contenders_for_task(connection, task, 5, query_type)
-        logger.info(f"Selected {len(contenders)} contenders for task : {task}")
+        logger.info(f"Task : {task}\nContenders : {contenders}")
         return contenders
     except Exception as e:
         logger.error(f"Error getting contenders: {e}")
@@ -133,7 +133,6 @@ async def _handle_stream_organic(
             logger.error(f"Node {contender.node_id} not found in database for netuid {config.netuid}")
             continue
         try:
-            logger.info(f"Querying node {contender.node_id} for task {contender.task}")
             generator = await streaming.hybrid_node_stream(
                 config=config, contender=contender, payload=message.query_payload, node=node
             )
@@ -153,8 +152,7 @@ async def _handle_stream_organic(
                 yield chunk
             return
         except Exception:
-            logger.error(f"Some issue querying node id {contender.node_id} for task {message.task}\n{traceback.format_exc()}")
-
+            logger.error(f"Error querying querying node id {contender.node_id} for task {message.task}\n{traceback.format_exc()}")
     raise HTTPException(status_code=500, detail=f"Service for task {message.task} is not responding for all contenders!")
 
 
