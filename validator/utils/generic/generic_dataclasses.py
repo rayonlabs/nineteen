@@ -1,5 +1,6 @@
 import dataclasses
 
+
 @dataclasses.dataclass
 class GenericResponse:
     status_code: int

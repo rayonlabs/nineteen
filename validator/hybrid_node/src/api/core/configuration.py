@@ -12,12 +12,10 @@ from fiber.logging_utils import get_logger
 
 logger = get_logger(__name__)
 
+
 def create_redis_pool(host: str) -> BlockingConnectionPool:
-    return BlockingConnectionPool(
-        host=host,
-        max_connections=300,
-        timeout=20 
-    )
+    return BlockingConnectionPool(host=host, max_connections=300, timeout=20)
+
 
 async def load_config_once() -> Config:
     wallet_name = os.getenv("WALLET_NAME", "default")
@@ -58,14 +56,15 @@ async def load_config_once() -> Config:
         replace_with_docker_localhost=replace_with_docker_localhost,
         replace_with_localhost=localhost,
         keypair=keypair,
-        prod=prod
+        prod=prod,
     )
 
+
 _config = None
+
 
 async def load_config():
     global _config
     if not _config:
         _config = await load_config_once()
     return _config
-

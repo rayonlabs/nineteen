@@ -38,13 +38,13 @@ COUNTER_FAILED_QUERIES = metrics.get_meter(__name__).create_counter(
 QUERY_NODE_REQUESTS_PROCESSING_GAUGE = metrics.get_meter(__name__).create_gauge(
     name="validator.hybrid_node.src.concurrent_synthetic_queries_processing",
     description="concurrent number of synthetic requests currently being processed",
-    unit="1"
+    unit="1",
 )
 
 QUERY_NODE_FAILED_SYNTHETIC_TASKS_COUNTER = metrics.get_meter(__name__).create_counter(
     name="validator.hybrid_node.src.hybrid_node_failed_synthetic_tasks",
     description="number of failed synthetic `process_task` instances",
-    unit="1"
+    unit="1",
 )
 
 COUNTER_TEXT_GENERATION_ERROR = metrics.get_meter(__name__).create_counter("validator.hybrid_node.text.error")
@@ -53,8 +53,7 @@ COUNTER_IMAGE_ERROR = metrics.get_meter(__name__).create_counter("validator.hybr
 COUNTER_IMAGE_SUCCESS = metrics.get_meter(__name__).create_counter("validator.hybrid_node.image.success")
 
 GAUGE_TOKENS_PER_SEC = metrics.get_meter(__name__).create_gauge(
-    "validator.hybrid_node.text.tokens_per_sec",
-    description="Average tokens per second metric for LLM streaming"
+    "validator.hybrid_node.text.tokens_per_sec", description="Average tokens per second metric for LLM streaming"
 )
 
 lock = asyncio.Lock()
@@ -63,6 +62,7 @@ lock = asyncio.Lock()
 async def _decrement_requests_remaining(redis_db: Redis, task: str):
     key = f"task_synthetics_info:{task}:requests_remaining"
     await redis_db.decr(key)
+
 
 async def _get_contenders(connection: Connection, task: str, query_type: str) -> list[Contender]:
     try:
@@ -73,6 +73,7 @@ async def _get_contenders(connection: Connection, task: str, query_type: str) ->
     except Exception as e:
         logger.error(f"Error getting contenders: {e}")
         raise
+
 
 async def _handle_no_stream(text_generator: AsyncGenerator[str, str]) -> JSONResponse:
     all_content = ""
@@ -87,25 +88,18 @@ async def _handle_no_stream(text_generator: AsyncGenerator[str, str]) -> JSONRes
 
     return JSONResponse({"choices": [{"delta": {"content": all_content}}]})
 
-async def _handle_stream_synthetic(
-    config: Config, 
-    message: rdc.QueryQueueMessage, 
-    contenders: list[Contender]
-) -> bool:
-    
+
+async def _handle_stream_synthetic(config: Config, message: rdc.QueryQueueMessage, contenders: list[Contender]) -> bool:
     start = time.time()
     for i, contender in enumerate(contenders):
         node = await get_node(config.psql_db, contender.node_id, config.netuid)
         if not node:
             logger.error(f"Node {contender.node_id} not found in database for netuid {config.netuid}")
             continue
-            
+
         logger.info(f"Querying node {contender.node_id} for task {contender.task}")
         generator = await streaming.hybrid_node_stream(
-            config=config, 
-            contender=contender, 
-            payload=message.query_payload, 
-            node=node
+            config=config, contender=contender, payload=message.query_payload, node=node
         )
 
         if not generator:
@@ -120,20 +114,18 @@ async def _handle_stream_synthetic(
             payload=message.query_payload,
             start_time=start,
         )
-        
+
         if success:
             return True
-            
+
     error_msg = f"Service for task {message.task} is not responding, please try again"
     logger.error(error_msg)
     return False
 
-async def _handle_stream_organic(
-    config: Config, 
-    message: rdc.QueryQueueMessage, 
-    contenders: list[Contender]
-) -> AsyncGenerator[str, None]:
 
+async def _handle_stream_organic(
+    config: Config, message: rdc.QueryQueueMessage, contenders: list[Contender]
+) -> AsyncGenerator[str, None]:
     start = time.time()
     for i, contender in enumerate(contenders):
         node = await get_node(config.psql_db, contender.node_id, config.netuid)
@@ -143,10 +135,7 @@ async def _handle_stream_organic(
         try:
             logger.info(f"Querying node {contender.node_id} for task {contender.task}")
             generator = await streaming.hybrid_node_stream(
-                config=config, 
-                contender=contender, 
-                payload=message.query_payload, 
-                node=node
+                config=config, contender=contender, payload=message.query_payload, node=node
             )
 
             if not generator:
@@ -162,29 +151,24 @@ async def _handle_stream_organic(
                 start_time=start,
             ):
                 yield chunk
-            return 
+            return
         except Exception:
             logger.error(f"Some issue querying node id {contender.node_id} for task {message.task}\n{traceback.format_exc()}")
 
-            
-    raise HTTPException(
-        status_code=500,
-        detail=f"Service for task {message.task} is not responding for all contenders!"
-    )
+    raise HTTPException(status_code=500, detail=f"Service for task {message.task} is not responding for all contenders!")
+
 
 async def _handle_nonstream_img_query(
-    config: Config, 
-    message: rdc.QueryQueueMessage, 
-    contenders: list[Contender]
+    config: Config, message: rdc.QueryQueueMessage, contenders: list[Contender]
 ) -> ImageResponse | None:
     is_synthetic = message.query_type == gcst.SYNTHETIC
-    
+
     for contender in contenders:
         node = await get_node(config.psql_db, contender.node_id, config.netuid)
         if not node:
             logger.error(f"Node {contender.node_id} not found in database for netuid {config.netuid}")
             continue
-            
+
         logger.info(f"Querying node {contender.node_id} for task {contender.task}")
         result = await nonstream.query_nonstream_img(
             config=config,
@@ -196,33 +180,28 @@ async def _handle_nonstream_img_query(
         )
         if result:
             return result
-        
+
     error_msg = f"Service for task {message.task} is not responding after trying {len(contenders)} contenders"
     logger.error(error_msg)
     raise HTTPException(status_code=500, detail=error_msg)
-    
+
+
 async def process_synthetic_task(config: Config, message: rdc.QueryQueueMessage) -> bool:
     task = message.task
-    
+
     try:
         message.query_payload = await putils.get_synthetic_payload(config.redis_db, task)
         task_config = tcfg.get_enabled_task_config(task)
         if not task_config:
             logger.error(f"Can't find the task {task} in the query node!")
-            COUNTER_FAILED_QUERIES.add(1, {
-                "task": task,
-                "synthetic_query": "true"
-            })
+            COUNTER_FAILED_QUERIES.add(1, {"task": task, "synthetic_query": "true"})
             return False
-            
+
         async with await config.psql_db.connection() as connection:
             contenders = await _get_contenders(connection, task, message.query_type)
-        
-        COUNTER_TOTAL_QUERIES.add(1, {
-            "task": task,
-            "synthetic_query": "true"
-        })
-        
+
+        COUNTER_TOTAL_QUERIES.add(1, {"task": task, "synthetic_query": "true"})
+
         if task_config.is_stream:
             return await _handle_stream_synthetic(config, message, contenders)
         else:
@@ -234,84 +213,60 @@ async def process_synthetic_task(config: Config, message: rdc.QueryQueueMessage)
 
     except Exception as e:
         logger.error(f"Error processing synthetic task {task}: {e} - \n{traceback.format_exc()}")
-        COUNTER_FAILED_QUERIES.add(1, {
-            "task": task,
-            "synthetic_query": "true"
-        })
+        COUNTER_FAILED_QUERIES.add(1, {"task": task, "synthetic_query": "true"})
         return False
-    
+
+
 async def process_organic_img_task(config: Config, message: rdc.QueryQueueMessage) -> ImageResponse:
     task = message.task
-    
+
     try:
         await _decrement_requests_remaining(config.redis_db, task)
         task_config = tcfg.get_enabled_task_config(task)
         if not task_config:
-            raise HTTPException(
-                status_code=500,
-                detail=f"Can't find the task {task}, please try again later"
-            )
-            
+            raise HTTPException(status_code=500, detail=f"Can't find the task {task}, please try again later")
+
         async with await config.psql_db.connection() as connection:
             contenders = await _get_contenders(connection, task, message.query_type)
-        
-        COUNTER_TOTAL_QUERIES.add(1, {
-            "task": task,
-            "synthetic_query": "false"
-        })
-        
+
+        COUNTER_TOTAL_QUERIES.add(1, {"task": task, "synthetic_query": "false"})
+
         result = await _handle_nonstream_img_query(config, message, contenders)
         return result
 
     except Exception as e:
         logger.error(f"Error processing organic task {task}: {e} - \n{traceback.format_exc()}")
-        COUNTER_FAILED_QUERIES.add(1, {
-            "task": task,
-            "synthetic_query": "false"
-        })
+        COUNTER_FAILED_QUERIES.add(1, {"task": task, "synthetic_query": "false"})
         if isinstance(e, HTTPException):
             raise
         raise HTTPException(status_code=500, detail=str(e))
-    
-    
+
 
 async def get_organic_stream(config: Config, message: rdc.QueryQueueMessage) -> AsyncGenerator[str, None]:
     task = message.task
-    
+
     try:
         task_config = tcfg.get_enabled_task_config(task)
         if not task_config:
-            raise HTTPException(
-                status_code=500,
-                detail=f"Can't find the task {task}, please try again later"
-            )
-            
+            raise HTTPException(status_code=500, detail=f"Can't find the task {task}, please try again later")
+
         async with await config.psql_db.connection() as connection:
             contenders = await _get_contenders(connection, task, message.query_type)
-        
-        COUNTER_TOTAL_QUERIES.add(1, {
-            "task": task,
-            "synthetic_query": "false"
-        })
-        
+
+        COUNTER_TOTAL_QUERIES.add(1, {"task": task, "synthetic_query": "false"})
+
         async for chunk in _handle_stream_organic(config, message, contenders):
             yield chunk
 
     except Exception as e:
         logger.error(f"Error processing organic task {task}: {e} - \n{traceback.format_exc()}")
-        COUNTER_FAILED_QUERIES.add(1, {
-            "task": task,
-            "synthetic_query": "false"
-        })
+        COUNTER_FAILED_QUERIES.add(1, {"task": task, "synthetic_query": "false"})
         if isinstance(e, HTTPException):
             raise
         raise HTTPException(status_code=500, detail=str(e))
-    
-async def process_organic_stream(
-    config: Config,
-    message: rdc.QueryQueueMessage,
-    start_time: float
-) -> AsyncGenerator[str, str]:
+
+
+async def process_organic_stream(config: Config, message: rdc.QueryQueueMessage, start_time: float) -> AsyncGenerator[str, str]:
     await _decrement_requests_remaining(config.redis_db, message.task)
     try:
         num_tokens = 0
@@ -327,16 +282,17 @@ async def process_organic_stream(
 
     except Exception as e:
         logger.error(f"Error in stream processing: {str(e)} - \n{traceback.format_exc()}")
-        COUNTER_TEXT_GENERATION_ERROR.add(1, {
-            "task": message.task,
-            "error": type(e).__name__
-        })
+        COUNTER_TEXT_GENERATION_ERROR.add(1, {"task": message.task, "error": type(e).__name__})
         raise
+
 
 async def process_organic_image_request(
     config: Config,
-    payload: payload_models.TextToImagePayload | payload_models.ImageToImagePayload | payload_models.InpaintPayload | payload_models.AvatarPayload,
-    task: str
+    payload: payload_models.TextToImagePayload
+    | payload_models.ImageToImagePayload
+    | payload_models.InpaintPayload
+    | payload_models.AvatarPayload,
+    task: str,
 ) -> JSONResponse:
     task = task.replace("_", "-")
     task_config = tcfg.get_enabled_task_config(task)
@@ -344,16 +300,13 @@ async def process_organic_image_request(
         COUNTER_IMAGE_ERROR.add(1, {"reason": "no_task_config"})
         logger.error(f"Task config not found for task: {task}")
         raise HTTPException(status_code=400, detail=f"Invalid model {task}")
-        
+
     message = rdc.QueryQueueMessage(
-        task=task,
-        query_type=gcst.ORGANIC,
-        job_id=rutils.generate_job_id(),
-        query_payload=payload.model_dump()
+        task=task, query_type=gcst.ORGANIC, job_id=rutils.generate_job_id(), query_payload=payload.model_dump()
     )
 
     result = await process_organic_img_task(config, message)
-        
+
     if result is None:
         logger.error(f"No content received for image request. Task: {task}")
         raise HTTPException(status_code=500, detail="Unable to process request")

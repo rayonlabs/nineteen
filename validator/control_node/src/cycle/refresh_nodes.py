@@ -21,6 +21,7 @@ from tenacity import retry, stop_after_attempt, retry_if_exception_type, wait_ex
 
 logger = get_logger(__name__)
 
+
 def _format_exception(e: Exception) -> str:
     """Format an exception with its traceback for logging."""
     return f"Exception Type: {type(e).__name__}\nException Message: {str(e)}\nTraceback:\n{''.join(traceback.format_tb(e.__traceback__))}"
@@ -54,7 +55,7 @@ async def is_recent_update(connection, netuid: int) -> bool:
 
 
 async def fetch_nodes_from_substrate(config: Config) -> list[Node]:
-    # NOTE: Will this cause issues if this method closes the conenction
+    # NOTE: Will this cause issues if this method closes the connection
     # on substrate interface, but we use the same substrate interface object elsewhere?
     return await asyncio.to_thread(fetch_nodes.get_nodes_for_netuid, config.substrate, config.netuid)
 
@@ -73,17 +74,11 @@ async def update_our_validator_node(config: Config):
 @retry(
     stop=stop_after_attempt(3),
     retry=retry_if_exception_type((httpx.HTTPStatusError, httpx.RequestError, httpx.ConnectError)),
-    wait=wait_exponential(multiplier=1, min=2, max=5)
+    wait=wait_exponential(multiplier=1, min=2, max=5),
 )
-async def _try_handshake(
-    async_client: httpx.AsyncClient,
-    server_address: str,
-    keypair,
-    hotkey
-) -> tuple:
-    return await handshake.perform_handshake(
-        async_client, server_address, keypair, hotkey
-    )
+async def _try_handshake(async_client: httpx.AsyncClient, server_address: str, keypair, hotkey) -> tuple:
+    return await handshake.perform_handshake(async_client, server_address, keypair, hotkey)
+
 
 async def _handshake(config: Config, node: Node, async_client: httpx.AsyncClient) -> Node:
     node_copy = node.model_copy()
@@ -94,9 +89,7 @@ async def _handshake(config: Config, node: Node, async_client: httpx.AsyncClient
     )
 
     try:
-        symmetric_key, symmetric_key_uid = await _try_handshake(
-            async_client, server_address, config.keypair, node.hotkey
-        )
+        symmetric_key, symmetric_key_uid = await _try_handshake(async_client, server_address, config.keypair, node.hotkey)
     except Exception as e:
         error_details = _format_exception(e)
         logger.debug(f"Failed to perform handshake with {server_address}. Details:\n{error_details}")
@@ -104,7 +97,7 @@ async def _handshake(config: Config, node: Node, async_client: httpx.AsyncClient
         if isinstance(e, (httpx.HTTPStatusError, httpx.RequestError, httpx.ConnectError)):
             if hasattr(e, "response"):
                 logger.debug(f"Response content: {e.response.text}")
-        
+
         return node_copy
 
     fernet = Fernet(symmetric_key)

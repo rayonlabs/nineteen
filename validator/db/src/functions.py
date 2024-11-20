@@ -76,16 +76,12 @@ async def select_and_delete_task_result(psql_db: PSQLDB, task: str) -> tuple[lis
     return checking_data_loaded, node_hotkey
 
 
-
-
 # TODO: Implement this
-async def clean_tables_of_hotkeys(connection: Connection, node_hotkeys: List[str]) -> None:
-   ...
-async def delete_tasks_older_than_date(connection: Connection, minutes: int) -> None:
-    ...
+async def clean_tables_of_hotkeys(connection: Connection, node_hotkeys: List[str]) -> None: ...
+async def delete_tasks_older_than_date(connection: Connection, minutes: int) -> None: ...
 
-async def delete_data_older_than_date(connection: Connection, minutes: int) -> None:
-    ...
+
+async def delete_data_older_than_date(connection: Connection, minutes: int) -> None: ...
 
 
 async def fetch_recent_most_rewards(

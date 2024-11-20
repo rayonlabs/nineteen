@@ -14,7 +14,9 @@ logger = get_logger(__name__)
 
 class ChatRequest(BaseModel):
     messages: list[utility_models.Message] = Field(...)
-    temperature: float = Field(default=0.5, examples=[0.5, 0.4, 0.3], title="Temperature", description="Temperature for text generation.")
+    temperature: float = Field(
+        default=0.5, examples=[0.5, 0.4, 0.3], title="Temperature", description="Temperature for text generation."
+    )
     max_tokens: int = Field(500, title="Max Tokens", description="Max tokens for text generation.")
     model: str = Field(..., examples=["chat-llama-3-2-3b"], title="Model")
     top_p: float = Field(default=1.0, title="Top P", description="Top P for text generation.")
@@ -175,7 +177,6 @@ class AvatarRequest(BaseModel):
             "iVBORw0KGgoAAAANSUhEUgAAAAUA",
         ],
     )
-
 
 
 async def avatar_to_payload(

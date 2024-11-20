@@ -5,7 +5,6 @@ import httpx
 from fiber import Keypair
 from fiber.logging_utils import get_logger
 from redis.asyncio import Redis
-from typing import Any
 
 logger = get_logger(__name__)
 

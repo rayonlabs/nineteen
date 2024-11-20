@@ -3,14 +3,16 @@ import subprocess
 import time
 import argparse
 
+
 def should_update_local(local_commit, remote_commit):
     return local_commit != remote_commit
+
 
 def run_auto_updater():
     print("Starting auto-updater...")
     print("First i'll run the docker containers...")
     print("Checking for .vali.env file...")
-    while not os.path.exists('.vali.env'):
+    while not os.path.exists(".vali.env"):
         print(".vali.env file not found. Waiting 10 seconds before checking again...")
         time.sleep(10)
     print(".vali.env file found. Proceeding with docker setup...")
@@ -46,6 +48,7 @@ def run_auto_updater():
             print("Repo is up-to-date.")
 
         time.sleep(60)
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Run auto updates for a validator")

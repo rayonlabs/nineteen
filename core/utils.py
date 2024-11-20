@@ -18,7 +18,7 @@ def get_updated_task_config_with_voted_weights(
     task_configs: dict[str, cmodels.FullTaskConfig],
 ) -> dict[str, cmodels.FullTaskConfig]:
     """
-    Replace all default task configs weights with the voted weights to follow consensus 
+    Replace all default task configs weights with the voted weights to follow consensus
     [you should normalise after this]
     """
     try:

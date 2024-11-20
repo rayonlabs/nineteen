@@ -25,9 +25,11 @@ if os.getenv("ENV", "prod").lower() == "dev":
 my_miner_type = os.getenv("MINER_TYPE")
 if not my_miner_type:
     raise ValueError("MINER_TYPE is not set. Please set the MINER_TYPE environment variable miner!!!")
-if my_miner_type not in  TaskType._value2member_map_:
+if my_miner_type not in TaskType._value2member_map_:
     allowed_values = ", ".join(TaskType._value2member_map_.keys())
-    raise ValueError(f"MINER_TYPE {my_miner_type} is not valid. Please set the MINER_TYPE to one of the following: {allowed_values}")
+    raise ValueError(
+        f"MINER_TYPE {my_miner_type} is not valid. Please set the MINER_TYPE to one of the following: {allowed_values}"
+    )
 
 if __name__ == "__main__":
     import uvicorn

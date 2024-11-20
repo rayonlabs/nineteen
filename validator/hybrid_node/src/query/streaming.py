@@ -1,7 +1,6 @@
 from validator.hybrid_node.src.query_config import Config
 from validator.hybrid_node.src import utils
 from validator.models import Contender
-from validator.utils.generic import generic_constants as gcst
 from validator.utils.query.query_utils import load_sse_jsons
 from core.models import utility_models
 from core import task_config as tcfg
@@ -17,6 +16,7 @@ from fiber.logging_utils import get_logger
 
 logger = get_logger(__name__)
 
+
 def _get_formatted_payload(content: str, first_message: bool, add_finish_reason: bool = False) -> str:
     delta_payload = {"content": content}
     if first_message:
@@ -29,10 +29,12 @@ def _get_formatted_payload(content: str, first_message: bool, add_finish_reason:
     }
     return json.dumps(payload)
 
+
 async def async_chain(first_chunk, async_gen):
     yield first_chunk
     async for item in async_gen:
         yield item
+
 
 def construct_500_query_result(node: Node, task: str) -> utility_models.QueryResult:
     return utility_models.QueryResult(
@@ -45,6 +47,7 @@ def construct_500_query_result(node: Node, task: str) -> utility_models.QueryRes
         response_time=None,
     )
 
+
 async def consume_synthetic_generator(
     config: Config,
     generator: AsyncGenerator,
@@ -52,7 +55,7 @@ async def consume_synthetic_generator(
     node: Node,
     payload: dict,
     start_time: float,
-) -> bool: 
+) -> bool:
     task = contender.task
     query_result = None
 
@@ -61,12 +64,14 @@ async def consume_synthetic_generator(
         first_chunk = await generator.__anext__()
     except (StopAsyncIteration, httpx.ConnectError, httpx.ReadError, httpx.HTTPError, httpx.ReadTimeout, Exception) as e:
         error_type = type(e).__name__
-        logger.error(f"Error when querying node: {node.node_id} for task: {task}. Error: {error_type} - {str(e)} - \n{traceback.format_exc()}")
+        logger.error(
+            f"Error when querying node: {node.node_id} for task: {task}. Error: {error_type} - {str(e)} - \n{traceback.format_exc()}"
+        )
         query_result = construct_500_query_result(node, task)
         await utils.adjust_contender_from_result(config, query_result, contender, True, payload=payload)
         return success
 
-    text_jsons, status_code, first_message = [], 200, True
+    text_jsons, first_message = [], True
     try:
         async for text in async_chain(first_chunk, generator):
             if isinstance(text, bytes):
@@ -75,7 +80,6 @@ async def consume_synthetic_generator(
                 try:
                     loaded_jsons = load_sse_jsons(text)
                     if isinstance(loaded_jsons, dict):
-                        status_code = loaded_jsons.get(gcst.STATUS_CODE)
                         break
 
                     for text_json in loaded_jsons:
@@ -111,7 +115,9 @@ async def consume_synthetic_generator(
         success = not first_message
 
     except Exception as e:
-        logger.error(f"Unexpected exception when querying node: {node.node_id} for task: {task}. Error: {e} - \n{traceback.format_exc()}")
+        logger.error(
+            f"Unexpected exception when querying node: {node.node_id} for task: {task}. Error: {e} - \n{traceback.format_exc()}"
+        )
         query_result = construct_500_query_result(node, task)
         success = False
 
@@ -121,9 +127,12 @@ async def consume_synthetic_generator(
 
         if success and text_jsons:
             character_count = sum([len(text_json["choices"][0]["delta"]["content"]) for text_json in text_jsons])
-            logger.debug(f"Success: {success}; Node: {node.node_id}; Task: {task}; response_time: {response_time}; character_count: {character_count}")
-    
+            logger.debug(
+                f"Success: {success}; Node: {node.node_id}; Task: {task}; response_time: {response_time}; character_count: {character_count}"
+            )
+
     return success
+
 
 async def consume_organic_generator(
     config: Config,
@@ -132,7 +141,7 @@ async def consume_organic_generator(
     node: Node,
     payload: dict,
     start_time: float,
-) -> AsyncGenerator[str, None] :
+) -> AsyncGenerator[str, None]:
     task = contender.task
     query_result = None
 
@@ -200,6 +209,7 @@ async def consume_organic_generator(
     finally:
         if query_result is not None:
             await utils.adjust_contender_from_result(config, query_result, contender, False, payload=payload)
+
 
 async def hybrid_node_stream(config: Config, contender: Contender, node: Node, payload: dict) -> Optional[AsyncGenerator]:
     address = client.construct_server_address(

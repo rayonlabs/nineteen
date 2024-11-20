@@ -38,14 +38,16 @@ class PSQLDB:
                     timeout=self.pool_timeout,
                     command_timeout=10.0,
                     server_settings={
-                        'statement_timeout': '30000',  # 30 seconds
-                        'idle_in_transaction_session_timeout': '30000'  # 30 seconds
-                    }
+                        "statement_timeout": "30000",  # 30 seconds
+                        "idle_in_transaction_session_timeout": "30000",  # 30 seconds
+                    },
                 )
                 if self.pool is None:
                     raise ConnectionError("Failed to create connection pool")
                 else:
-                    logger.debug(f"Connection pool created successfully with {self.pool_min_size}-{self.pool_max_size} connections")
+                    logger.debug(
+                        f"Connection pool created successfully with {self.pool_min_size}-{self.pool_max_size} connections"
+                    )
             except asyncpg.exceptions.PostgresError as e:
                 raise ConnectionError(f"PostgreSQL error: {str(e)}") from e
             except socket.gaierror as e:

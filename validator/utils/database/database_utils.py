@@ -19,7 +19,6 @@ def get_connection_string_from_env() -> str:
 
     port = int(port)
 
-
     if not all([username, password, host, port, database]):
         raise ValueError(
             "All of POSTGRES_USER, POSTGRES_PASSWORD, POSTGRES_DB, POSTGRES_PORT, and POSTGRES_HOST must be set",

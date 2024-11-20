@@ -1,4 +1,5 @@
 from dotenv import load_dotenv
+
 load_dotenv(".vali.env")
 from validator.db.src.sql.api import (
     add_api_key,

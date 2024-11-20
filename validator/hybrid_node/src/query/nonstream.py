@@ -7,7 +7,7 @@ from core import task_config as tcfg
 
 import time
 import traceback
-from httpx import Response 
+from httpx import Response
 from pydantic import ValidationError
 from fiber.networking.models import NodeWithFernet as Node
 from fiber.validator import client
@@ -15,6 +15,7 @@ from fiber.logging_utils import get_logger
 
 
 logger = get_logger(__name__)
+
 
 def _get_500_query_result(node_id: int, contender: Contender) -> utility_models.QueryResult:
     return utility_models.QueryResult(
@@ -27,6 +28,7 @@ def _get_500_query_result(node_id: int, contender: Contender) -> utility_models.
         success=False,
     )
 
+
 def get_formatted_response(
     response: Response,
     response_model: type[ImageResponse],
@@ -34,6 +36,7 @@ def get_formatted_response(
     if response and response.status_code == 200:
         return _extract_response(response, response_model)
     return None
+
 
 def _extract_response(response: Response, response_model: type[ImageResponse]) -> ImageResponse | None:
     try:
@@ -52,6 +55,7 @@ def _extract_response(response: Response, response_model: type[ImageResponse]) -
         logger.error(f"Failed to deserialize response: {e}")
         return None
 
+
 async def query_nonstream_img(
     config: Config,
     contender: Contender,
@@ -66,7 +70,7 @@ async def query_nonstream_img(
     assert node.symmetric_key_uuid is not None
     task_config = tcfg.get_enabled_task_config(contender.task)
     time_before_query = time.time()
-    
+
     if task_config is None:
         logger.error(f"Task config not found for task: {contender.task}")
         return None
@@ -89,7 +93,9 @@ async def query_nonstream_img(
             timeout=task_config.timeout,
         )
     except Exception as e:
-        logger.error(f"Error when querying node: {node.node_id} for task: {contender.task}. Error: {e} - \n{traceback.format_exc()}")
+        logger.error(
+            f"Error when querying node: {node.node_id} for task: {contender.task}. Error: {e} - \n{traceback.format_exc()}"
+        )
         query_result = _get_500_query_result(node_id=node_id, contender=contender)
         await utils.adjust_contender_from_result(
             config=config, query_result=query_result, contender=contender, synthetic_query=synthetic_query, payload=payload
@@ -118,7 +124,7 @@ async def query_nonstream_img(
             success=True,
         )
         logger.info(f"✅ Queried node: {node_id} for task: {contender.task} - time: {response_time}")
-        
+
         await utils.adjust_contender_from_result(
             config=config, query_result=query_result, contender=contender, synthetic_query=synthetic_query, payload=payload
         )

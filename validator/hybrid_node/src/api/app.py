@@ -32,21 +32,13 @@ app.include_router(generic_router)
 async def main():
     config = await load_config()
     task_processor = SyntheticTaskProcessor(config)
-    
+
     port = os.getenv("ORGANIC_SERVER_PORT")
-    
+
     if port:
-        app_config = uvicorn.Config(
-            app,
-            host="0.0.0.0",
-            port=6919,
-            log_level="info"
-        )
+        app_config = uvicorn.Config(app, host="0.0.0.0", port=6919, log_level="info")
         server = uvicorn.Server(app_config)
-        
-        await asyncio.gather(
-            task_processor.listen(),
-            server.serve()
-        )
+
+        await asyncio.gather(task_processor.listen(), server.serve())
     else:
         await task_processor.listen()

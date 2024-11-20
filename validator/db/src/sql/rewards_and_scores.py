@@ -11,9 +11,9 @@ async def sql_insert_reward_data(connection: Connection, data: RewardData) -> No
     await connection.execute(
         f"""
         INSERT INTO {dcst.TABLE_REWARD_DATA} (
-            {dcst.COLUMN_ID}, {dcst.COLUMN_TASK}, {dcst.COLUMN_NODE_ID}, 
-            {dcst.COLUMN_QUALITY_SCORE}, {dcst.COLUMN_VALIDATOR_HOTKEY}, 
-            {dcst.COLUMN_MINER_HOTKEY}, {dcst.COLUMN_SYNTHETIC_QUERY}, 
+            {dcst.COLUMN_ID}, {dcst.COLUMN_TASK}, {dcst.COLUMN_NODE_ID},
+            {dcst.COLUMN_QUALITY_SCORE}, {dcst.COLUMN_VALIDATOR_HOTKEY},
+            {dcst.COLUMN_MINER_HOTKEY}, {dcst.COLUMN_SYNTHETIC_QUERY},
             {dcst.COLUMN_METRIC}, {dcst.COLUMN_RESPONSE_TIME}, {dcst.COLUMN_VOLUME}
         ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
         RETURNING {dcst.COLUMN_ID}
@@ -35,8 +35,8 @@ async def insert_uid_record(connection: Connection, data: List[tuple]) -> None:
     await connection.executemany(
         f"""
         INSERT INTO {dcst.TABLE_UID_RECORDS} (
-            {dcst.COLUMN_NODE_ID}, {dcst.COLUMN_MINER_HOTKEY}, {dcst.COLUMN_VALIDATOR_HOTKEY}, {dcst.COLUMN_TASK}, 
-            {dcst.COLUMN_DECLARED_VOLUME}, {dcst.COLUMN_CONSUMED_VOLUME}, {dcst.COLUMN_TOTAL_REQUESTS_MADE}, 
+            {dcst.COLUMN_NODE_ID}, {dcst.COLUMN_MINER_HOTKEY}, {dcst.COLUMN_VALIDATOR_HOTKEY}, {dcst.COLUMN_TASK},
+            {dcst.COLUMN_DECLARED_VOLUME}, {dcst.COLUMN_CONSUMED_VOLUME}, {dcst.COLUMN_TOTAL_REQUESTS_MADE},
             {dcst.COLUMN_REQUESTS_429}, {dcst.COLUMN_REQUESTS_500}, {dcst.COLUMN_PERIOD_SCORE}
         ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
         """,
@@ -47,7 +47,7 @@ async def insert_uid_record(connection: Connection, data: List[tuple]) -> None:
 async def insert_task(connection: Connection, task_name: str, checking_data: str, hotkey: str) -> None:
     await connection.executemany(
         f"""
-        INSERT INTO {dcst.TABLE_TASKS} ({dcst.COLUMN_TASK_NAME}, {dcst.COLUMN_CHECKING_DATA}, {dcst.COLUMN_MINER_HOTKEY}) 
+        INSERT INTO {dcst.TABLE_TASKS} ({dcst.COLUMN_TASK_NAME}, {dcst.COLUMN_CHECKING_DATA}, {dcst.COLUMN_MINER_HOTKEY})
         VALUES ($1, $2, $3)
         """,
         ((task_name, checking_data, hotkey),),
@@ -123,7 +123,7 @@ async def delete_task_data_older_than_date(connection: Connection, date: datetim
 async def delete_oldest_rows_from_tasks(connection: Connection, limit: int = 10) -> None:
     await connection.execute(
         f"""
-        DELETE FROM {dcst.TABLE_TASKS} 
+        DELETE FROM {dcst.TABLE_TASKS}
         WHERE {dcst.COLUMN_ID} IN (
             SELECT {dcst.COLUMN_ID} FROM {dcst.TABLE_TASKS} ORDER BY {dcst.COLUMN_CREATED_AT} ASC LIMIT $1
         )
@@ -229,8 +229,6 @@ async def select_recent_reward_data_for_a_task(
         params = (task, date)
 
     query += f" ORDER BY {dcst.COLUMN_CREATED_AT} DESC"
-
-
 
     return await connection.fetch(
         query,

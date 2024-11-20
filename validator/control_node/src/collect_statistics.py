@@ -96,5 +96,6 @@ async def main():
         f"\nLast updated value: {last_updated_value}"
     )
 
+
 if __name__ == "__main__":
     asyncio.run(main())

@@ -18,8 +18,10 @@ COUNTER_SYNTHETIC_QUERIES = metrics.get_meter(__name__).create_counter(
     description="Number of synthetic queries added to redis list QUERY_QUEUE_KEY",
 )
 
+
 def construct_synthetic_query_message(task: str) -> dict:
     return asdict(rdc.QueryQueueMessage(query_payload={}, query_type=gcst.SYNTHETIC, task=task, job_id=uuid.uuid4().hex))
+
 
 # Consistently about 1ms
 async def load_contender(psql_db: PSQLDB, contender_id: str) -> Contender | None:

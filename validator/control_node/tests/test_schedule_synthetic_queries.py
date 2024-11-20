@@ -17,9 +17,7 @@ class TestSyntheticSchedulerFunctional(unittest.IsolatedAsyncioTestCase):
         self.psql_db = PSQLDB()
         await self.psql_db.connect()
 
-        self.config = Config(
-            psql_db=self.psql_db, redis_db=self.redis_db, run_once=False, test_env=True, specific_contender=None
-        )
+        self.config = Config(psql_db=self.psql_db, redis_db=self.redis_db, run_once=False, test_env=True, specific_contender=None)
 
         await self.redis_db.flushdb()
 

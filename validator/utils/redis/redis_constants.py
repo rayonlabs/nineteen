@@ -1,6 +1,3 @@
-from typing import Optional
-import uuid
-from redis.asyncio import Redis
 
 # REDIS KEYS
 SYNTHETIC_DATA_KEY = "SYNTHETIC_DATA"

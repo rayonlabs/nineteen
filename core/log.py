@@ -4,7 +4,7 @@ import sys
 from colorama import Fore, Back, Style, init
 
 init(autoreset=True)
- 
+
 
 class ColoredFormatter(logging.Formatter):
     COLORS = {

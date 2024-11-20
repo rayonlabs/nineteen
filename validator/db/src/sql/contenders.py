@@ -7,7 +7,6 @@ from validator.db.src.database import PSQLDB
 from validator.models import Contender, PeriodScore, calculate_period_score
 from validator.utils.database import database_constants as dcst
 from validator.utils.generic import generic_constants as gcst
-from validator.utils.database import database_constants as dcst
 
 logger = get_logger(__name__)
 
@@ -102,21 +101,21 @@ async def migrate_contenders_to_contender_history(connection: Connection) -> Non
     await connection.execute(f"DELETE FROM {dcst.CONTENDERS_TABLE}")
 
 
-async def get_contenders_for_synthetic_task(connection: Connection, task: str, top_x: int = 5 )-> list[Contender]:
+async def get_contenders_for_synthetic_task(connection: Connection, task: str, top_x: int = 5) -> list[Contender]:
     rows = await connection.fetch(
         f"""
         WITH ranked_contenders AS (
-            SELECT 
+            SELECT
                 c.{dcst.CONTENDER_ID}, c.{dcst.NODE_HOTKEY}, c.{dcst.NODE_ID}, c.{dcst.TASK},
                 c.{dcst.RAW_CAPACITY}, c.{dcst.CAPACITY_TO_SCORE}, c.{dcst.CONSUMED_CAPACITY},
-                c.{dcst.TOTAL_REQUESTS_MADE}, c.{dcst.REQUESTS_429}, c.{dcst.REQUESTS_500}, 
+                c.{dcst.TOTAL_REQUESTS_MADE}, c.{dcst.REQUESTS_429}, c.{dcst.REQUESTS_500},
                 c.{dcst.CAPACITY}, c.{dcst.PERIOD_SCORE}, c.{dcst.NETUID},
                 ROW_NUMBER() OVER (
                     ORDER BY c.{dcst.TOTAL_REQUESTS_MADE} ASC
                 ) AS rank
             FROM {dcst.CONTENDERS_TABLE} c
             JOIN {dcst.NODES_TABLE} n ON c.{dcst.NODE_ID} = n.{dcst.NODE_ID} AND c.{dcst.NETUID} = n.{dcst.NETUID}
-            WHERE c.{dcst.TASK} = $1 
+            WHERE c.{dcst.TASK} = $1
             AND  c.{dcst.CONSUMED_CAPACITY} < c.{dcst.CAPACITY}
             AND n.{dcst.SYMMETRIC_KEY_UUID} IS NOT NULL
         )
@@ -133,15 +132,15 @@ async def get_contenders_for_synthetic_task(connection: Connection, task: str, t
     if not rows or len(rows) < top_x:
         additional_rows = await connection.fetch(
             f"""
-            SELECT 
+            SELECT
                 c.{dcst.CONTENDER_ID}, c.{dcst.NODE_HOTKEY}, c.{dcst.NODE_ID}, c.{dcst.TASK},
                 c.{dcst.RAW_CAPACITY}, c.{dcst.CAPACITY_TO_SCORE}, c.{dcst.CONSUMED_CAPACITY},
-                c.{dcst.TOTAL_REQUESTS_MADE}, c.{dcst.REQUESTS_429}, c.{dcst.REQUESTS_500}, 
+                c.{dcst.TOTAL_REQUESTS_MADE}, c.{dcst.REQUESTS_429}, c.{dcst.REQUESTS_500},
                 c.{dcst.CAPACITY}, c.{dcst.PERIOD_SCORE}, c.{dcst.NETUID}
             FROM {dcst.CONTENDERS_TABLE} c
             JOIN {dcst.NODES_TABLE} n ON c.{dcst.NODE_ID} = n.{dcst.NODE_ID} AND c.{dcst.NETUID} = n.{dcst.NETUID}
-            WHERE c.{dcst.TASK} = $1 
-            AND c.{dcst.CAPACITY} > 0 
+            WHERE c.{dcst.TASK} = $1
+            AND c.{dcst.CAPACITY} > 0
             AND n.{dcst.SYMMETRIC_KEY_UUID} IS NOT NULL
             ORDER BY c.{dcst.TOTAL_REQUESTS_MADE} ASC
             LIMIT $2
@@ -154,17 +153,20 @@ async def get_contenders_for_synthetic_task(connection: Connection, task: str, t
         rows = rows + additional_rows if rows else additional_rows
 
     return [Contender(**row) for row in rows]
-    
+
+
 import math
+
+
 async def get_contenders_for_organic_task(connection: Connection, task: str, top_x: int = 5) -> list[Contender]:
     rows = await connection.fetch(
         f"""
         WITH error_stats AS (
-            SELECT 
+            SELECT
                 percentile_cont(0.9) WITHIN GROUP (
-                    ORDER BY 
-                        CASE 
-                            WHEN {dcst.TOTAL_REQUESTS_MADE} = 0 THEN NULL 
+                    ORDER BY
+                        CASE
+                            WHEN {dcst.TOTAL_REQUESTS_MADE} = 0 THEN NULL
                             ELSE CAST({dcst.REQUESTS_500} + {dcst.REQUESTS_429} AS FLOAT) / {dcst.TOTAL_REQUESTS_MADE}
                         END
                 ) as error_rate_threshold
@@ -175,18 +177,18 @@ async def get_contenders_for_organic_task(connection: Connection, task: str, top
             SELECT DISTINCT ON (c.{dcst.NODE_HOTKEY}, c.{dcst.TASK})
                 c.{dcst.CONTENDER_ID}, c.{dcst.NODE_HOTKEY}, c.{dcst.NODE_ID}, c.{dcst.TASK},
                 c.{dcst.RAW_CAPACITY}, c.{dcst.CAPACITY_TO_SCORE}, c.{dcst.CONSUMED_CAPACITY},
-                c.{dcst.TOTAL_REQUESTS_MADE}, c.{dcst.REQUESTS_429}, c.{dcst.REQUESTS_500}, 
+                c.{dcst.TOTAL_REQUESTS_MADE}, c.{dcst.REQUESTS_429}, c.{dcst.REQUESTS_500},
                 c.{dcst.CAPACITY}, c.{dcst.PERIOD_SCORE}, c.{dcst.NETUID}, s.{dcst.COLUMN_NORMALISED_NET_SCORE}
             FROM {dcst.CONTENDERS_TABLE} c
             JOIN {dcst.NODES_TABLE} n ON c.{dcst.NODE_ID} = n.{dcst.NODE_ID} AND c.{dcst.NETUID} = n.{dcst.NETUID}
-            JOIN {dcst.CONTENDERS_WEIGHTS_STATS_TABLE} s ON c.{dcst.NODE_HOTKEY} = s.{dcst.NODE_HOTKEY} 
+            JOIN {dcst.CONTENDERS_WEIGHTS_STATS_TABLE} s ON c.{dcst.NODE_HOTKEY} = s.{dcst.NODE_HOTKEY}
                 AND c.{dcst.TASK} = s.{dcst.TASK}
             CROSS JOIN error_stats
-            WHERE c.{dcst.TASK} = $1 
-            AND c.{dcst.CAPACITY} > c.{dcst.CONSUMED_CAPACITY} 
+            WHERE c.{dcst.TASK} = $1
+            AND c.{dcst.CAPACITY} > c.{dcst.CONSUMED_CAPACITY}
             AND n.{dcst.SYMMETRIC_KEY_UUID} IS NOT NULL
             AND (
-                c.{dcst.TOTAL_REQUESTS_MADE} = 0 
+                c.{dcst.TOTAL_REQUESTS_MADE} = 0
                 OR CAST(c.{dcst.REQUESTS_500} + c.{dcst.REQUESTS_429} AS FLOAT) / c.{dcst.TOTAL_REQUESTS_MADE} <= error_rate_threshold
             )
             ORDER BY c.{dcst.NODE_HOTKEY}, c.{dcst.TASK}, s.{dcst.COLUMN_NORMALISED_NET_SCORE} DESC, s.{dcst.CREATED_AT} DESC
@@ -197,21 +199,22 @@ async def get_contenders_for_organic_task(connection: Connection, task: str, top
         task,
     )
 
-    contenders = [Contender(**{k:v for k,v in row.items() if k != dcst.COLUMN_NORMALISED_NET_SCORE}) for row in rows]
+    contenders = [Contender(**{k: v for k, v in row.items() if k != dcst.COLUMN_NORMALISED_NET_SCORE}) for row in rows]
     scores = {c.node_id: row[dcst.COLUMN_NORMALISED_NET_SCORE] for c, row in zip(contenders, rows)}
-    
+
     if len(contenders) <= top_x:
         return await get_contenders_for_synthetic_task(connection, task, top_x)
 
     # load factor
     load_factors = {c.node_id: (c.consumed_capacity / c.capacity if c.capacity > 0 else 0) for c in contenders}
-    
+
     # calculate a ranking based on scores & load factors
     max_score = max(scores.values(), default=0)
     rankings = {
         c.node_id: (
             # high net_score dominates when capacity available
-            scores[c.node_id] / max_score if load_factors[c.node_id] < 0.7
+            scores[c.node_id] / max_score
+            if load_factors[c.node_id] < 0.7
             # transition zone - mix of score and capacity
             else (scores[c.node_id] / max_score * 0.3 + (1 - load_factors[c.node_id]) * 0.7)
             if load_factors[c.node_id] < 0.9
@@ -225,13 +228,15 @@ async def get_contenders_for_organic_task(connection: Connection, task: str, top
     eligible_contenders = sorted(contenders, key=lambda c: rankings[c.node_id], reverse=True)[:cutoff]
     # penalizing for high load
     request_penalties = {c.node_id: math.exp(-0.1 * c.total_requests_made) for c in eligible_contenders}
-    
+
     weights = [rankings[c.node_id] * request_penalties[c.node_id] for c in eligible_contenders]
     weight_sum = sum(weights)
-    normalized_weights = [w/weight_sum for w in weights] if weight_sum > 0 else [1.0/len(eligible_contenders)] * len(eligible_contenders)
+    normalized_weights = (
+        [w / weight_sum for w in weights] if weight_sum > 0 else [1.0 / len(eligible_contenders)] * len(eligible_contenders)
+    )
 
     seen = set()
-    selected = []    
+    selected = []
     for c in random.choices(eligible_contenders, weights=normalized_weights, k=top_x * 2):
         if c.node_hotkey not in seen and len(selected) < top_x:
             seen.add(c.node_hotkey)
@@ -249,15 +254,16 @@ async def get_contenders_for_organic_task(connection: Connection, task: str, top
     return selected
 
 
-async def get_contenders_for_task(connection: Connection, task: str, top_x: int = 5, 
-                                  query_type: str = gcst.SYNTHETIC) -> list[Contender]:
+async def get_contenders_for_task(
+    connection: Connection, task: str, top_x: int = 5, query_type: str = gcst.SYNTHETIC
+) -> list[Contender]:
     if query_type == gcst.SYNTHETIC:
         return await get_contenders_for_synthetic_task(connection, task, top_x)
     elif query_type == gcst.ORGANIC:
         return await get_contenders_for_organic_task(connection, task, top_x)
     else:
         raise ValueError(f"No contender selection strategy have been implemented for query type : {query_type}")
-    
+
 
 async def update_contender_capacities(psql_db: PSQLDB, contender: Contender, capacitity_consumed: float) -> None:
     async with await psql_db.connection() as connection:
@@ -282,6 +288,7 @@ async def update_total_requests_made(psql_db: PSQLDB, contender: Contender) -> N
             """,
             contender.id,
         )
+
 
 async def update_contender_429_count(psql_db: PSQLDB, contender: Contender) -> None:
     async with await psql_db.connection() as connection:
@@ -310,12 +317,12 @@ async def update_contender_500_count(psql_db: PSQLDB, contender: Contender) -> N
 async def fetch_contender(connection: Connection, contender_id: str) -> Contender | None:
     row = await connection.fetchrow(
         f"""
-        SELECT 
+        SELECT
             {dcst.CONTENDER_ID}, {dcst.NODE_HOTKEY}, {dcst.NODE_ID},{dcst.TASK},
             {dcst.CAPACITY}, {dcst.RAW_CAPACITY}, {dcst.CAPACITY_TO_SCORE},
-             {dcst.CONSUMED_CAPACITY}, {dcst.TOTAL_REQUESTS_MADE}, {dcst.REQUESTS_429}, {dcst.REQUESTS_500}, 
+             {dcst.CONSUMED_CAPACITY}, {dcst.TOTAL_REQUESTS_MADE}, {dcst.REQUESTS_429}, {dcst.REQUESTS_500},
             {dcst.PERIOD_SCORE}
-        FROM {dcst.CONTENDERS_TABLE} 
+        FROM {dcst.CONTENDERS_TABLE}
         WHERE {dcst.CONTENDER_ID} = $1
         """,
         contender_id,
@@ -327,10 +334,10 @@ async def fetch_contender(connection: Connection, contender_id: str) -> Contende
 
 async def fetch_all_contenders(connection: Connection, netuid: int | None = None) -> list[Contender]:
     base_query = f"""
-        SELECT 
-            {dcst.CONTENDER_ID}, {dcst.NODE_HOTKEY}, {dcst.NODE_ID}, {dcst.NETUID}, {dcst.TASK}, 
-            {dcst.RAW_CAPACITY}, {dcst.CAPACITY_TO_SCORE}, {dcst.CONSUMED_CAPACITY}, 
-            {dcst.TOTAL_REQUESTS_MADE}, {dcst.REQUESTS_429}, {dcst.REQUESTS_500}, 
+        SELECT
+            {dcst.CONTENDER_ID}, {dcst.NODE_HOTKEY}, {dcst.NODE_ID}, {dcst.NETUID}, {dcst.TASK},
+            {dcst.RAW_CAPACITY}, {dcst.CAPACITY_TO_SCORE}, {dcst.CONSUMED_CAPACITY},
+            {dcst.TOTAL_REQUESTS_MADE}, {dcst.REQUESTS_429}, {dcst.REQUESTS_500},
             {dcst.CAPACITY}, {dcst.PERIOD_SCORE}
         FROM {dcst.CONTENDERS_TABLE}
         """
@@ -364,7 +371,7 @@ async def fetch_hotkey_scores_for_task(connection: Connection, task: str, node_h
 async def update_contenders_period_scores(connection: Connection, netuid: int) -> None:
     rows = await connection.fetch(
         f"""
-        SELECT 
+        SELECT
             {dcst.CONTENDER_ID},
             {dcst.TOTAL_REQUESTS_MADE},
             {dcst.CAPACITY},
@@ -412,8 +419,8 @@ async def get_and_decrement_synthetic_request_count(connection: Connection, cont
     result = await connection.fetchrow(
         f"""
         UPDATE {dcst.CONTENDERS_TABLE}
-        SET {dcst.SYNTHETIC_REQUESTS_STILL_TO_MAKE} = 
-            CASE 
+        SET {dcst.SYNTHETIC_REQUESTS_STILL_TO_MAKE} =
+            CASE
                 WHEN {dcst.CONSUMED_CAPACITY} > {dcst.CAPACITY} THEN 0
                 ELSE GREATEST({dcst.SYNTHETIC_REQUESTS_STILL_TO_MAKE} - 1, 0)
             END

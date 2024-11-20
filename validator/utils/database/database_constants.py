@@ -29,7 +29,6 @@ COST = "cost"
 CREATED_AT = "created_at"
 
 
-
 # Hotkey info table
 HOTKEY = "hotkey"
 NODE_IP = "NODE_ip"
@@ -159,7 +158,7 @@ COLUMN_NORMALISED_NET_SCORE = "normalised_net_score"
 
 
 # psql pool params
-PSQL_MIN_POOL_SIZE = 20  
-PSQL_MAX_POOL_SIZE = 100  
-PSQL_MIN_INACTIVE_CNX_LIFETIME = 300.0  
-POOL_TIMEOUT = 30.0 
+PSQL_MIN_POOL_SIZE = 20
+PSQL_MAX_POOL_SIZE = 100
+PSQL_MIN_INACTIVE_CNX_LIFETIME = 300.0
+POOL_TIMEOUT = 30.0

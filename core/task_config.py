@@ -19,12 +19,13 @@ AVATAR = "avatar"
 DREAMSHAPER_TEXT_TO_IMAGE = "dreamshaper-text-to-image"
 DREAMSHAPER_IMAGE_TO_IMAGE = "dreamshaper-image-to-image"
 
+
 def task_configs_factory() -> dict[str, cmodels.FullTaskConfig]:
     return {
         CHAT_LLAMA_3_2_3B: cmodels.FullTaskConfig(
             task=CHAT_LLAMA_3_2_3B,
             task_type=cmodels.TaskType.TEXT,
-            max_capacity=120_000, 
+            max_capacity=120_000,
             orchestrator_server_config=cmodels.OrchestratorServerConfig(
                 server_needed=cmodels.ServerType.LLM,
                 load_model_config={
@@ -108,7 +109,7 @@ def task_configs_factory() -> dict[str, cmodels.FullTaskConfig]:
             max_capacity=800,
             orchestrator_server_config=cmodels.OrchestratorServerConfig(
                 server_needed=cmodels.ServerType.IMAGE,
-                load_model_config = {},
+                load_model_config={},
                 checking_function="check_image_result",
                 endpoint=cmodels.Endpoints.text_to_image.value,
                 task=PROTEUS_TEXT_TO_IMAGE,
@@ -131,7 +132,7 @@ def task_configs_factory() -> dict[str, cmodels.FullTaskConfig]:
             max_capacity=800,
             orchestrator_server_config=cmodels.OrchestratorServerConfig(
                 server_needed=cmodels.ServerType.IMAGE,
-                load_model_config= {},
+                load_model_config={},
                 checking_function="check_image_result",
                 endpoint=cmodels.Endpoints.image_to_image.value,
                 task=PROTEUS_IMAGE_TO_IMAGE,

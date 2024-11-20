@@ -21,7 +21,7 @@ async def capacity(
     logger.info(f"Received task configs: {configs} from validator {validator_hotkey}. I should do something with this info...")
 
     my_miner_type = os.getenv("MINER_TYPE")
-    
+
     metagraph = config.metagraph
     validator_node = metagraph.nodes.get(validator_hotkey)
     total_stake = sum(node.stake for node in metagraph.nodes.values())
@@ -38,7 +38,7 @@ async def capacity(
 
         if my_miner_type != task_type:
             continue
-        
+
         # TO help dev by just returning 10% to all  validators
         if os.getenv("ENV", "prod").lower() == "dev":
             capacities[task] = max_capacity * 0.1

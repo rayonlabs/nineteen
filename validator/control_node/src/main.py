@@ -2,8 +2,6 @@ from dotenv import load_dotenv
 import os
 
 
-
-
 load_dotenv(os.getenv("ENV_FILE", ".vali.env"))
 
 import asyncio
