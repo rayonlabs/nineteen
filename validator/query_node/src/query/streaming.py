@@ -1,5 +1,6 @@
 import json
 import time
+import traceback
 from typing import AsyncGenerator
 
 import httpx
@@ -99,7 +100,9 @@ async def consume_generator(
 
     except (StopAsyncIteration, httpx.ConnectError, httpx.ReadError, httpx.HTTPError, httpx.ReadTimeout, Exception) as e:
         logger.error(f"Error when querying node: {node.node_id} for task: {task}.")
-        logger.exception(e)  # drop the stacktrace while we're here
+        
+        # drop the stacktrace while we're here (otel doesn't like logger.exception)
+        logger.error("\n".join(traceback.format_exception(e)))
 
         query_result = construct_500_query_result(node, task)
         await utils.adjust_contender_from_result(config, query_result, contender, synthetic_query, payload=payload)
