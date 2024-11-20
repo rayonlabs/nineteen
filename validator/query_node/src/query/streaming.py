@@ -187,6 +187,7 @@ async def consume_generator(
                 GAUGE_SYNTHETIC_TOKENS_PER_SEC.set(tokens / response_time)
             else:
                 GAUGE_ORGANIC_TOKENS_PER_SEC.set(tokens / response_time)
+            logger.debug(f"Success: {success}; Node: {node.node_id}; Task: {task};  Synthetic: {synthetic_query}; tokens per second: {tokens / response_time}")
     except Exception as e:
         logger.error(f"Unexpected exception when querying node: {node.node_id} for task: {task}. Payload: {payload}. Error: {e}")
         query_result = construct_500_query_result(node, task)
