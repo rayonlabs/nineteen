@@ -8,7 +8,7 @@ Welcome to SN19 Validating 🔥
 - [Proxy server setup](#proxy-server-setup)
 - [Orchestrator setup](#orchestrator-setup)
 - [Managing organic access](#managing-organic-access)
-- [Recommended compute](./recommended-compute)
+- [Recommended compute](./recommended-compute.md)
 
 See [helpful commands](./helpful-commands.md) for more information on the docker commands
 
