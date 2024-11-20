@@ -85,3 +85,4 @@ tasks:
   redis:
     cmds:
       - docker compose --env-file .vali.env --profile entry_node_profile exec -it redis redis-cli
+ 
