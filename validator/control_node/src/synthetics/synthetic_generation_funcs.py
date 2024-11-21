@@ -1,8 +1,8 @@
 import asyncio
 import random
+from time import time
 import sys
 from typing import Any
-
 from core.models import utility_models
 from validator.utils.synthetic import synthetic_constants as scst
 from core import task_config as tcfg
@@ -14,12 +14,93 @@ import markovify
 import datasets
 import diskcache
 from functools import lru_cache
+import traceback
 from fiber.logging_utils import get_logger
 from validator.utils.synthetic import synthetic_utils as sutils
 import binascii
 
 logger = get_logger(__name__)
 
+
+async def generate_chat_synthetic(model: str, task_config: Any, word_to_token: float = 4) -> payload_models.ChatPayload:
+    start = time()
+    synth_corpus = sutils.get_synth_corpus()
+    
+    try:
+        total_n_words = sutils.get_random_int_from_dist(size=1, max_value=task_config.orchestrator_server_config.load_model_config['max_model_len']//word_to_token)
+        if total_n_words.size == 0:
+            total_n_words = 1000 
+        else:
+            total_n_words = int(total_n_words[0])
+        total_n_words = total_n_words if total_n_words > 0 else 20
+        logger.debug(f"generating prompt with {total_n_words} words for synth")
+
+        # total number of alternating assistant/user messages
+        total_messages = random.randint(2, 10)
+        n_words_per_message = total_n_words // total_messages
+
+        messages = [
+            utility_models.Message(content=await sutils.generate_text(synth_corpus, n_words_per_message), role=utility_models.Role.system),
+            utility_models.Message(content=await sutils.generate_text(synth_corpus, n_words_per_message), role=utility_models.Role.user)
+        ]
+        alternate_roles = [utility_models.Role.assistant, utility_models.Role.user]
+        messages += [
+            utility_models.Message(content=await sutils.generate_text(synth_corpus, n_words_per_message), role=alternate_roles[i % 2])
+            for i in range(total_messages - 2)
+        ]
+        # make sure we end with a user message
+        if messages[-1].role != utility_models.Role.user:
+            messages.append(utility_models.Message(
+                content=await sutils.generate_text(synth_corpus, 10),
+                role=utility_models.Role.user
+            ))
+
+        payload = payload_models.ChatPayload(
+            messages=messages,
+            temperature=round(random.random(), 1),
+            max_tokens=random.randint(50, 2000),
+            seed=random.randint(1, scst.MAX_SEED),
+            model=model,
+            top_p=1,
+        )
+
+        logger.debug(f"Generated {total_n_words} words chat synth in {round(time()-start, 3)}s")
+        logger.debug(f"prompt : {messages}")
+        return payload
+    
+    except Exception as e:
+
+        logger.error("Error in new version of generate_chat_synthetic: %s", e)
+        logger.error(traceback.format_exc())
+        logger.error("Rolling back to the old method")
+        return await generate_chat_synthetic_markov(model)
+
+
+async def generate_chat_synthetic_markov(model: str) -> payload_models.ChatPayload:
+    user_content = await _get_markov_sentence(max_words=random.randint(50, 2000))
+    messages = [utility_models.Message(content=user_content, role=utility_models.Role.user)]
+
+    if random.random() < 0.1:
+        messages.append(
+            utility_models.Message(
+                content=await _get_markov_sentence(max_words=140),
+                role=utility_models.Role.assistant,
+            )
+        )
+        messages.append(
+            utility_models.Message(
+                content=await _get_markov_sentence(max_words=140),
+                role=utility_models.Role.user,
+            )
+        )
+    return payload_models.ChatPayload(
+        messages=messages,
+        temperature=round(random.random(), 1),
+        max_tokens=1024,
+        seed=random.randint(1, scst.MAX_SEED),
+        model=model,
+        top_p=1,
+    )
 
 # NOTE: any danger here of massively growing cache?
 @lru_cache(maxsize=1)
@@ -121,33 +202,6 @@ def alter_image(
 
     new_image = pil_to_base64(pil_image)
     return new_image
-
-
-async def generate_chat_synthetic(model: str) -> payload_models.ChatPayload:
-    user_content = await _get_markov_sentence(max_words=140)
-    messages = [utility_models.Message(content=user_content, role=utility_models.Role.user)]
-
-    if random.random() < 0.1:
-        messages.append(
-            utility_models.Message(
-                content=await _get_markov_sentence(max_words=140),
-                role=utility_models.Role.assistant,
-            )
-        )
-        messages.append(
-            utility_models.Message(
-                content=await _get_markov_sentence(max_words=140),
-                role=utility_models.Role.user,
-            )
-        )
-    return payload_models.ChatPayload(
-        messages=messages,
-        temperature=round(random.random(), 1),
-        max_tokens=1024,
-        seed=random.randint(1, scst.MAX_SEED),
-        model=model,
-        top_p=1,
-    )
 
 
 async def generate_text_to_image_synthetic(
@@ -260,12 +314,12 @@ async def generate_avatar_synthetic() -> payload_models.AvatarPayload:
         init_image=init_image,
     )
 
-
 async def generate_synthetic_data(task: str) -> Any:
     """
     Gets task config and dynamically calls the synthetic generation function
     Not super clean, but it works
     """
+
     task_config = tcfg.get_enabled_task_config(task)
     if task_config is None:
         return
@@ -280,5 +334,8 @@ async def generate_synthetic_data(task: str) -> Any:
 
     func = getattr(sys.modules[__name__], generative_function_name)
     kwargs = task_config.synthetic_generation_config.kwargs
+
+    if generative_function_name == scst.CHAT_SYNTH_GEN_FUNC_NAME:
+        kwargs["task_config"] = task_config
 
     return await func(**kwargs)
