@@ -25,7 +25,7 @@
       "title": "Contender Performance Metrics",
       "datasource": {
         "type": "prometheus",
-        "uid": "your-prometheus-uid"
+        "uid": "PBFA97CFB590B2093"
       },
       "targets": [
         {
