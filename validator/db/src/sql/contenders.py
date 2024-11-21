@@ -173,6 +173,7 @@ async def get_contenders_for_organic_task(psql_db: PSQLDB, task: str, top_x: int
                     AND c.{dcst.TASK} = s.{dcst.TASK}
                 WHERE c.{dcst.TASK} = $1 
                 AND c.{dcst.CONSUMED_CAPACITY} < c.{dcst.CAPACITY}  
+                AND c.{dcst.CONSECUTIVE_FAILS} < 3
                 AND n.{dcst.SYMMETRIC_KEY_UUID} IS NOT NULL
                 ORDER BY c.{dcst.NODE_HOTKEY}, c.{dcst.TASK}, s.{dcst.COLUMN_NORMALISED_NET_SCORE} DESC, s.{dcst.CREATED_AT} DESC
             )
@@ -254,6 +255,26 @@ async def update_contender_429_count(psql_db: PSQLDB, contender: Contender) -> N
             contender.id,
         )
 
+async def update_contender_consecutive_fails(psql_db: PSQLDB, contender: Contender, reset: bool = False) -> None:
+    if reset:
+        query = \
+            f"""
+            UPDATE {dcst.CONTENDERS_TABLE}
+            SET {dcst.CONSECUTIVE_FAILS} = 0
+            WHERE {dcst.CONTENDER_ID} = $1
+            """
+    else:
+        query = \
+            f"""
+            UPDATE {dcst.CONTENDERS_TABLE}
+            SET {dcst.CONSECUTIVE_FAILS} = {dcst.CONSECUTIVE_FAILS} + 1
+            WHERE {dcst.CONTENDER_ID} = $1
+            """
+    async with await psql_db.connection() as connection:
+        await connection.execute(
+            query,
+            contender.id,
+        )
 
 async def update_contender_500_count(psql_db: PSQLDB, contender: Contender) -> None:
     async with await psql_db.connection() as connection:
