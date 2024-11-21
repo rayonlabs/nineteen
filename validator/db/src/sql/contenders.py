@@ -158,6 +158,45 @@ async def get_contenders_for_synthetic_task(psql_db: PSQLDB, task: str, top_x: i
     
 
 async def get_contenders_for_organic_task(psql_db: PSQLDB, task: str, top_x: int = 5) -> list[Contender]:
+
+    def create_weight_distribution(total_length, top_percentage=0.25):
+        top_count = max(1, int(top_percentage * total_length))
+        remaining_count = total_length - top_count
+        
+        weights = []
+        for i in range(top_count):
+            weight = gcst.ORGANIC_TOP_POURC_FACTOR #top_percentage% of entries get same weight to favor top contenders uniformly keeping heavy traffic in mind 
+            weights.append(weight)
+        
+        for i in range(remaining_count):
+            weight = gcst.ORGANIC_TOP_POURC_FACTOR  ** (1 - (i + 1)/remaining_count)
+            weights.append(weight)
+        
+        return weights
+    
+    def weighted_order_preserving_selection(contenders, top_x):
+        if len(contenders) <= top_x:
+            return contenders
+        
+        weights = create_weight_distribution(len(contenders))
+        
+        available_entries = [(idx, weights[idx]) for idx in range(len(contenders))]
+        selected_indices = []
+        
+        total_weight = sum(weight for _, weight in available_entries)
+        probabilities = [weight / total_weight for _, weight in available_entries]
+        
+        selected_entry_indices = random.choices(
+            range(len(available_entries)), 
+            weights=probabilities, 
+            k=min(top_x, len(available_entries))
+        )
+        
+        # Sort indices to preserve original order, as we query `contenders_to_query` in the same order, in order to query the best shortlisted contender first 
+        selected_indices = sorted(available_entries[idx][0] for idx in selected_entry_indices)
+        
+        return [contenders[idx] for idx in selected_indices]
+
     async with await psql_db.connection() as connection:
         rows = await connection.fetch(
             f"""
@@ -168,13 +207,11 @@ async def get_contenders_for_organic_task(psql_db: PSQLDB, task: str, top_x: int
                     c.{dcst.TOTAL_REQUESTS_MADE}, c.{dcst.REQUESTS_429}, c.{dcst.REQUESTS_500}, 
                     c.{dcst.CAPACITY}, c.{dcst.PERIOD_SCORE}, c.{dcst.NETUID}
                 FROM {dcst.CONTENDERS_TABLE} c
-                JOIN {dcst.NODES_TABLE} n ON c.{dcst.NODE_ID} = n.{dcst.NODE_ID} AND c.{dcst.NETUID} = n.{dcst.NETUID}
                 JOIN {dcst.CONTENDERS_WEIGHTS_STATS_TABLE} s ON c.{dcst.NODE_HOTKEY} = s.{dcst.NODE_HOTKEY} 
                     AND c.{dcst.TASK} = s.{dcst.TASK}
                 WHERE c.{dcst.TASK} = $1 
-                AND c.{dcst.CONSUMED_CAPACITY} < c.{dcst.CAPACITY}  
-                AND n.{dcst.SYMMETRIC_KEY_UUID} IS NOT NULL
-                ORDER BY c.{dcst.NODE_HOTKEY}, c.{dcst.TASK}, s.{dcst.COLUMN_NORMALISED_NET_SCORE} DESC, s.{dcst.CREATED_AT} DESC
+                AND c.{dcst.CONSUMED_CAPACITY} < c.{dcst.CAPACITY}
+                ORDER BY c.{dcst.NODE_HOTKEY}, c.{dcst.TASK}, s.{dcst.COLUMN_NORMALISED_NET_SCORE} DESC, s.{dcst.COLUMN_METRIC_BONUS} DESC, s.{dcst.CREATED_AT} DESC
             )
             SELECT *
             FROM ranked_contenders
@@ -187,18 +224,8 @@ async def get_contenders_for_organic_task(psql_db: PSQLDB, task: str, top_x: int
     
     if contenders:
         if len(contenders) > top_x:
-            top_x_percent = contenders[:max(1, int(gcst.ORGANIC_SELECT_CONTENDER_LOW_POURC * len(contenders)))]  # top 75%
-            best_top_x_percent = top_x_percent[:max(1, int(gcst.ORGANIC_TOP_POURC * len(top_x_percent)))]  # top 25% within the top 75%
-            remaining_top_x_percent = top_x_percent[len(best_top_x_percent):]
-
-            best_top_x_weights = [gcst.ORGANIC_TOP_POURC_FACTOR / (len(top_x_percent) + 1) for _ in range(len(best_top_x_percent))]  # higher weight for top 25%
-            remaining_top_x_weights = [1 / (len(top_x_percent) + 1) for _ in range(len(remaining_top_x_percent))]
-            
-            combined_contenders = best_top_x_percent + remaining_top_x_percent
-            combined_weights = best_top_x_weights + remaining_top_x_weights
-            
-            selected_contenders = random.choices(combined_contenders, weights=combined_weights, k=min(top_x, len(combined_contenders)))
-            logger.debug(f"Selected contenders for task {task} : {selected_contenders}")
+            selected_contenders = weighted_order_preserving_selection(contenders, top_x)
+            logger.debug(f"Selected contenders for task {task}: {selected_contenders}")
             return selected_contenders
         else:
             logger.debug(f"Number of contenders ({len(contenders)}) < top_x ({top_x}). Returning all contenders")
