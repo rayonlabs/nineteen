@@ -17,7 +17,7 @@ from fiber.validator import handshake, client
 import httpx
 from datetime import datetime, timedelta
 from cryptography.fernet import Fernet
-from tenacity import retry, stop_after_attempt, retry_if_exception_type, wait_exponential
+from tenacity import retry, stop_after_attempt, retry_if_exception_type, wait_fixed
 
 logger = get_logger(__name__)
 
@@ -54,7 +54,7 @@ async def is_recent_update(connection, netuid: int) -> bool:
 
 
 async def fetch_nodes_from_substrate(config: Config) -> list[Node]:
-    # NOTE: Will this cause issues if this method closes the conenction
+    # NOTE: Will this cause issues if this method closes the connection
     # on substrate interface, but we use the same substrate interface object elsewhere?
     return await asyncio.to_thread(fetch_nodes.get_nodes_for_netuid, config.substrate, config.netuid)
 
@@ -71,9 +71,9 @@ async def update_our_validator_node(config: Config):
 
 
 @retry(
-    stop=stop_after_attempt(3),
+    stop=stop_after_attempt(2),
     retry=retry_if_exception_type((httpx.HTTPStatusError, httpx.RequestError, httpx.ConnectError)),
-    wait=wait_exponential(multiplier=1, min=2, max=5)
+    wait=wait_fixed(1)
 )
 async def _try_handshake(
     async_client: httpx.AsyncClient,
@@ -104,7 +104,7 @@ async def _handshake(config: Config, node: Node, async_client: httpx.AsyncClient
         if isinstance(e, (httpx.HTTPStatusError, httpx.RequestError, httpx.ConnectError)):
             if hasattr(e, "response"):
                 logger.debug(f"Response content: {e.response.text}")
-        
+
         return node_copy
 
     fernet = Fernet(symmetric_key)
