@@ -22,29 +22,146 @@
   "links": [],
   "panels": [
     {
-      "title": "Contender Performance Metrics",
       "datasource": {
         "type": "prometheus",
         "uid": "PBFA97CFB590B2093"
       },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "custom": {
+            "align": "left",
+            "cellOptions": {
+              "type": "auto"
+            },
+            "filterable": false,
+            "inspect": false
+          },
+          "decimals": 2,
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": ".*TPS.*"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 120
+              },
+              {
+                "id": "unit",
+                "value": "tokens/sec"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": ".*Rate.*"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 100
+              },
+              {
+                "id": "unit",
+                "value": "req/min"
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "cellHeight": "sm",
+        "footer": {
+          "countRows": false,
+          "fields": "",
+          "reducer": ["sum"],
+          "show": false
+        },
+        "showHeader": true,
+        "sortBy": [
+          {
+            "desc": true,
+            "displayName": "TPS"
+          }
+        ]
+      },
       "targets": [
         {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "PBFA97CFB590B2093"
+          },
+          "editorMode": "builder",
           "expr": "validator_query_node_query_streaming_contender_tokens_per_sec",
-          "legendFormat": "TPS {{contender_id}} ({{hotkey}}) - {{task}}"
+          "instant": true,
+          "legendFormat": "TPS {{task}}",
+          "range": false,
+          "refId": "TPS"
         },
         {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "PBFA97CFB590B2093"
+          },
+          "editorMode": "builder",
           "expr": "rate(validator_query_node_contender_selections_total[5m])",
-          "legendFormat": "Selection Rate {{contender_id}} ({{hotkey}}) - {{task}}"
+          "instant": true,
+          "legendFormat": "Selection Rate {{task}}",
+          "range": false,
+          "refId": "Selections"
         },
         {
-          "expr": "validator_query_node_time_to_success_seconds_sum / validator_query_node_time_to_success_seconds_count",
-          "legendFormat": "Avg Time to Success - {{task}}"
-        },
-        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "PBFA97CFB590B2093"
+          },
+          "editorMode": "builder",
           "expr": "rate(validator_query_node_contender_errors_total[5m])",
-          "legendFormat": "Errors {{contender_id}} ({{hotkey}}) - {{task}} - {{error_type}}"
+          "instant": true,
+          "legendFormat": "Error Rate {{task}}",
+          "range": false,
+          "refId": "Errors"
         }
-      ]
+      ],
+      "title": "Contender Performance by Task",
+      "transformations": [
+        {
+          "id": "joinByField",
+          "options": {
+            "byField": "hotkey",
+            "mode": "outer"
+          }
+        },
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {},
+            "indexByName": {},
+            "renameByName": {
+              "hotkey": "Hotkey",
+              "task": "Task"
+            }
+          }
+        }
+      ],
+      "type": "table"
     },
     {
       "datasource": {
