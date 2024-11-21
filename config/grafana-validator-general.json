@@ -109,7 +109,7 @@
             "uid": "PBFA97CFB590B2093"
           },
           "editorMode": "builder",
-          "expr": "validator_query_node_query_streaming_contender_tokens_per_sec{task=~\".+\"}",
+          "expr": "validator_query_node_query_streaming_contender_tokens_per_sec",
           "instant": true,
           "legendFormat": "TPS {{task}}",
           "range": false,
@@ -121,7 +121,7 @@
             "uid": "PBFA97CFB590B2093"
           },
           "editorMode": "builder",
-          "expr": "rate(validator_query_node_contender_selections{task=~\".+\"}[5m])",
+          "expr": "rate(validator_query_node_contender_selections_total[5m]) * 60",
           "instant": true,
           "legendFormat": "Selection Rate {{task}}",
           "range": false,
@@ -133,7 +133,7 @@
             "uid": "PBFA97CFB590B2093"
           },
           "editorMode": "builder",
-          "expr": "rate(validator_query_node_contender_errors{task=~\".+\"}[5m])",
+          "expr": "rate(validator_query_node_contender_errors_total[5m]) * 60",
           "instant": true,
           "legendFormat": "Error Rate {{task}}",
           "range": false,
@@ -160,13 +160,7 @@
         }
       ],
       "type": "table",
-      "title": "Contender Performance by Task",
-      "gridPos": {
-        "h": 8,
-        "w": 24,
-        "x": 0,
-        "y": 0
-      }
+      "title": "Contender Performance by Task"
     },
     {
       "datasource": {
