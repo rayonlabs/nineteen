@@ -38,3 +38,7 @@ else
   echo "ORGANIC_SERVER_PORT is not set. Starting without entry_node service."
   docker compose --env-file .vali.env -f docker-compose.yml up -d --build --remove-orphans
 fi
+
+# ensure any changes to grafana are reloaded
+docker compose --env-file .vali.env -f docker-compose.yml down grafana -v
+docker compose --env-file .vali.env -f docker-compose.yml up grafana -d
