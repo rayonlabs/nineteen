@@ -126,18 +126,6 @@
           "legendFormat": "Selection Rate {{task}}",
           "range": false,
           "refId": "Selections"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "PBFA97CFB590B2093"
-          },
-          "editorMode": "builder",
-          "expr": "rate(validator_query_node_contender_errors_total[5m]) * 60",
-          "instant": true,
-          "legendFormat": "Error Rate {{task}}",
-          "range": false,
-          "refId": "Errors"
         }
       ],
       "transformations": [
