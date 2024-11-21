@@ -98,7 +98,7 @@
         "sortBy": [
           {
             "desc": true,
-            "displayName": "TPS"
+            "displayName": "TPS task"
           }
         ]
       },
@@ -140,12 +140,11 @@
           "refId": "Errors"
         }
       ],
-      "title": "Contender Performance by Task",
       "transformations": [
         {
           "id": "joinByField",
           "options": {
-            "byField": "hotkey",
+            "byField": "task",
             "mode": "outer"
           }
         },
@@ -155,13 +154,13 @@
             "excludeByName": {},
             "indexByName": {},
             "renameByName": {
-              "hotkey": "Hotkey",
               "task": "Task"
             }
           }
         }
       ],
-      "type": "table"
+      "type": "table",
+      "title": "Contender Performance by Task"
     },
     {
       "datasource": {
