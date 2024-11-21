@@ -381,7 +381,6 @@ async def update_contenders_period_scores(connection: Connection, netuid: int) -
     rows = await connection.fetch(
         f"""
         SELECT
-        SELECT
             {dcst.CONTENDER_ID},
             {dcst.TOTAL_REQUESTS_MADE},
             {dcst.CAPACITY},
