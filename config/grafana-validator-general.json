@@ -101,7 +101,7 @@
             "uid": "PBFA97CFB590B2093"
           },
           "editorMode": "builder",
-          "expr": "validator_entry_node_text_tokens{task=~\"$task\"}",
+          "expr": "validator_entry_node_text_tokens",
           "instant": false,
           "legendFormat": "{{task}}",
           "range": true,
