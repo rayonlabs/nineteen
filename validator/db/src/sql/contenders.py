@@ -180,19 +180,21 @@ async def get_contenders_for_organic_task(psql_db: PSQLDB, task: str, top_x: int
             return contenders
         
         weights = create_weight_distribution(len(contenders))
-        cumulative_probs = np.cumsum(weights) / np.sum(weights)
         
+        available_entries = [(idx, weights[idx]) for idx in range(len(contenders))]
         selected_indices = []
-        while len(selected_indices) < top_x:
-            r = np.random.random()
-            # Selecting the first index where cumulative probability exceeds random number
-            for idx, cum_prob in enumerate(cumulative_probs):
-                if r <= cum_prob and idx not in selected_indices:
-                    selected_indices.append(idx)
-                    break
+        
+        total_weight = sum(weight for _, weight in available_entries)
+        probabilities = [weight / total_weight for _, weight in available_entries]
+        
+        selected_entry_indices = random.choices(
+            range(len(available_entries)), 
+            weights=probabilities, 
+            k=min(top_x, len(available_entries))
+        )
         
         # Sort indices to preserve original order, as we query `contenders_to_query` in the same order, in order to query the best shortlisted contender first 
-        selected_indices.sort()
+        selected_indices = sorted(available_entries[idx][0] for idx in selected_entry_indices)
         
         return [contenders[idx] for idx in selected_indices]
 
