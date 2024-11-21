@@ -3,6 +3,7 @@ import time
 from typing import AsyncGenerator
 
 import httpx
+from opentelemetry import metrics
 from core.models import utility_models
 from validator.query_node.src.query_config import Config
 from validator.query_node.src import utils
@@ -20,6 +21,15 @@ from validator.utils.query.query_utils import load_sse_jsons
 
 logger = get_logger(__name__)
 
+
+GAUGE_ORGANIC_TOKENS_PER_SEC = metrics.get_meter(__name__).create_gauge(
+    "validator.query_node.query.streaming.organic.tokens_per_sec",
+    description="Average tokens per second metric for LLM streaming for any organic query"
+)
+GAUGE_SYNTHETIC_TOKENS_PER_SEC = metrics.get_meter(__name__).create_gauge(
+    "validator.query_node.query.streaming.synthetic.tokens_per_sec",
+    description="Average tokens per second metric for LLM streaming for any synthetic query"
+)
 
 def _get_formatted_payload(content: str, first_message: bool, add_finish_reason: bool = False) -> str:
     delta_payload = {"content": content}
@@ -93,6 +103,7 @@ async def consume_generator(
     assert job_id
     task = contender.task
     query_result = None
+    tokens = 0
 
     try:
         first_chunk = await generator.__anext__()  # TODO: use `anext(generator)`
@@ -148,6 +159,7 @@ async def consume_generator(
                         job_id=job_id,
                         status_code=200,
                     )
+                    tokens += 1
 
         if len(text_jsons) > 0:
             last_payload = _get_formatted_payload("", False, add_finish_reason=True)
@@ -170,6 +182,11 @@ async def consume_generator(
             status_code=200,
         )
         success = not first_message
+        if success:
+            if synthetic_query:
+                GAUGE_SYNTHETIC_TOKENS_PER_SEC.set(tokens / response_time, {"task": task})
+            else:
+                GAUGE_ORGANIC_TOKENS_PER_SEC.set(tokens / response_time, {"task": task})
     except Exception as e:
         logger.error(f"Unexpected exception when querying node: {node.node_id} for task: {task}. Payload: {payload}. Error: {e}")
         query_result = construct_500_query_result(node, task)
