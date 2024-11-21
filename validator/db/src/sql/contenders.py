@@ -2,7 +2,6 @@ from fiber.logging_utils import get_logger
 
 from asyncpg import Connection
 import random
-import numpy as np
 
 from validator.db.src.database import PSQLDB
 from validator.models import Contender, PeriodScore, calculate_period_score
