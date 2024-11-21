@@ -1466,34 +1466,7 @@
   "schemaVersion": 39,
   "tags": [],
   "templating": {
-    "list": [
-      {
-        "current": {
-          "selected": true,
-          "text": ["All"],
-          "value": ["$__all"]
-        },
-        "datasource": {
-          "type": "prometheus",
-          "uid": "PBFA97CFB590B2093"
-        },
-        "definition": "label_values(validator_query_node_query_streaming_contender_tokens_per_sec, task)",
-        "hide": 0,
-        "includeAll": true,
-        "multi": true,
-        "name": "task",
-        "options": [],
-        "query": {
-          "query": "label_values(validator_query_node_query_streaming_contender_tokens_per_sec, task)",
-          "refId": "StandardVariableQuery"
-        },
-        "refresh": 1,
-        "regex": "",
-        "skipUrlSync": false,
-        "sort": 1,
-        "type": "query"
-      }
-    ]
+    "list": []
   },
   "time": {
     "from": "now-5m",
