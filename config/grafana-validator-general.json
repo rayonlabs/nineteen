@@ -71,7 +71,7 @@
           {
             "matcher": {
               "id": "byRegexp",
-              "options": ".*Rate.*"
+              "options": ".*Count.*"
             },
             "properties": [
               {
@@ -80,7 +80,7 @@
               },
               {
                 "id": "unit",
-                "value": "req/min"
+                "value": "none"
               }
             ]
           }
@@ -109,7 +109,7 @@
             "uid": "PBFA97CFB590B2093"
           },
           "editorMode": "builder",
-          "expr": "validator_query_node_query_streaming_contender_tokens_per_sec",
+          "expr": "validator_query_node_query_streaming_contender_tokens_per_sec{exported_job=\"query_node\"}",
           "instant": true,
           "legendFormat": "TPS {{task}}",
           "range": false,
@@ -121,9 +121,9 @@
             "uid": "PBFA97CFB590B2093"
           },
           "editorMode": "builder",
-          "expr": "rate(validator_query_node_contender_selections_total[5m]) * 60",
+          "expr": "validator_query_node_contender_selections_total{exported_job=\"query_node\"}",
           "instant": true,
-          "legendFormat": "Selection Rate {{task}}",
+          "legendFormat": "Selection Count {{task}}",
           "range": false,
           "refId": "Selections"
         }
@@ -139,10 +139,14 @@
         {
           "id": "organize",
           "options": {
-            "excludeByName": {},
+            "excludeByName": {
+              "Time": true
+            },
             "indexByName": {},
             "renameByName": {
-              "task": "Task"
+              "task": "Task",
+              "contender_id": "Contender ID",
+              "hotkey": "Hotkey"
             }
           }
         }
