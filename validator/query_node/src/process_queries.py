@@ -32,6 +32,27 @@ COUNTER_FAILED_QUERIES= metrics.get_meter(__name__).create_counter(
     description="Number of failed queries within `process_task`",
 )
 
+COUNTER_CONTENDER_SELECTIONS = metrics.get_meter(__name__).create_counter(
+    name="validator.query_node.contender.selections",
+    description="Number of times a contender is selected for organic queries",
+)
+
+HISTOGRAM_TIME_TO_SUCCESS = metrics.get_meter(__name__).create_histogram(
+    name="validator.query_node.time_to_success",
+    description="Time taken to get a successful response from any contender",
+    unit="s",
+)
+
+COUNTER_CONTENDER_ERRORS = metrics.get_meter(__name__).create_counter(
+    name="validator.query_node.contender.errors",
+    description="Number of errors (400s, 500s) per contender",
+)
+
+GAUGE_CONTENDER_SCORE = metrics.get_meter(__name__).create_gauge(
+    name="validator.query_node.contender.normalized_score",
+    description="Normalized net score for each contender",
+)
+
 async def _decrement_requests_remaining(redis_db: Redis, task: str):
     key = f"task_synthetics_info:{task}:requests_remaining"
     await redis_db.decr(key)
@@ -44,6 +65,8 @@ async def _acknowledge_job(redis_db: Redis, job_id: str):
 
 async def _handle_stream_query(config: Config, message: rdc.QueryQueueMessage, contenders_to_query: list[Contender]) -> bool:
     success = False
+    start_attempt_time = time.time()
+
     for contender in contenders_to_query[:5]:
         node = await get_node(config.psql_db, contender.node_id, config.netuid)
         if node is None:
@@ -59,6 +82,13 @@ async def _handle_stream_query(config: Config, message: rdc.QueryQueueMessage, c
         )
         # TODO: Make sure we still punish if generator is None
         if generator is None:
+            if message.query_type == gcst.ORGANIC:
+                COUNTER_CONTENDER_ERRORS.add(1, {
+                    "task": contender.task,
+                    "contender_id": str(contender.node_id),
+                    "error_type": "500",
+                    "hotkey": contender.hotkey
+                })
             continue
 
         success = await streaming.consume_generator(
@@ -72,7 +102,12 @@ async def _handle_stream_query(config: Config, message: rdc.QueryQueueMessage, c
             start_time=start_time,
         )
 
-        if success:
+        if success and message.query_type == gcst.ORGANIC:
+            time_to_success = time.time() - start_attempt_time
+            HISTOGRAM_TIME_TO_SUCCESS.record(
+                time_to_success,
+                {"task": contender.task}
+            )
             break
 
     if not success:
@@ -171,13 +206,22 @@ async def process_task(config: Config, message: rdc.QueryQueueMessage):
         raise ValueError("No contenders to query! :(")
 
     COUNTER_TOTAL_QUERIES.add(1, {"task": task, "synthetic_query": str(message.query_type == gcst.SYNTHETIC)})
-    
+
+    if message.query_type == gcst.ORGANIC:
+        for contender in contenders_to_query:
+            COUNTER_CONTENDER_SELECTIONS.add(1, {
+                "task": contender.task,
+                "contender_id": str(contender.node_id),
+                "hotkey": contender.hotkey
+            })
+
+
     try:
         if stream:
             return await _handle_stream_query(config, message, contenders_to_query)
         else:
             return await _handle_nonstream_query(config=config, message=message, contenders_to_query=contenders_to_query)
-    
+
     except Exception as e:
         logger.error(f"Error processing task {task}: {e}")
         await _handle_error(

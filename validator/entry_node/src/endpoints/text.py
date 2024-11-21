@@ -16,8 +16,7 @@ from validator.entry_node.src.models import request_models
 import asyncio
 from validator.utils.query.query_utils import load_sse_jsons
 from redis.asyncio.client import PubSub
-import time 
-from opentelemetry import metrics
+import time
 
 logger = get_logger(__name__)
 
@@ -142,7 +141,7 @@ async def chat(
 ) -> StreamingResponse | JSONResponse:
     payload = request_models.chat_to_payload(chat_request)
     payload.temperature = 0.5
-    
+
     try:
         text_generator = await make_stream_organic_query(
             redis_db=config.redis_db,

@@ -30,6 +30,11 @@ GAUGE_SYNTHETIC_TOKENS_PER_SEC = metrics.get_meter(__name__).create_gauge(
     "validator.query_node.query.streaming.synthetic.tokens_per_sec",
     description="Average tokens per second metric for LLM streaming for any synthetic query"
 )
+GAUGE_CONTENDER_TPS = metrics.get_meter(__name__).create_gauge(
+    "validator.query_node.query.streaming.contender.tokens_per_sec",
+    description="Tokens per second for each contender per task"
+)
+
 
 def _get_formatted_payload(content: str, first_message: bool, add_finish_reason: bool = False) -> str:
     delta_payload = {"content": content}
@@ -187,6 +192,15 @@ async def consume_generator(
                 GAUGE_SYNTHETIC_TOKENS_PER_SEC.set(tokens / response_time, {"task": task})
             else:
                 GAUGE_ORGANIC_TOKENS_PER_SEC.set(tokens / response_time, {"task": task})
+                GAUGE_CONTENDER_TPS.set(
+                    tokens / response_time,
+                    {
+                        "task": task,
+                        "contender_id": str(node.node_id),
+                        "hotkey": node.hotkey
+                    }
+                )
+
     except Exception as e:
         logger.error(f"Unexpected exception when querying node: {node.node_id} for task: {task}. Payload: {payload}. Error: {e}")
         query_result = construct_500_query_result(node, task)

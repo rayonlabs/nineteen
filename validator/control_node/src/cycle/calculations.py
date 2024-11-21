@@ -397,6 +397,7 @@ async def _post_scoring_stats_to_nineteen(
 
 
 ###############################################################
+"""
 async def calculate_scores_for_settings_weights_debug(
     psql_db: PSQLDB, contenders: list[Contender], netuid: int
 ) -> tuple[
@@ -492,3 +493,4 @@ async def calculate_scores_for_settings_weights_debug(
         node_weights.append(score / total_score)
 
     return node_ids, node_weights, all_normalised_scores, detailed_scores_info
+"""
