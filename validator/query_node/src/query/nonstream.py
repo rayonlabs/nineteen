@@ -27,6 +27,7 @@ def _get_500_query_result(node_id: int, contender: Contender) -> utility_models.
         task=contender.task,
         status_code=500,
         success=False,
+        roughness=0,
     )
     return query_result
 
@@ -149,6 +150,7 @@ async def query_nonstream(
             task=contender.task,
             status_code=response.status_code,
             success=True,
+            roughness=0,
         )
 
         logger.info(f"✅ Queried node: {node_id} for task: {contender.task} - time: {response_time}")
@@ -168,6 +170,7 @@ async def query_nonstream(
             task=contender.task,
             status_code=response.status_code,
             success=False,
+            roughness=0,
         )
         logger.debug(
             f"❌ queried node: {node_id} for task: {contender.task}. Response: {response.text}, status code: {response.status_code}"
