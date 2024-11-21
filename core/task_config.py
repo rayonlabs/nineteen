@@ -200,7 +200,9 @@ def task_configs_factory() -> dict[str, cmodels.FullTaskConfig]:
             max_capacity=800,
             orchestrator_server_config=cmodels.OrchestratorServerConfig(
                 server_needed=cmodels.ServerType.IMAGE,
-                load_model_config={},
+                load_model_config={
+                    "model": AVATAR
+                    },
                 checking_function="check_image_result",
                 endpoint=cmodels.Endpoints.avatar.value,
                 task=AVATAR,
