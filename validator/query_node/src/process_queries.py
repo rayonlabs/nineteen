@@ -212,7 +212,7 @@ async def process_task(config: Config, message: rdc.QueryQueueMessage):
             COUNTER_CONTENDER_SELECTIONS.add(1, {
                 "task": contender.task,
                 "contender_id": str(contender.node_id),
-                "hotkey": contender.hotkey
+                "hotkey": contender.node_hotkey
             })
 
 
