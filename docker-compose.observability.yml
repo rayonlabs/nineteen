@@ -72,6 +72,9 @@ services:
     volumes:
       - prometheus:/prometheus
       - ./config/prometheus-config.yaml:/etc/prometheus/prometheus.yml
+    ports:
+      - 9090:9090
+
 
 volumes:
   grafana:

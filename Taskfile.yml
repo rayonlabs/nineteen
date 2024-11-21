@@ -15,9 +15,9 @@ tasks:
   control_node_dev:
     cmds:
       - LOCALHOST=true ENV_FILE=.vali.env python -m validator.control_node.src.main
-  
+
   hybrid_node_dev:
-    cmds: 
+    cmds:
       - LOCALHOST=true ENV_FILE=.vali.env python -m validator.hybrid_node.src.main
 
   weight_setter_dev:
@@ -29,14 +29,14 @@ tasks:
       # turns off the nodes so you can run them on the host
       # turns _on_ the proxies and dev tooling so you can access the infrastructure directly from the host
       - "
-        docker compose 
-          --env-file .vali.env 
-          up -d --build 
-          --scale hybrid_node=0 
-          --scale control_node=0 
-          --scale weight_setter=0 
+        docker compose
+          --env-file .vali.env
+          up -d --build
+          --scale hybrid_node=0
+          --scale control_node=0
+          --scale weight_setter=0
           --scale redis-proxy=1
-          --scale adminer=1 
+          --scale adminer=1
           --scale postgres-proxy=1
           --scale redis-commander=1
       "
@@ -77,3 +77,7 @@ tasks:
   redis:
     cmds:
       - docker compose --env-file .vali.env  exec -it redis redis-cli
+
+  expose-postgres:
+    cmds:
+      - docker compose -f docker-compose.yml --env-file .vali.env up -d --scale postgres-proxy=1 --scale adminer=1

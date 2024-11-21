@@ -96,5 +96,5 @@ async def delete_miner_weights_older_than(connection: Connection, timestamp: dat
         DELETE FROM {dcst.NODES_WEIGHTS_TABLE}
         WHERE {dcst.CREATED_AT} < $1
         """,
-        timestamp,
+        timestamp
     )

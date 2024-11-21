@@ -47,6 +47,11 @@ QUERY_NODE_FAILED_SYNTHETIC_TASKS_COUNTER = metrics.get_meter(__name__).create_c
     unit="1",
 )
 
+COUNTER_CONTENDER_SELECTIONS = metrics.get_meter(__name__).create_counter(
+    name="validator.query_node.contender.selections",
+    description="Number of times a contender is selected for organic queries",
+)
+
 COUNTER_TEXT_GENERATION_ERROR = metrics.get_meter(__name__).create_counter("validator.hybrid_node.text.error")
 COUNTER_TEXT_GENERATION_SUCCESS = metrics.get_meter(__name__).create_counter("validator.hybrid_node.text.success")
 COUNTER_IMAGE_ERROR = metrics.get_meter(__name__).create_counter("validator.hybrid_node.image.error")
@@ -69,11 +74,17 @@ async def _get_contenders(connection: Connection, task: str, query_type: str) ->
         async with lock:
             contenders = await get_contenders_for_task(connection, task, 5, query_type)
         logger.info(f"Task : {task}\nContenders : {contenders}")
+        if query_type == gcst.ORGANIC:
+            for contender in contenders:
+                COUNTER_CONTENDER_SELECTIONS.add(1, {
+                    "task": contender.task,
+                    "contender_id": str(contender.node_id),
+                    "hotkey": contender.node_hotkey
+                })
         return contenders
     except Exception as e:
         logger.error(f"Error getting contenders: {e}")
         raise
-
 
 async def _handle_no_stream(text_generator: AsyncGenerator[str, str]) -> JSONResponse:
     all_content = ""

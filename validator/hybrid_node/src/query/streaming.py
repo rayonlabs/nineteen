@@ -10,12 +10,25 @@ import time
 from typing import AsyncGenerator, Optional
 import httpx
 import traceback
+from opentelemetry import metrics
 from fiber.validator import client
 from fiber.networking.models import NodeWithFernet as Node
 from fiber.logging_utils import get_logger
 
 logger = get_logger(__name__)
 
+GAUGE_ORGANIC_TOKENS_PER_SEC = metrics.get_meter(__name__).create_gauge(
+    "validator.query_node.query.streaming.organic.tokens_per_sec",
+    description="Average tokens per second metric for LLM streaming for any organic query"
+)
+GAUGE_SYNTHETIC_TOKENS_PER_SEC = metrics.get_meter(__name__).create_gauge(
+    "validator.query_node.query.streaming.synthetic.tokens_per_sec",
+    description="Average tokens per second metric for LLM streaming for any synthetic query"
+)
+GAUGE_CONTENDER_TPS = metrics.get_meter(__name__).create_gauge(
+    "validator.query_node.query.streaming.contender.tokens_per_sec",
+    description="Tokens per second for each contender per task"
+)
 
 def _get_formatted_payload(content: str, first_message: bool, add_finish_reason: bool = False) -> str:
     delta_payload = {"content": content}
@@ -58,7 +71,6 @@ async def consume_synthetic_generator(
 ) -> bool:
     task = contender.task
     query_result = None
-
     success = False
     try:
         first_chunk = await generator.__anext__()
@@ -144,7 +156,7 @@ async def consume_organic_generator(
 ) -> AsyncGenerator[str, None]:
     task = contender.task
     query_result = None
-
+    tokens = 0
     try:
         first_chunk = await generator.__anext__()
     except (StopAsyncIteration, httpx.ConnectError, httpx.ReadError, httpx.HTTPError, httpx.ReadTimeout, Exception) as e:
@@ -179,6 +191,7 @@ async def consume_organic_generator(
                         text_jsons.append(text_json)
                         dumped_payload = json.dumps(text_json)
                         first_message = False
+                        tokens += 1
                         yield f"data: {dumped_payload}\n\n"
 
                 except (IndexError, json.JSONDecodeError) as e:
@@ -192,6 +205,15 @@ async def consume_organic_generator(
             logger.info(f"Queried node: {node.node_id} for task: {task}. Success: {not first_message}.")
 
         response_time = time.time() - start_time
+        GAUGE_ORGANIC_TOKENS_PER_SEC.set(tokens / response_time, {"task": task})
+        GAUGE_CONTENDER_TPS.set(
+            tokens / response_time,
+            {
+                "task": task,
+                "contender_id": str(node.node_id),
+                "hotkey": node.hotkey
+            }
+        )
         query_result = utility_models.QueryResult(
             formatted_response=text_jsons if len(text_jsons) > 0 else None,
             node_id=node.node_id,
