@@ -24,6 +24,8 @@ services:
     restart: always
     volumes:
       - ./config/otel-config.yaml:/etc/otelcol-contrib/config.yaml
+    ports:
+      - 9090:9090
 
   tempo-init:
     scale: 0
