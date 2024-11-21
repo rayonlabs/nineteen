@@ -28,10 +28,6 @@ GAUGE_TOKENS_PER_SEC = metrics.get_meter(__name__).create_gauge(
     "validator.entry_node.text.tokens_per_sec",
     description="Average tokens per second metric for LLM streaming for an organic LLM query"
 )
-GAUGE_TOKENS = metrics.get_meter(__name__).create_gauge(
-    "validator.entry_node.text.tokens",
-    description="Total tokens for LLM streaming for an organic LLM query"
-)
 
 def _construct_organic_message(payload: dict, job_id: str, task: str) -> str:
     return json.dumps({"query_type": gcst.ORGANIC, "query_payload": payload, "task": task, "job_id": job_id})
@@ -71,7 +67,6 @@ async def _stream_results(pubsub: PubSub, job_id: str, task: str, first_chunk: s
     completion_time = time.time() - start_time
 
     tps = num_tokens / completion_time
-    GAUGE_TOKENS.set(num_tokens, {"task": task})
     GAUGE_TOKENS_PER_SEC.set(tps, {"task": task})
     logger.info(f"Tokens per second for job_id: {job_id}, task: {task}: {tps}")
 
