@@ -31,6 +31,7 @@ class QueryResult(BaseModel):
     status_code: Optional[int]
     success: bool
     created_at: datetime = Field(default_factory=datetime.now)
+    roughness: float
 
 
 class ImageHashes(BaseModel):

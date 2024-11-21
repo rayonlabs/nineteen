@@ -124,7 +124,9 @@ async def _process_and_store_score(
         return
     volume = work_and_speed_functions.calculate_work(task_config=task_config, result=result, steps=payload.get("steps"))
     try:
-        metric = volume / result["response_time"]
+        # here the result will be reduced by the roughness (inverse of smoothness)
+        # the less smotth the responses are, the more the volumes will be penalized
+        metric = volume * result["roughness"] / result["response_time"]
     except (KeyError, ValueError, ZeroDivisionError):
         metric = None
 

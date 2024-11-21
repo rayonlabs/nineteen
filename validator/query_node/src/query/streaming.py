@@ -1,6 +1,7 @@
 import json
 import time
-from typing import AsyncGenerator
+from dataclasses import dataclass
+from typing import Any, AsyncGenerator
 
 import httpx
 from opentelemetry import metrics
@@ -89,6 +90,52 @@ def construct_500_query_result(node: Node, task: str) -> utility_models.QueryRes
     return query_result
 
 
+@dataclass(frozen=True)
+class Response:
+    time: float  # time at which this response was received
+    tokens: int  # number of tokens in response
+
+    @classmethod
+    def from_chunk(cls, chunk: Any, start_time: float) -> 'Response':
+        tokens = _number_of_tokens_from_chunk(chunk)
+        time = time.time() - start_time
+        o = cls(tokens=tokens, time=time)
+        return o
+
+
+type Responses = list[Response]
+
+
+def calc_roughness(responses: Responses, precision: int = 10) -> float:
+    total_time = max(r.time for r in responses)
+    total_tokens = sum(r.tokens for r in responses)
+    avg = total_tokens / precision
+    delta_time = total_time / precision
+    distribution = [0 for _ in range(precision)]
+    for response in responses:
+        interval_n = min(precision - 1, int(response.time / delta_time))
+        distribution[interval_n] += response.tokens
+    abs_dev = sum(abs(i - avg) for i in distribution) / precision
+    return abs_dev
+
+
+def calc_roughness_pct(responses: Responses, precision: int = 10) -> float:
+    total_time = max(r.time for r in responses)
+    total_tokens = sum(r.tokens for r in responses)
+    raw_roughness = calc_roughness(responses, precision)
+    max_roughness = calc_roughness(
+        [Response(time=total_time, tokens=total_tokens)], precision
+    )
+    return raw_roughness / max_roughness
+
+
+def _number_of_tokens_from_chunk(chunk: Any) -> int:
+    """
+    Given a chunk, returns the number of tokens contained in it
+    """
+    ...  # pseudo code?!?!
+
+
 async def consume_generator(
     config: Config,
     generator: AsyncGenerator,
@@ -99,10 +146,21 @@ async def consume_generator(
     payload: dict,
     start_time: float,
     debug: bool = False,  # TODO: remove unused variable
+    smoothness_importance: float = 0.5,
 ) -> bool:
+    """
+    smoothness_importance:
+        The greater this number, the more importance is given for smooth responses
+        smoothness_importance=0 means that there is no penalty (legacy calculation)
+        smoothness_importance=1 means that the penalty for a response with all
+            tokens at the very end equals the reward, hence no reward
+    """
     assert job_id
     task = contender.task
     query_result = None
+    first_request = time.time()  # approximately
+    responses = []
+    new_response = lambda chunk: [Response.from_chunk(chunk, first_request)]
     tokens = 0
 
     try:
@@ -172,6 +230,7 @@ async def consume_generator(
             logger.info(f" 👀  Queried node: {node.node_id} for task: {task}. Success: {not first_message}.")
 
         response_time = time.time() - start_time
+        roughness = calc_roughness_pct(responses) * smoothness_importance
         query_result = utility_models.QueryResult(
             formatted_response=text_jsons if len(text_jsons) > 0 else None,
             node_id=node.node_id,
@@ -180,6 +239,7 @@ async def consume_generator(
             success=not first_message,
             node_hotkey=node.hotkey,
             status_code=200,
+            roughness=roughness,
         )
         success = not first_message
         if success:
