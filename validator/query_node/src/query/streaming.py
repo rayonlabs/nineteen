@@ -124,7 +124,7 @@ def calc_roughness_pct(responses: Responses, precision: int = 10) -> float:
     total_tokens = sum(r.tokens for r in responses)
     raw_roughness = calc_roughness(responses, precision)
     max_roughness = calc_roughness(
-        [Response(time=total_time, tokens=total_tokens, precision)]
+        [Response(time=total_time, tokens=total_tokens)], precision
     )
     return raw_roughness / max_roughness
 
