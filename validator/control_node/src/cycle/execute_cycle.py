@@ -50,7 +50,7 @@ async def get_nodes_and_contenders(config: Config) -> list[Contender] | None:
     logger.info("Starting cycle...")
     if config.refresh_nodes:
         logger.info("First refreshing metagraph and getting nodes")
-        initial_nodes = await refresh_nodes.get_refreashed_nodes(config)
+        initial_nodes = await refresh_nodes.get_refreash_nodes(config)
     else:
         initial_nodes = await get_nodes(config.psql_db, config.netuid)
 

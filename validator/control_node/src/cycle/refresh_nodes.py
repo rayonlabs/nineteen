@@ -26,7 +26,7 @@ def _format_exception(e: Exception) -> str:
     return f"Exception Type: {type(e).__name__}\nException Message: {str(e)}\nTraceback:\n{''.join(traceback.format_tb(e.__traceback__))}"
 
 
-async def get_refreashed_nodes(config: Config) -> list[Node]:
+async def get_refreash_nodes(config: Config) -> list[Node]:
     async with await config.psql_db.connection() as connection:
         if await is_recent_update(connection, config.netuid):
             return await get_nodes(config.psql_db, config.netuid)
