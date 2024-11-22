@@ -108,7 +108,7 @@ async def _handshake(config: Config, node: Node, async_client: httpx.AsyncClient
     return node_copy
 
 
-async def perform_handshakes(nodes: list[Node], config: Config) -> list[Node]:
+async def perform_handshakes(nodes: list[Node], config: Config) -> tuple:
     tasks = []
     shaked_nodes: list[Node] = []
     for node in nodes:
@@ -129,4 +129,4 @@ async def perform_handshakes(nodes: list[Node], config: Config) -> list[Node]:
         return []
     logger.info(f"✅ performed handshakes successfully with {len(nodes_where_handshake_worked)} nodes!")
 
-    return shaked_nodes
+    return shaked_nodes, nodes_where_handshake_worked
