@@ -139,7 +139,7 @@ async def _handle_no_stream(text_generator: AsyncGenerator[str, str]) -> JSONRes
                 if content == "":
                     break
 
-    return JSONResponse({"choices": [{"delta": {"content": all_content}}]})
+    return JSONResponse({"choices": [{"message": {"content": all_content}}]})
 
 async def chat(
     chat_request: request_models.ChatRequest,
