@@ -217,7 +217,10 @@ async def get_contenders_for_task(psql_db: PSQLDB, task: str, top_x: int = 5,
     if query_type == gcst.SYNTHETIC:
         return await get_contenders_for_synthetic_task(psql_db, task, top_x)
     elif query_type == gcst.ORGANIC:
-        return await get_contenders_for_organic_task(psql_db, task, top_x)
+        contenders =  await get_contenders_for_organic_task(psql_db, task, top_x)
+        if len(contenders) < top_x:
+            more_contenders = await get_contenders_for_synthetic_task(psql_db, task, top_x-len(contenders))
+            return contenders+more_contenders
     else:
         raise ValueError(f"No contender selection strategy have been implemented for query type : {query_type}")
 
