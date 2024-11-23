@@ -16,7 +16,7 @@ from validator.entry_node.src.models import request_models
 import asyncio
 from validator.utils.query.query_utils import load_sse_jsons
 from redis.asyncio.client import PubSub
-import time 
+import time
 from opentelemetry import metrics
 
 logger = get_logger(__name__)
@@ -100,7 +100,6 @@ async def make_stream_organic_query(
     await pubsub.subscribe(f"{gcst.ACKNLOWEDGED}:{job_id}")
     await redis_db.lpush(rcst.QUERY_QUEUE_KEY, organic_message)  # type: ignore
 
-    first_chunk = None
     try:
         await asyncio.wait_for(_wait_for_acknowledgement(pubsub, job_id), timeout=1)
     except asyncio.TimeoutError:
@@ -139,7 +138,21 @@ async def _handle_no_stream(text_generator: AsyncGenerator[str, str]) -> JSONRes
                 if content == "":
                     break
 
-    return JSONResponse({"choices": [{"message": {"content": all_content}}]})
+    return JSONResponse(
+        {
+            "choices": [
+                {
+                    "index": 0,
+                    "finish_reason": "stop",
+                    "message": {
+                        "content": all_content,
+                        "role": "assistant"
+                    }
+                }
+            ]
+        }
+    )
+
 
 async def chat(
     chat_request: request_models.ChatRequest,
@@ -147,16 +160,13 @@ async def chat(
 ) -> StreamingResponse | JSONResponse:
     payload = request_models.chat_to_payload(chat_request)
     payload.temperature = 0.5
-    
+
     try:
         text_generator = await make_stream_organic_query(
             redis_db=config.redis_db,
             payload=payload.model_dump(),
             task=payload.model,
         )
-
-        logger.info("Here returning a response!")
-
         if chat_request.stream:
             return StreamingResponse(text_generator, media_type="text/event-stream")
         else:

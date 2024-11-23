@@ -1,7 +1,7 @@
 import json
 import time
 import traceback
-from typing import AsyncGenerator
+from typing import AsyncGenerator, List, Dict
 
 import httpx
 from opentelemetry import metrics
@@ -71,6 +71,10 @@ async def _handle_event(
         )
 
 
+def count_characters(chunks: List[Dict]) -> int:
+    return sum([len(chunk["choices"][0]["delta"]["content"]) for chunk in chunks])
+
+
 async def async_chain(first_chunk, async_gen):
     yield first_chunk  # manually yield the first chunk
     async for item in async_gen:
@@ -99,7 +103,7 @@ async def consume_generator(
     node: Node,
     payload: dict,
     start_time: float,
-    debug: bool = False,  # TODO: remove unused variable
+    _: bool = False,  # TODO: remove unused variable
 ) -> bool:
     assert job_id
     task = contender.task
@@ -111,7 +115,7 @@ async def consume_generator(
 
     except (StopAsyncIteration, httpx.ConnectError, httpx.ReadError, httpx.HTTPError, httpx.ReadTimeout, Exception) as e:
         logger.error(f"Error when querying node: {node.node_id} for task: {task}.")
-        
+
         # drop the stacktrace while we're here (otel doesn't like logger.exception)
         logger.error("\n".join(traceback.format_exception(e)))
 
@@ -120,7 +124,11 @@ async def consume_generator(
 
         return False
 
-    text_jsons, status_code, first_message = [], 200, True  # TODO: remove unused variable
+    response_time = None
+    chunks, status_code = [], 200
+    success = False  # check if we have at least one valid chunk
+    add_role = True  # on first chunk we want to set "role" = "assistant"
+    chunk_with_finish_reason = False  # check at least one chunk has "finish_reason": "stop"
 
     try:
         async for text in async_chain(first_chunk, generator):
@@ -129,62 +137,75 @@ async def consume_generator(
 
             if isinstance(text, str):
                 try:
-                    loaded_jsons = load_sse_jsons(text)
-                    if isinstance(loaded_jsons, dict):
-                        status_code = loaded_jsons.get(gcst.STATUS_CODE)  # noqa
+                    loaded_chunks = load_sse_jsons(text)
+                    if isinstance(loaded_chunks, dict):
+                        status_code = loaded_chunks.get(gcst.STATUS_CODE)  # noqa
                         break
 
                 except (IndexError, json.JSONDecodeError) as e:
-                    logger.warning(f"Error {e} when trying to load text: {text}")
+                    logger.warning(f"Error {e} when trying to load chunk: {text}")
                     break
 
-                for text_json in loaded_jsons:
-                    if not isinstance(text_json, dict):
-                        logger.debug(f"Invalid text_json because its not a dict?: {text_json}")
-                        first_message = True  # NOTE: Janky, but so we mark it as a fail
+                for chunk in loaded_chunks:
+                    if not isinstance(chunk, dict):
+                        logger.debug(f"Invalid chunk: not a dict '{chunk}'")
+                        success = False
                         break
 
                     try:
-                        _ = text_json["choices"][0]["delta"]["content"]
+                        _ = chunk["choices"][0]["delta"]["content"]
+                        if add_role:
+                            chunk["choices"][0]["delta"]["role"] = "assistant"
+                            add_role = False
+                        if chunk["choices"][0].get("finish_reason") == "stop":
+                            chunk_with_finish_reason = True
                     except KeyError:
-                        logger.debug(f"Invalid text_json because there's not delta content: {text_json}")
-                        first_message = True  # NOTE: Janky, but so we mark it as a fail
+                        logger.debug(f"Invalid chunk: missing delta content '{chunk}'")
+                        success = False
                         break
 
-                    text_jsons.append(text_json)
-                    dumped_payload = json.dumps(text_json)
-                    first_message = False
+                    chunks.append(chunk)
+                    # we have at least one valid first chunk, so this run is a "success" so far
+                    success = True
 
                     await _handle_event(
                         config,
-                        content=f"data: {dumped_payload}\n\n",
+                        content=f"data: {json.dumps(chunk)}\n\n",
                         synthetic_query=synthetic_query,
                         job_id=job_id,
                         status_code=200,
                     )
                     tokens += 1
 
-        if len(text_jsons) > 0:
-            last_payload = _get_formatted_payload("", False, add_finish_reason=True)
-            await _handle_event(
-                config, content=f"data: {last_payload}\n\n", synthetic_query=synthetic_query, job_id=job_id, status_code=200
-            )
+        if len(chunks) > 0:
+            if not chunk_with_finish_reason:
+                last_chunk = {
+                    "choices": [
+                        {"delta": {"content": ""}, "finish_reason": "stop"}
+                    ]
+                }
+                await _handle_event(
+                    config,
+                    content=f"data: {json.dumps(last_chunk)}\n\n",
+                    synthetic_query=synthetic_query,
+                    job_id=job_id,
+                    status_code=200
+                )
             await _handle_event(
                 config, content="data: [DONE]\n\n", synthetic_query=synthetic_query, job_id=job_id, status_code=200
             )
-            logger.info(f" 👀  Queried node: {node.node_id} for task: {task}. Success: {not first_message}.")
+            logger.info(f" 👀  Queried node: {node.node_id} for task: {task}. Success: {success}.")
 
         response_time = time.time() - start_time
         query_result = utility_models.QueryResult(
-            formatted_response=text_jsons if len(text_jsons) > 0 else None,
+            formatted_response=chunks if len(chunks) > 0 else None,
             node_id=node.node_id,
             response_time=response_time,
             task=task,
-            success=not first_message,
+            success=success,
             node_hotkey=node.hotkey,
             status_code=200,
         )
-        success = not first_message
         if success:
             if synthetic_query:
                 GAUGE_SYNTHETIC_TOKENS_PER_SEC.set(tokens / response_time, {"task": task})
@@ -199,8 +220,11 @@ async def consume_generator(
             await utils.adjust_contender_from_result(config, query_result, contender, synthetic_query, payload=payload)
             await config.redis_db.expire(rcst.QUERY_RESULTS_KEY + ":" + job_id, 10)
 
-    character_count = sum([len(text_json["choices"][0]["delta"]["content"]) for text_json in text_jsons])
-    logger.debug(f"Success: {success}; Node: {node.node_id}; Task: {task}; response_time: {response_time}; first_message: {first_message}; character_count: {character_count}")
+    logger.debug(f"Success: {success}; "
+                 f"Node: {node.node_id}; "
+                 f"Task: {task}; "
+                 f"response_time: {response_time}; "
+                 f"character_count: {count_characters(chunks)}")
     logger.info(f"Success: {success}")
     return success
 
