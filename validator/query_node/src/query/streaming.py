@@ -103,7 +103,7 @@ async def consume_generator(
     node: Node,
     payload: dict,
     start_time: float,
-    debug: bool = False,  # TODO: remove unused variable
+    _: bool = False,  # TODO: remove unused variable
 ) -> bool:
     assert job_id
     task = contender.task
@@ -167,10 +167,6 @@ async def consume_generator(
                     chunks.append(chunk)
                     # we have at least one valid first chunk, so this run is a "success" so far
                     success = True
-
-                    text_jsons.append(text_json)
-                    dumped_payload = json.dumps(text_json)
-                    first_message = False
 
                     await _handle_event(
                         config,
