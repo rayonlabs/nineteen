@@ -11,14 +11,26 @@ from validator.utils.redis import redis_constants as rcst
 from fiber.logging_utils import get_logger
 from validator.utils.redis import redis_dataclasses as rdc
 from validator.query_node.src.query import nonstream, streaming
-from validator.db.src.sql.contenders import get_contenders_for_task
+from validator.db.src.sql.contenders import get_contenders_for_task, update_total_requests_made
 from validator.db.src.sql.nodes import get_node
 from validator.utils.generic import generic_constants as gcst
+from opentelemetry import metrics
+
 
 logger = get_logger(__name__)
 
 MAX_CONCURRENT_TASKS = 10
 
+
+COUNTER_TOTAL_QUERIES = metrics.get_meter(__name__).create_counter(
+    name="validator.query_node.process.total_queries",
+    description="Number of total queries sent to `process_task`",
+)
+
+COUNTER_FAILED_QUERIES= metrics.get_meter(__name__).create_counter(
+    name="validator.query_node.process.failed_queries",
+    description="Number of failed queries within `process_task`",
+)
 
 async def _decrement_requests_remaining(redis_db: Redis, task: str):
     key = f"task_synthetics_info:{task}:requests_remaining"
@@ -37,12 +49,14 @@ async def _handle_stream_query(config: Config, message: rdc.QueryQueueMessage, c
         if node is None:
             logger.error(f"Node {contender.node_id} not found in database for netuid {config.netuid}")
             continue
+
         logger.debug(f"Querying node {contender.node_id} for task {contender.task} with payload: {message.query_payload}")
         start_time = time.time()
+
+        await update_total_requests_made(config.psql_db, contender)
         generator = await streaming.query_node_stream(
             config=config, contender=contender, payload=message.query_payload, node=node
         )
-
         # TODO: Make sure we still punish if generator is None
         if generator is None:
             continue
@@ -57,6 +71,7 @@ async def _handle_stream_query(config: Config, message: rdc.QueryQueueMessage, c
             payload=message.query_payload,
             start_time=start_time,
         )
+
         if success:
             break
 
@@ -64,6 +79,7 @@ async def _handle_stream_query(config: Config, message: rdc.QueryQueueMessage, c
         logger.error(
             f"All Contenders {[contender.node_id for contender in contenders_to_query]} for task {message.task} failed to respond! :("
         )
+
         await _handle_error(
             config=config,
             synthetic_query=message.query_type == gcst.SYNTHETIC,
@@ -71,6 +87,7 @@ async def _handle_stream_query(config: Config, message: rdc.QueryQueueMessage, c
             status_code=500,
             error_message=f"Service for task {message.task} is not responding, please try again",
         )
+
     return success
 
 
@@ -81,6 +98,8 @@ async def _handle_nonstream_query(config: Config, message: rdc.QueryQueueMessage
         if node is None:
             logger.error(f"Node {contender.node_id} not found in database for netuid {config.netuid}")
             continue
+
+        await update_total_requests_made(config.psql_db, contender)
         success = await nonstream.query_nonstream(
             config=config,
             contender=contender,
@@ -136,21 +155,29 @@ async def process_task(config: Config, message: rdc.QueryQueueMessage):
             status_code=500,
             error_message=f"Can't find the task {task}, please try again later",
         )
+
+        COUNTER_FAILED_QUERIES.add(1, {
+            "task": task,
+            "synthetic_query": str(message.query_type == gcst.SYNTHETIC),
+        })
+
         return
 
     stream = task_config.is_stream
 
-    async with await config.psql_db.connection() as connection:
-        contenders_to_query = await get_contenders_for_task(connection, task)
+    contenders_to_query = await get_contenders_for_task(config.psql_db, task, 5, message.query_type)
 
     if contenders_to_query is None:
         raise ValueError("No contenders to query! :(")
 
+    COUNTER_TOTAL_QUERIES.add(1, {"task": task, "synthetic_query": str(message.query_type == gcst.SYNTHETIC)})
+    
     try:
         if stream:
             return await _handle_stream_query(config, message, contenders_to_query)
         else:
             return await _handle_nonstream_query(config=config, message=message, contenders_to_query=contenders_to_query)
+    
     except Exception as e:
         logger.error(f"Error processing task {task}: {e}")
         await _handle_error(
@@ -160,3 +187,8 @@ async def process_task(config: Config, message: rdc.QueryQueueMessage):
             status_code=500,
             error_message=f"Error processing task {task}: {e}",
         )
+
+        COUNTER_FAILED_QUERIES.add(1, {
+            "task": task,
+            "synthetic_query": str(message.query_type == gcst.SYNTHETIC),
+        })

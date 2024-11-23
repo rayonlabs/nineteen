@@ -1,7 +1,6 @@
 from dotenv import load_dotenv
 import os
 import asyncio
-import nltk
 
 from fiber.logging_utils import get_logger
 
@@ -16,18 +15,12 @@ load_dotenv(os.getenv("ENV_FILE", ".vali.env"))
 logger = get_logger(__name__)
 
 async def main() -> None:
-    nltk.download('punkt_tab')
     
     config = load_config()
     await config.psql_db.connect()
+    pass
 
-    # NOTE: We could make separate threads if you wanted to be fancy
-    await asyncio.gather(
-        score_results.main(config),
-        sutils.get_save_random_text(),
-        refresh_synthetic_data.main(config),
-        execute_cycle.main(config)
-    )
+
 
 
 if __name__ == "__main__":

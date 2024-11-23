@@ -17,6 +17,7 @@ from fiber.validator import handshake, client
 import httpx
 from datetime import datetime, timedelta
 from cryptography.fernet import Fernet
+from tenacity import retry, stop_after_attempt, retry_if_exception_type, wait_fixed
 
 logger = get_logger(__name__)
 
@@ -53,7 +54,7 @@ async def is_recent_update(connection, netuid: int) -> bool:
 
 
 async def fetch_nodes_from_substrate(config: Config) -> list[Node]:
-    # NOTE: Will this cause issues if this method closes the conenction
+    # NOTE: Will this cause issues if this method closes the connection
     # on substrate interface, but we use the same substrate interface object elsewhere?
     return await asyncio.to_thread(fetch_nodes.get_nodes_for_netuid, config.substrate, config.netuid)
 
@@ -69,6 +70,21 @@ async def update_our_validator_node(config: Config):
         await update_our_vali_node_in_db(connection, config.keypair.ss58_address, config.netuid)
 
 
+@retry(
+    stop=stop_after_attempt(2),
+    retry=retry_if_exception_type((httpx.HTTPStatusError, httpx.RequestError, httpx.ConnectError)),
+    wait=wait_fixed(1)
+)
+async def _try_handshake(
+    async_client: httpx.AsyncClient,
+    server_address: str,
+    keypair,
+    hotkey
+) -> tuple:
+    return await handshake.perform_handshake(
+        async_client, server_address, keypair, hotkey
+    )
+
 async def _handshake(config: Config, node: Node, async_client: httpx.AsyncClient) -> Node:
     node_copy = node.model_copy()
     server_address = client.construct_server_address(
@@ -78,7 +94,7 @@ async def _handshake(config: Config, node: Node, async_client: httpx.AsyncClient
     )
 
     try:
-        symmetric_key, symmetric_key_uid = await handshake.perform_handshake(
+        symmetric_key, symmetric_key_uid = await _try_handshake(
             async_client, server_address, config.keypair, node.hotkey
         )
     except Exception as e:
@@ -88,7 +104,7 @@ async def _handshake(config: Config, node: Node, async_client: httpx.AsyncClient
         if isinstance(e, (httpx.HTTPStatusError, httpx.RequestError, httpx.ConnectError)):
             if hasattr(e, "response"):
                 logger.debug(f"Response content: {e.response.text}")
-        
+
         return node_copy
 
     fernet = Fernet(symmetric_key)

@@ -8,11 +8,11 @@ Welcome to S19 Mining 🔥
 - [Worker server setup](#worker-server-setup)
 - [Proxy server setup](#proxy-server-setup)
 - [LLM server configs](#model-configs)
-- [Recommended compute](./recommended-compute)
+- [Recommended compute](./recommended-compute.md)
 
 
 # Overview
-A miner consists of serveral parts, fitting into two categories:
+A miner consists of several parts, fitting into two categories:
 
 - Proxy
 - Workers

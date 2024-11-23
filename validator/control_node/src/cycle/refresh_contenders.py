@@ -91,6 +91,7 @@ async def _fetch_node_capacity(config: Config, node: Node) -> dict[str, float] |
 async def _fetch_node_capacities(config: Config, nodes: list[Node]) -> list[dict[str, float] | None]:
     async def _fetch_or_none(node: Node):
         if node.fernet is None or node.symmetric_key_uuid is None:
+            logger.info(f"Couldn't fetch capacities for node {node.node_id} because fernet/symmetric_key_uuid is None")
             return None
         return await _fetch_node_capacity(config, node)
 
@@ -135,6 +136,12 @@ async def _get_contenders_from_nodes(config: Config, nodes: list[Node]) -> List[
         for task, declared_capacity in raw_node_capacities.items():
             if task not in task_configs:
                 logger.debug(f"Task {task} is not a valid task")
+                continue
+
+            try:
+                declared_capacity = float(declared_capacity)
+            except ValueError:
+                logger.warning(f"Declared capacity for task {task} is not a number: {declared_capacity}")
                 continue
 
             task_config = tcfg.get_enabled_task_config(task)

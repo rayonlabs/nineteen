@@ -12,6 +12,18 @@ is_valid_number() {
     esac
 }
 
+if [ -n "$GRAFANA_USERNAME" ]; then
+  GRAFANA_USERNAME=admin
+  sed -i '/GRAFANA_USERNAME/d' .vali.env
+  echo GRAFANA_USERNAME=$GRAFANA_USERNAME >> .vali.env
+fi
+
+if [ -n "$GRAFANA_PASSWORD" ]; then
+  GRAFANA_PASSWORD=$(openssl rand -hex 16)
+  sed -i '/GRAFANA_PASSWORD/d' .vali.env
+  echo GRAFANA_PASSWORD=$GRAFANA_PASSWORD >> .vali.env
+fi
+
 # Check if ORGANIC_SERVER_PORT is set to 'none' - for legacy config reasons
 if [ -n "$ORGANIC_SERVER_PORT" ] && [ "${ORGANIC_SERVER_PORT,,}" != "none" ]; then
   if is_valid_number "$ORGANIC_SERVER_PORT"; then
@@ -26,3 +38,7 @@ else
   echo "ORGANIC_SERVER_PORT is not set. Starting without entry_node service."
   docker compose --env-file .vali.env -f docker-compose.yml up -d --build --remove-orphans
 fi
+
+# ensure any changes to grafana are reloaded
+docker compose --env-file .vali.env -f docker-compose.yml down grafana -v
+docker compose --env-file .vali.env -f docker-compose.yml up grafana -d

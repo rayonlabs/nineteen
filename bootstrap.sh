@@ -65,6 +65,14 @@ fi
 
 chown -R $SUDO_USER:$SUDO_USER $HOME/.local
 
+if ! [[ $(echo $PATH | grep "$HOME/.local/bin") ]]; then
+  # add ~/.local/bin to the path
+  export PATH="$HOME/.local/bin:$PATH "
+
+  # and ensure it's there in future
+  echo "" >> $HOME/.bashrc
+  echo "export PATH=$HOME/.local/bin:$PATH" >> $HOME/.bashrc
+fi
 
 # do not upgrade openssh server whilst installing
 ################################################################################
