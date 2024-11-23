@@ -3,11 +3,11 @@ from typing import Any
 from fastapi import HTTPException
 from core.models import utility_models
 from core import task_config as tcfg
-from aiocache import cached
+from functools import lru_cache
 
 
-@cached(ttl=None)
-async def get_max_model_len(task: str) -> int:
+@lru_cache(maxsize=None)
+def get_max_model_len(task: str) -> int:
     task_config = tcfg.get_enabled_task_config(task)
     if task_config:
         return task_config.orchestrator_server_config.load_model_config['max_model_len']
@@ -21,7 +21,7 @@ async def check_prompt_length(messages: list[utility_models.Message],
                               n_output_tokens : int,
                               task: str,
                               char_to_token: float = 4) -> bool:
-    max_len = await get_max_model_len(task)
+    max_len = get_max_model_len(task)
     return sum([len(message.content) for message in messages])/char_to_token + n_output_tokens < max_len
 
 
