@@ -23,9 +23,36 @@ class ChatRequest(BaseModel):
         use_enum_values = True
 
 
+class CompletionRequest(BaseModel):
+    prompt: str = Field(...)
+    temperature: float = Field(default=..., title="Temperature", description="Temperature for text generation.")
+    seed: int = Field(default=..., title="Seed", description="Seed for text generation.")
+    model: str = Field(default=..., examples=["chat-llama-3-2-3b"], title="Model")
+    stream: bool = True
+    logprobs: bool = True
+    top_p: float =  1.0
+    top_k: int = 5
+    max_tokens: int = Field(500, title="Max Tokens", description="Max tokens for text generation.")
+
+    class Config:
+        use_enum_values = True
+
+
 def chat_to_payload(chat_request: ChatRequest) -> payload_models.ChatPayload:
     return payload_models.ChatPayload(
         messages=chat_request.messages,
+        temperature=chat_request.temperature,
+        max_tokens=chat_request.max_tokens,
+        model=chat_request.model.replace("_", "-"),
+        top_p=chat_request.top_p,
+        stream=True,
+        logprobs=chat_request.logprobs,
+        seed=random.randint(1, 100000),
+    )
+
+def chat_comp_to_payload(chat_request: CompletionRequest) -> payload_models.CompletionPayload:
+    return payload_models.CompletionPayload(
+        prompt=chat_request.prompt,
         temperature=chat_request.temperature,
         max_tokens=chat_request.max_tokens,
         model=chat_request.model.replace("_", "-"),
