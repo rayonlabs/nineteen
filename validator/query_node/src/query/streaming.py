@@ -32,17 +32,20 @@ GAUGE_SYNTHETIC_TOKENS_PER_SEC = metrics.get_meter(__name__).create_gauge(
     description="Average tokens per second metric for LLM streaming for any synthetic query"
 )
 
-def _get_formatted_payload(content: str, first_message: bool, add_finish_reason: bool = False) -> str:
-    delta_payload = {"content": content}
-    if first_message:
-        delta_payload["role"] = "assistant"
-    choices_payload: dict[str, str | dict[str, str]] = {"delta": delta_payload}
-    if add_finish_reason:
+def _get_formatted_payload(content: str, first_message: bool, add_finish_reason: bool = False, task: str = "") -> str:
+    if 'comp' in task:
+        choices_payload: dict[str, str | dict[str, str]] = {"text": content}
         choices_payload["finish_reason"] = "stop"
+    else:
+        delta_payload = {"content": content}
+        if first_message:
+            delta_payload["role"] = "assistant"
+        choices_payload: dict[str, str | dict[str, str]] = {"delta": delta_payload}
+        if add_finish_reason:
+            choices_payload["finish_reason"] = "stop"
     payload = {
         "choices": [choices_payload],
     }
-
     dumped_payload = json.dumps(payload)
     return dumped_payload
 
@@ -145,7 +148,10 @@ async def consume_generator(
                         break
 
                     try:
-                        _ = text_json["choices"][0]["delta"]["content"]
+                        if "comp" in task:
+                            _ = text_json["choices"][0]["text"]
+                        else:
+                            _ = text_json["choices"][0]["delta"]["content"]
                     except KeyError:
                         logger.debug(f"Invalid text_json because there's not delta content: {text_json}")
                         first_message = True  # NOTE: Janky, but so we mark it as a fail
@@ -165,7 +171,7 @@ async def consume_generator(
                     tokens += 1
 
         if len(text_jsons) > 0:
-            last_payload = _get_formatted_payload("", False, add_finish_reason=True)
+            last_payload = _get_formatted_payload("", False, add_finish_reason=True, task = task)
             await _handle_event(
                 config, content=f"data: {last_payload}\n\n", synthetic_query=synthetic_query, job_id=job_id, status_code=200
             )
