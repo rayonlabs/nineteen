@@ -176,7 +176,7 @@ async def _process_quality_scores(
         hotkey_average_quality_score = sum(score**1.5 for score in scores) / len(scores)
         if hotkey_average_quality_score <=0.85:
             hotkey_average_quality_score = hotkey_average_quality_score ** 2
-        if hotkey_average_quality_score <= 0.8:
+        elif hotkey_average_quality_score <= 0.8:
             hotkey_average_quality_score = 0
         average_weighted_quality_scores[node_hotkey] = hotkey_average_quality_score
 
