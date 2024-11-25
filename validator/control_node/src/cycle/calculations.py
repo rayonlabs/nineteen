@@ -170,10 +170,16 @@ async def _process_quality_scores(
     metrics, quality_scores = await _calculate_metrics_and_quality_score(
         psql_db, task, netuid
     )
-    average_weighted_quality_scores = {
-        node_hotkey: sum(score**1.5 for score in scores) / len(scores)
-        for node_hotkey, scores in quality_scores.items()
-    }
+
+    average_weighted_quality_scores = {}
+    for node_hotkey, scores in quality_scores.items():
+        hotkey_average_quality_score = sum(score**1.5 for score in scores) / len(scores)
+        if hotkey_average_quality_score <=0.85:
+            hotkey_average_quality_score = hotkey_average_quality_score ** 2
+        if hotkey_average_quality_score <= 0.8:
+            hotkey_average_quality_score = 0
+        average_weighted_quality_scores[node_hotkey] = hotkey_average_quality_score
+
     metric_bonuses = await _calculate_metric_bonuses(metrics)
     combined_quality_scores = {
         node_hotkey: average_weighted_quality_scores[node_hotkey]
