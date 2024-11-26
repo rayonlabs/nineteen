@@ -59,7 +59,7 @@ def task_configs_factory() -> dict[str, cmodels.FullTaskConfig]:
                     "half_precision": True,
                     "tokenizer": "tau-vision/llama-tokenizer-fix",
                     "max_model_len": 16_000,
-                    "gpu_memory_utilization": 0.5,
+                    "gpu_memory_utilization": 0.62,
                 },
                 endpoint=cmodels.Endpoints.chat_completions.value,
                 checking_function="check_text_result",
