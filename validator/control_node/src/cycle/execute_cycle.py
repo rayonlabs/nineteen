@@ -71,7 +71,7 @@ async def get_nodes_and_contenders(config: Config) -> list[Contender] | None:
         logger.info(f"Updating symmetric keys for {len(nodes_where_handshake_worked)} nodes...")
         await insert_symmetric_keys_for_nodes(connection, nodes_where_handshake_worked)
 
-    contenders = await refresh_contenders.get_and_store_contenders(config, all_handshake_nodes)
+    contenders = await refresh_contenders.get_and_store_contenders(config, nodes_where_handshake_worked)
 
     logger.info(f"Got all contenders! {len(contenders)} contenders will be queried...")
 
