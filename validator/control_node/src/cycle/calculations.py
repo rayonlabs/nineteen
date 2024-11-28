@@ -108,7 +108,7 @@ async def _calculate_metrics_and_quality_score(
         ]
         quality_scores[reward_data.node_hotkey] = quality_scores.get(
             reward_data.node_hotkey, []
-        ) + [reward_data.quality_score]
+        ) + [reward_data.quality_score / reward_data.response_time_penalty_multiplier]
         response_time_penalty_multipliers[reward_data.node_hotkey] = response_time_penalty_multipliers.get(
             reward_data.node_hotkey, []
         ) + [reward_data.response_time_penalty_multiplier]
