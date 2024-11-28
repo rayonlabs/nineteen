@@ -17,7 +17,7 @@ from fiber.validator import handshake, client
 import httpx
 from datetime import datetime, timedelta
 from cryptography.fernet import Fernet
-from tenacity import retry, stop_after_attempt, retry_if_exception_type, wait_fixed
+from tenacity import retry, stop_after_attempt, retry_if_exception_type, wait_exponential
 
 logger = get_logger(__name__)
 
@@ -66,9 +66,9 @@ async def update_our_validator_node(config: Config):
 
 
 @retry(
-    stop=stop_after_attempt(2),
+    stop=stop_after_attempt(3),
     retry=retry_if_exception_type((httpx.HTTPStatusError, httpx.RequestError, httpx.ConnectError)),
-    wait=wait_fixed(1)
+    wait=wait_exponential(multiplier=1, min=2, max=5)
 )
 async def _try_handshake(
     async_client: httpx.AsyncClient,
