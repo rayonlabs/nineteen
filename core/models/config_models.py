@@ -68,8 +68,8 @@ class FullTaskConfig(BaseModel):
         else:
             assert self.orchestrator_server_config.load_model_config, "Model info is None but load_model_config is not set"
             model_config = self.orchestrator_server_config.load_model_config
-        if "gpu_utilization" in model_config:
-            del model_config["gpu_utilization"]
+        if "gpu_memory_utilization" in model_config:
+            del model_config["gpu_memory_utilization"]
         return {
             "task": self.task,
             "task_type": self.task_type.value,

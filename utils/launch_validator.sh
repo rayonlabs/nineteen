@@ -45,4 +45,9 @@ else
   docker compose --env-file .vali.env -f docker-compose.yml up -d --build --remove-orphans
 fi
 
+# stash any changes made to nginx.conf / docker-compose.yml (in order to not mess with autoupdates)
 git stash
+
+# ensure any changes to grafana are reloaded
+docker compose --env-file .vali.env -f docker-compose.yml down grafana -v
+docker compose --env-file .vali.env -f docker-compose.yml up grafana -d

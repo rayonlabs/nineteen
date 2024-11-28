@@ -101,167 +101,123 @@ async def migrate_contenders_to_contender_history(connection: Connection) -> Non
     await connection.execute(f"DELETE FROM {dcst.CONTENDERS_TABLE}")
 
 
-async def get_contenders_for_synthetic_task(connection: Connection, task: str, top_x: int = 5) -> list[Contender]:
-    rows = await connection.fetch(
-        f"""
-        WITH ranked_contenders AS (
-            SELECT
-                c.{dcst.CONTENDER_ID}, c.{dcst.NODE_HOTKEY}, c.{dcst.NODE_ID}, c.{dcst.TASK},
-                c.{dcst.RAW_CAPACITY}, c.{dcst.CAPACITY_TO_SCORE}, c.{dcst.CONSUMED_CAPACITY},
-                c.{dcst.TOTAL_REQUESTS_MADE}, c.{dcst.REQUESTS_429}, c.{dcst.REQUESTS_500},
-                c.{dcst.CAPACITY}, c.{dcst.PERIOD_SCORE}, c.{dcst.NETUID},
-                ROW_NUMBER() OVER (
-                    ORDER BY c.{dcst.TOTAL_REQUESTS_MADE} ASC
-                ) AS rank
-            FROM {dcst.CONTENDERS_TABLE} c
-            JOIN {dcst.NODES_TABLE} n ON c.{dcst.NODE_ID} = n.{dcst.NODE_ID} AND c.{dcst.NETUID} = n.{dcst.NETUID}
-            WHERE c.{dcst.TASK} = $1
-            AND  c.{dcst.CONSUMED_CAPACITY} < c.{dcst.CAPACITY}
-            AND n.{dcst.SYMMETRIC_KEY_UUID} IS NOT NULL
-        )
-        SELECT *
-        FROM ranked_contenders
-        WHERE rank <= $2
-        ORDER BY rank
-        """,
-        task,
-        top_x,
-    )
-
-    # If not enough rows are returned, run another query to get more contenders
-    if not rows or len(rows) < top_x:
-        additional_rows = await connection.fetch(
+async def get_contenders_for_synthetic_task(psql_db: PSQLDB, task: str, top_x: int = 5 )-> list[Contender]:
+    async with await psql_db.connection() as connection:
+        rows = await connection.fetch(
             f"""
-            SELECT
-                c.{dcst.CONTENDER_ID}, c.{dcst.NODE_HOTKEY}, c.{dcst.NODE_ID}, c.{dcst.TASK},
-                c.{dcst.RAW_CAPACITY}, c.{dcst.CAPACITY_TO_SCORE}, c.{dcst.CONSUMED_CAPACITY},
-                c.{dcst.TOTAL_REQUESTS_MADE}, c.{dcst.REQUESTS_429}, c.{dcst.REQUESTS_500},
-                c.{dcst.CAPACITY}, c.{dcst.PERIOD_SCORE}, c.{dcst.NETUID}
-            FROM {dcst.CONTENDERS_TABLE} c
-            JOIN {dcst.NODES_TABLE} n ON c.{dcst.NODE_ID} = n.{dcst.NODE_ID} AND c.{dcst.NETUID} = n.{dcst.NETUID}
-            WHERE c.{dcst.TASK} = $1
-            AND c.{dcst.CAPACITY} > 0
-            AND n.{dcst.SYMMETRIC_KEY_UUID} IS NOT NULL
-            ORDER BY c.{dcst.TOTAL_REQUESTS_MADE} ASC
-            LIMIT $2
-            OFFSET $3
+            WITH ranked_contenders AS (
+                SELECT
+                    c.{dcst.CONTENDER_ID}, c.{dcst.NODE_HOTKEY}, c.{dcst.NODE_ID}, c.{dcst.TASK},
+                    c.{dcst.RAW_CAPACITY}, c.{dcst.CAPACITY_TO_SCORE}, c.{dcst.CONSUMED_CAPACITY},
+                    c.{dcst.TOTAL_REQUESTS_MADE}, c.{dcst.REQUESTS_429}, c.{dcst.REQUESTS_500},
+                    c.{dcst.CAPACITY}, c.{dcst.PERIOD_SCORE}, c.{dcst.NETUID},
+                    ROW_NUMBER() OVER (
+                        ORDER BY c.{dcst.TOTAL_REQUESTS_MADE} ASC
+                    ) AS rank
+                FROM {dcst.CONTENDERS_TABLE} c
+                JOIN {dcst.NODES_TABLE} n ON c.{dcst.NODE_ID} = n.{dcst.NODE_ID} AND c.{dcst.NETUID} = n.{dcst.NETUID}
+                WHERE c.{dcst.TASK} = $1
+                AND  c.{dcst.CONSUMED_CAPACITY} < c.{dcst.CAPACITY}
+                AND n.{dcst.SYMMETRIC_KEY_UUID} IS NOT NULL
+            )
+            SELECT *
+            FROM ranked_contenders
+            WHERE rank <= $2
+            ORDER BY rank
             """,
             task,
-            top_x - len(rows) if rows else top_x,
-            len(rows) if rows else 0,
+            top_x,
         )
-        rows = rows + additional_rows if rows else additional_rows
+
+        # If not enough rows are returned, run another query to get more contenders
+        if not rows or len(rows) < top_x:
+            additional_rows = await connection.fetch(
+                f"""
+                SELECT
+                    c.{dcst.CONTENDER_ID}, c.{dcst.NODE_HOTKEY}, c.{dcst.NODE_ID}, c.{dcst.TASK},
+                    c.{dcst.RAW_CAPACITY}, c.{dcst.CAPACITY_TO_SCORE}, c.{dcst.CONSUMED_CAPACITY},
+                    c.{dcst.TOTAL_REQUESTS_MADE}, c.{dcst.REQUESTS_429}, c.{dcst.REQUESTS_500},
+                    c.{dcst.CAPACITY}, c.{dcst.PERIOD_SCORE}, c.{dcst.NETUID}
+                FROM {dcst.CONTENDERS_TABLE} c
+                JOIN {dcst.NODES_TABLE} n ON c.{dcst.NODE_ID} = n.{dcst.NODE_ID} AND c.{dcst.NETUID} = n.{dcst.NETUID}
+                WHERE c.{dcst.TASK} = $1
+                AND c.{dcst.CAPACITY} > 0
+                AND n.{dcst.SYMMETRIC_KEY_UUID} IS NOT NULL
+                ORDER BY c.{dcst.TOTAL_REQUESTS_MADE} ASC
+                LIMIT $2
+                OFFSET $3
+                """,
+                task,
+                top_x - len(rows) if rows else top_x,
+                len(rows) if rows else 0,
+            )
+            rows = rows + additional_rows if rows else additional_rows
 
     return [Contender(**row) for row in rows]
 
 
-
-import math
-
-
-async def get_contenders_for_organic_task(connection: Connection, task: str, top_x: int = 5) -> list[Contender]:
-    rows = await connection.fetch(
-        f"""
-        WITH error_stats AS (
-            SELECT
-                percentile_cont(0.9) WITHIN GROUP (
-                    ORDER BY
-                        CASE
-                            WHEN {dcst.TOTAL_REQUESTS_MADE} = 0 THEN NULL
-                            ELSE CAST({dcst.REQUESTS_500} + {dcst.REQUESTS_429} AS FLOAT) / {dcst.TOTAL_REQUESTS_MADE}
-                        END
-                ) as error_rate_threshold
-            FROM {dcst.CONTENDERS_TABLE}
-            WHERE {dcst.TOTAL_REQUESTS_MADE} > 0
-        ),
-        ranked_contenders AS (
-            SELECT DISTINCT ON (c.{dcst.NODE_HOTKEY}, c.{dcst.TASK})
-                c.{dcst.CONTENDER_ID}, c.{dcst.NODE_HOTKEY}, c.{dcst.NODE_ID}, c.{dcst.TASK},
-                c.{dcst.RAW_CAPACITY}, c.{dcst.CAPACITY_TO_SCORE}, c.{dcst.CONSUMED_CAPACITY},
-                c.{dcst.TOTAL_REQUESTS_MADE}, c.{dcst.REQUESTS_429}, c.{dcst.REQUESTS_500},
-                c.{dcst.CAPACITY}, c.{dcst.PERIOD_SCORE}, c.{dcst.NETUID}, s.{dcst.COLUMN_NORMALISED_NET_SCORE}
-            FROM {dcst.CONTENDERS_TABLE} c
-            JOIN {dcst.NODES_TABLE} n ON c.{dcst.NODE_ID} = n.{dcst.NODE_ID} AND c.{dcst.NETUID} = n.{dcst.NETUID}
-            JOIN {dcst.CONTENDERS_WEIGHTS_STATS_TABLE} s ON c.{dcst.NODE_HOTKEY} = s.{dcst.NODE_HOTKEY}
-                AND c.{dcst.TASK} = s.{dcst.TASK}
-            CROSS JOIN error_stats
-            WHERE c.{dcst.TASK} = $1
-            AND c.{dcst.CAPACITY} > c.{dcst.CONSUMED_CAPACITY}
-            AND n.{dcst.SYMMETRIC_KEY_UUID} IS NOT NULL
-            AND (
-                c.{dcst.TOTAL_REQUESTS_MADE} = 0
-                OR CAST(c.{dcst.REQUESTS_500} + c.{dcst.REQUESTS_429} AS FLOAT) / c.{dcst.TOTAL_REQUESTS_MADE} <= error_rate_threshold
+async def get_contenders_for_organic_task(psql_db: PSQLDB, task: str, top_x: int = 5) -> list[Contender]:
+    async with await psql_db.connection() as connection:
+        rows = await connection.fetch(
+            f"""
+            WITH ranked_contenders AS (
+                SELECT DISTINCT ON (c.{dcst.NODE_HOTKEY}, c.{dcst.TASK})
+                    c.{dcst.CONTENDER_ID}, c.{dcst.NODE_HOTKEY}, c.{dcst.NODE_ID}, c.{dcst.TASK},
+                    c.{dcst.RAW_CAPACITY}, c.{dcst.CAPACITY_TO_SCORE}, c.{dcst.CONSUMED_CAPACITY},
+                    c.{dcst.TOTAL_REQUESTS_MADE}, c.{dcst.REQUESTS_429}, c.{dcst.REQUESTS_500},
+                    c.{dcst.CAPACITY}, c.{dcst.PERIOD_SCORE}, c.{dcst.NETUID}, s.{dcst.COLUMN_NORMALISED_NET_SCORE}
+                FROM {dcst.CONTENDERS_TABLE} c
+                JOIN {dcst.NODES_TABLE} n ON c.{dcst.NODE_ID} = n.{dcst.NODE_ID} AND c.{dcst.NETUID} = n.{dcst.NETUID}
+                JOIN {dcst.CONTENDERS_WEIGHTS_STATS_TABLE} s ON c.{dcst.NODE_HOTKEY} = s.{dcst.NODE_HOTKEY}
+                    AND c.{dcst.TASK} = s.{dcst.TASK}
+                WHERE c.{dcst.TASK} = $1
+                AND c.{dcst.CONSUMED_CAPACITY} < c.{dcst.CAPACITY}
+                AND n.{dcst.SYMMETRIC_KEY_UUID} IS NOT NULL
+                AND s.{dcst.COLUMN_NORMALISED_NET_SCORE} IS NOT NULL
+                AND s.{dcst.COLUMN_NORMALISED_NET_SCORE} > 0
+                ORDER BY c.{dcst.NODE_HOTKEY}, c.{dcst.TASK}, s.{dcst.COLUMN_NORMALISED_NET_SCORE} DESC, s.{dcst.CREATED_AT} DESC
             )
-            ORDER BY c.{dcst.NODE_HOTKEY}, c.{dcst.TASK}, s.{dcst.COLUMN_NORMALISED_NET_SCORE} DESC, s.{dcst.CREATED_AT} DESC
+            SELECT *
+            FROM ranked_contenders
+            """,
+            task,
         )
-        SELECT *
-        FROM ranked_contenders
-        """,
-        task,
-    )
+    logger.debug(f"Number of valid contenders for task {task} for organic query : {len(rows)}")
 
     contenders = [Contender(**{k: v for k, v in row.items() if k != dcst.COLUMN_NORMALISED_NET_SCORE}) for row in rows]
     scores = {c.node_id: row[dcst.COLUMN_NORMALISED_NET_SCORE] for c, row in zip(contenders, rows)}
 
-    if len(contenders) <= top_x:
-        return await get_contenders_for_synthetic_task(connection, task, top_x)
+    if contenders:
+        if len(contenders) > top_x:
+            top_x_percent = contenders[:max(1, int(gcst.ORGANIC_SELECT_CONTENDER_LOW_POURC * len(contenders)))]  # top 75%
+            best_top_x_percent = top_x_percent[:max(1, int(gcst.ORGANIC_TOP_POURC * len(top_x_percent)))]  # top 25% within the top 75%
+            remaining_top_x_percent = top_x_percent[len(best_top_x_percent):]
 
-    # load factor
-    load_factors = {c.node_id: (c.consumed_capacity / c.capacity if c.capacity > 0 else 0) for c in contenders}
+            best_top_x_weights = [gcst.ORGANIC_TOP_POURC_FACTOR / (len(top_x_percent) + 1) for _ in range(len(best_top_x_percent))]  # higher weight for top 25%
+            remaining_top_x_weights = [1 / (len(top_x_percent) + 1) for _ in range(len(remaining_top_x_percent))]
 
-    # calculate a ranking based on scores & load factors
-    max_score = max(scores.values(), default=0)
-    rankings = {
-        c.node_id: (
-            # high net_score dominates when capacity available
-            scores[c.node_id] / max_score
-            if load_factors[c.node_id] < 0.7
-            # transition zone - mix of score and capacity
-            else (scores[c.node_id] / max_score * 0.3 + (1 - load_factors[c.node_id]) * 0.7)
-            if load_factors[c.node_id] < 0.9
-            # almost full - capacity becomes primary concern
-            else (1 - load_factors[c.node_id])
-        )
-        for c in contenders
-    }
+            combined_contenders = best_top_x_percent + remaining_top_x_percent
+            combined_weights = best_top_x_weights + remaining_top_x_weights
 
-    cutoff = max(1, int(0.9 * len(contenders)))
-    eligible_contenders = sorted(contenders, key=lambda c: rankings[c.node_id], reverse=True)[:cutoff]
-    # penalizing for high load
-    request_penalties = {c.node_id: math.exp(-0.1 * c.total_requests_made) for c in eligible_contenders}
-
-    weights = [rankings[c.node_id] * request_penalties[c.node_id] for c in eligible_contenders]
-    weight_sum = sum(weights)
-    normalized_weights = (
-        [w / weight_sum for w in weights] if weight_sum > 0 else [1.0 / len(eligible_contenders)] * len(eligible_contenders)
-    )
-
-    seen = set()
-    selected = []
-    for c in random.choices(eligible_contenders, weights=normalized_weights, k=top_x * 2):
-        if c.node_hotkey not in seen and len(selected) < top_x:
-            seen.add(c.node_hotkey)
-            selected.append(c)
-            if len(selected) == top_x:
-                break
-    # in case we need more
-    if len(selected) < top_x:
-        remaining = [c for c in eligible_contenders if c.node_hotkey not in seen]
-        while remaining and len(selected) < top_x:
-            c = random.choice(remaining)
-            selected.append(c)
-            remaining = [r for r in remaining if r.node_hotkey != c.node_hotkey]
-
-    return selected
+            selected_contenders = random.choices(combined_contenders, weights=combined_weights, k=min(top_x, len(combined_contenders)))
+            selected_contenders = sorted(selected_contenders, key=lambda x: scores[x.node_id], reverse=True)
+            logger.debug(f"Selected contenders for task {task} : {selected_contenders}")
+            return selected_contenders
+        else:
+            logger.debug(f"Number of contenders ({len(contenders)}) < top_x ({top_x}). Returning all contenders")
+            return contenders
+    else:
+        logger.debug(f"Contenders selection for organic queries with task {task} yielded nothing (probably statistiques table is empty), falling back to synthetic queries logic.")
+        return await get_contenders_for_synthetic_task(psql_db, task, top_x)
 
 
-async def get_contenders_for_task(
-    connection: Connection, task: str, top_x: int = 5, query_type: str = gcst.SYNTHETIC
-) -> list[Contender]:
+
+async def get_contenders_for_task(psql_db: PSQLDB, task: str, top_x: int = 5,
+                                  query_type: str = gcst.SYNTHETIC) -> list[Contender]:
     if query_type == gcst.SYNTHETIC:
-        return await get_contenders_for_synthetic_task(connection, task, top_x)
+        return await get_contenders_for_synthetic_task(psql_db, task, top_x)
     elif query_type == gcst.ORGANIC:
-        return await get_contenders_for_organic_task(connection, task, top_x)
+        return await get_contenders_for_organic_task(psql_db, task, top_x)
     else:
         raise ValueError(f"No contender selection strategy have been implemented for query type : {query_type}")
 
