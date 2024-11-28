@@ -21,6 +21,7 @@ from validator.control_node.src.cycle.schedule_synthetic_queries import schedule
 from validator.db.src.sql.nodes import (
     get_nodes,
 )
+from validator.db.src.sql.nodes import insert_symmetric_keys_for_nodes
 from fiber.logging_utils import get_logger
 
 from validator.models import Contender
@@ -48,20 +49,29 @@ async def _post_vali_stats(config: Config):
 async def get_nodes_and_contenders(config: Config) -> list[Contender] | None:
     logger.info("Starting cycle...")
     if config.refresh_nodes:
-        logger.info("First refreshing metagraph and storing the nodes")
-        nodes = await refresh_nodes.get_and_store_nodes(config)
+        logger.info("First refreshing metagraph and getting nodes")
+        initial_nodes = await refresh_nodes.get_refresh_nodes(config)
     else:
-        nodes = await get_nodes(config.psql_db, config.netuid)
+        initial_nodes = await get_nodes(config.psql_db, config.netuid)
 
     await _post_vali_stats(config)
 
     logger.info("Got nodes! Performing handshakes now...")
 
-    nodes = await refresh_nodes.perform_handshakes(nodes, config)
+    all_handshake_nodes, nodes_where_handshake_worked = await refresh_nodes.perform_handshakes(initial_nodes, config)
 
     logger.info("Got handshakes! Getting the contenders from the nodes...")
 
-    contenders = await refresh_contenders.get_and_store_contenders(config, nodes)
+    if config.refresh_nodes:
+        logger.info(f"Storing {len(initial_nodes)} nodes...")
+        await refresh_nodes.store_nodes(config, initial_nodes)
+        await refresh_nodes.update_our_validator_node(config)
+
+    async with await config.psql_db.connection() as connection:
+        logger.info(f"Updating symmetric keys for {len(nodes_where_handshake_worked)} nodes...")
+        await insert_symmetric_keys_for_nodes(connection, nodes_where_handshake_worked)
+
+    contenders = await refresh_contenders.get_and_store_contenders(config, nodes_where_handshake_worked)
 
     logger.info(f"Got all contenders! {len(contenders)} contenders will be queried...")
 

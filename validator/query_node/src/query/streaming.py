@@ -1,8 +1,10 @@
 import json
 import time
+import traceback
 from typing import AsyncGenerator
 
 import httpx
+from opentelemetry import metrics
 from core.models import utility_models
 from validator.query_node.src.query_config import Config
 from validator.query_node.src import utils
@@ -23,6 +25,15 @@ logger = get_logger(__name__)
 TTFB_PENALTY_FACTOR = 1.2
 CHUNKING_PERCENTAGE_PENALTY_FACTOR = 1.3
 TTFB_THRESHOLD = 1.0
+
+GAUGE_ORGANIC_TOKENS_PER_SEC = metrics.get_meter(__name__).create_gauge(
+    "validator.query_node.query.streaming.organic.tokens_per_sec",
+    description="Average tokens per second metric for LLM streaming for any organic query"
+)
+GAUGE_SYNTHETIC_TOKENS_PER_SEC = metrics.get_meter(__name__).create_gauge(
+    "validator.query_node.query.streaming.synthetic.tokens_per_sec",
+    description="Average tokens per second metric for LLM streaming for any synthetic query"
+)
 
 def _get_formatted_payload(content: str, first_message: bool, add_finish_reason: bool = False) -> str:
     delta_payload = {"content": content}
@@ -92,21 +103,25 @@ async def consume_generator(
     node: Node,
     payload: dict,
     start_time: float,
-    debug: bool = False,
+    debug: bool = False,  # TODO: remove unused variable
 ) -> bool:
     assert job_id
     task = contender.task
     query_result = None
+    tokens = 0
 
     try:
-        first_chunk = await generator.__anext__()
-    except (StopAsyncIteration, httpx.ConnectError, httpx.ReadError, httpx.HTTPError, httpx.ReadTimeout, Exception) as e:
-        error_type = type(e).__name__
-        error_details = str(e)
+        first_chunk = await generator.__anext__()  # TODO: use `anext(generator)`
 
-        logger.error(f"Error when querying node: {node.node_id} for task: {task}. Error: {error_type} - {error_details}")
+    except (StopAsyncIteration, httpx.ConnectError, httpx.ReadError, httpx.HTTPError, httpx.ReadTimeout, Exception) as e:
+        logger.error(f"Error when querying node: {node.node_id} for task: {task}.")
+        
+        # drop the stacktrace while we're here (otel doesn't like logger.exception)
+        logger.error("\n".join(traceback.format_exception(e)))
+
         query_result = construct_500_query_result(node, task)
         await utils.adjust_contender_from_result(config, query_result, contender, synthetic_query, payload=payload)
+
         return False
 
     time_to_first_chunk = time.time() - start_time
@@ -123,6 +138,7 @@ async def consume_generator(
         async for text in async_chain(first_chunk, generator):
             if isinstance(text, bytes):
                 text = text.decode()
+
             if isinstance(text, str):
                 try:
                     loaded_jsons = load_sse_jsons(text)
@@ -143,6 +159,7 @@ async def consume_generator(
                         logger.debug(f"Invalid text_json because its not a dict?: {text_json}")
                         first_message = True  # NOTE: Janky, but so we mark it as a fail
                         break
+
                     try:
                         _ = text_json["choices"][0]["delta"]["content"]
                     except KeyError:
@@ -153,6 +170,7 @@ async def consume_generator(
                     text_jsons.append(text_json)
                     dumped_payload = json.dumps(text_json)
                     first_message = False
+
                     await _handle_event(
                         config,
                         content=f"data: {dumped_payload}\n\n",
@@ -160,6 +178,7 @@ async def consume_generator(
                         job_id=job_id,
                         status_code=200,
                     )
+                    tokens += 1
 
             if latest_counter:
                 time_between_chunks.append(time.time() - latest_counter)
@@ -211,6 +230,11 @@ async def consume_generator(
             status_code=200,
         )
         success = not first_message
+        if success:
+            if synthetic_query:
+                GAUGE_SYNTHETIC_TOKENS_PER_SEC.set(tokens / response_time, {"task": task})
+            else:
+                GAUGE_ORGANIC_TOKENS_PER_SEC.set(tokens / response_time, {"task": task})
     except Exception as e:
         logger.error(f"Unexpected exception when querying node: {node.node_id} for task: {task}. Payload: {payload}. Error: {e}")
         query_result = construct_500_query_result(node, task)

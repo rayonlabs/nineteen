@@ -26,7 +26,7 @@ async def chat_completions(
 ) -> StreamingResponse:
     try:
         generator = chat_stream(config.httpx_client, decrypted_payload, worker_config)
-        first_chunk = await generator.__anext__()
+        first_chunk = await generator.__anext__()  # TODO: use `anext(generator)`
         if first_chunk is None:
             raise HTTPException(status_code=500, detail="Error in streaming text from the server")
         else:

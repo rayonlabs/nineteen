@@ -12,7 +12,7 @@ from validator.db.src.sql.nodes import get_nodes, migrate_nodes_to_history, inse
 from fiber.logging_utils import get_logger
 from fiber.chain import fetch_nodes
 from validator.control_node.src.control_config import Config
-from validator.db.src.sql.nodes import insert_symmetric_keys_for_nodes, update_our_vali_node_in_db
+from validator.db.src.sql.nodes import update_our_vali_node_in_db
 from fiber.validator import handshake, client
 import httpx
 from datetime import datetime, timedelta
@@ -26,7 +26,7 @@ def _format_exception(e: Exception) -> str:
     return f"Exception Type: {type(e).__name__}\nException Message: {str(e)}\nTraceback:\n{''.join(traceback.format_tb(e.__traceback__))}"
 
 
-async def get_and_store_nodes(config: Config) -> list[Node]:
+async def get_refresh_nodes(config: Config) -> list[Node]:
     async with await config.psql_db.connection() as connection:
         if await is_recent_update(connection, config.netuid):
             return await get_nodes(config.psql_db, config.netuid)
@@ -35,11 +35,6 @@ async def get_and_store_nodes(config: Config) -> list[Node]:
 
     # Ensuring the Nodes get converted to NodesWithFernet
     nodes = [Node(**node.model_dump(mode="json")) for node in raw_nodes]
-
-    await store_nodes(config, nodes)
-    await update_our_validator_node(config)
-
-    logger.info(f"Stored {len(nodes)} nodes.")
     return nodes
 
 
@@ -54,7 +49,7 @@ async def is_recent_update(connection, netuid: int) -> bool:
 
 
 async def fetch_nodes_from_substrate(config: Config) -> list[Node]:
-    # NOTE: Will this cause issues if this method closes the conenction
+    # NOTE: Will this cause issues if this method closes the connection
     # on substrate interface, but we use the same substrate interface object elsewhere?
     return await asyncio.to_thread(fetch_nodes.get_nodes_for_netuid, config.substrate, config.netuid)
 
@@ -104,7 +99,7 @@ async def _handshake(config: Config, node: Node, async_client: httpx.AsyncClient
         if isinstance(e, (httpx.HTTPStatusError, httpx.RequestError, httpx.ConnectError)):
             if hasattr(e, "response"):
                 logger.debug(f"Response content: {e.response.text}")
-        
+
         return node_copy
 
     fernet = Fernet(symmetric_key)
@@ -113,7 +108,7 @@ async def _handshake(config: Config, node: Node, async_client: httpx.AsyncClient
     return node_copy
 
 
-async def perform_handshakes(nodes: list[Node], config: Config) -> list[Node]:
+async def perform_handshakes(nodes: list[Node], config: Config) -> tuple[list[Node], list[Node]]:
     tasks = []
     shaked_nodes: list[Node] = []
     for node in nodes:
@@ -131,10 +126,7 @@ async def perform_handshakes(nodes: list[Node], config: Config) -> list[Node]:
     ]
     if len(nodes_where_handshake_worked) == 0:
         logger.info("❌ Failed to perform handshakes with any nodes!")
-        return []
+        return [], []
     logger.info(f"✅ performed handshakes successfully with {len(nodes_where_handshake_worked)} nodes!")
 
-    async with await config.psql_db.connection() as connection:
-        await insert_symmetric_keys_for_nodes(connection, nodes_where_handshake_worked)
-
-    return shaked_nodes
+    return shaked_nodes, nodes_where_handshake_worked

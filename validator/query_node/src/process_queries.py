@@ -49,6 +49,7 @@ async def _handle_stream_query(config: Config, message: rdc.QueryQueueMessage, c
         if node is None:
             logger.error(f"Node {contender.node_id} not found in database for netuid {config.netuid}")
             continue
+
         logger.debug(f"Querying node {contender.node_id} for task {contender.task} with payload: {message.query_payload}")
         start_time = time.time()
 
@@ -70,6 +71,7 @@ async def _handle_stream_query(config: Config, message: rdc.QueryQueueMessage, c
             payload=message.query_payload,
             start_time=start_time,
         )
+
         if success:
             break
 
@@ -77,6 +79,7 @@ async def _handle_stream_query(config: Config, message: rdc.QueryQueueMessage, c
         logger.error(
             f"All Contenders {[contender.node_id for contender in contenders_to_query]} for task {message.task} failed to respond! :("
         )
+
         await _handle_error(
             config=config,
             synthetic_query=message.query_type == gcst.SYNTHETIC,
@@ -84,6 +87,7 @@ async def _handle_stream_query(config: Config, message: rdc.QueryQueueMessage, c
             status_code=500,
             error_message=f"Service for task {message.task} is not responding, please try again",
         )
+
     return success
 
 
