@@ -65,7 +65,7 @@ services:
       - postgresql
     volumes:
       - ${HOME}/.bittensor/wallets:/root/.bittensor/wallets
-    entrypoint: ["opentelemetry-instrument", "--logs_exporter", "otlp", "--traces_exporter", "none", "--metrics_exporter", "otlp", "--service_name", "hybrid_node", "python", "-u", "/app/validator/hybrid_node/src/main.py"]
+    entrypoint: opentelemetry-instrument --logs_exporter otlp --traces_exporter none --metrics_exporter otlp --service_name control_node python -u /app/validator/control_node/src/main.py
     environment:
       OTEL_EXPORTER_OTLP_PROTOCOL: "http/protobuf"
       OTEL_EXPORTER_OTLP_ENDPOINT: "http://otel-collector:4317"
