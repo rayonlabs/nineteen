@@ -12,17 +12,17 @@ services:
         condition: service_completed_successfully
       redis:
         condition: service_started
-    entrypoint: >
-      sh -c "
-        echo 'Python path:' &&
-        python -c 'import sys; print("\n".join(sys.path))' &&
-        echo '\nExecutable path:' &&
-        echo $PATH &&
-        echo '\nPython packages:' &&
+    command: >
+      /bin/sh -c '
+        echo "Python path:" &&
+        python -c "import sys; print(\"\n\".join(sys.path))" &&
+        echo "\nExecutable path:" &&
+        echo $$PATH &&
+        echo "\nPython packages:" &&
         pip list &&
-        which opentelemetry-instrument || echo 'opentelemetry-instrument not found' &&
-        python -c 'from opentelemetry.instrumentation.auto_instrumentation import AutoInstrumentation; print(AutoInstrumentation)'
-      "
+        which opentelemetry-instrument || echo "opentelemetry-instrument not found" &&
+        python -c "from opentelemetry.instrumentation.auto_instrumentation import AutoInstrumentation; print(AutoInstrumentation)"
+      '
     volumes:
       - ${HOME}/.bittensor/wallets:/root/.bittensor/wallets
     env_file:
