@@ -12,7 +12,6 @@ services:
         condition: service_completed_successfully
       redis:
         condition: service_started
-    #entrypoint: ["opentelemetry-instrument", "--logs_exporter", "otlp", "--traces_exporter", "none", "--metrics_exporter", "otlp", "--service_name", "control_node", "python", "-u", "/app/validator/control_node/src/main.py"]
     entrypoint: >
       sh -c "
         echo 'Python path:' &&
