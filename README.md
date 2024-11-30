@@ -15,8 +15,8 @@ Subnet 19 is decentralised inference of AI models. We call ourselves `Nineteen ð
 We have a focus on inference, currently offering access to the best open source LLM's, Image generation models (including those trained on datasets from subnet 19), and other miscellaneous models such as embedding models. We've even home grown and open sourced our own workflows, such as avatar generation.
 
 # Decentralisation
-Nothing is more important than decentralisation - we must be decentralised. We rely on no centralised API's - the miners' and validators' all run their own models. No single provider can bring us down.
-
+Nothing is more important than decentralisation -  we must be decentralised. We rely on no centralised API's - the miners' and validators' all run their own models. No single provider can bring us down.
+ 
 ## Decentralised miners
 Miners all run open source models on any hardware they choose. They're incentivised by three things:
 - Volume (amount of tokens, for example)

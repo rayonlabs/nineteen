@@ -12,12 +12,12 @@ from validator.db.src.sql.nodes import get_nodes, migrate_nodes_to_history, inse
 from fiber.logging_utils import get_logger
 from fiber.chain import fetch_nodes
 from validator.control_node.src.control_config import Config
-from validator.db.src.sql.nodes import insert_symmetric_keys_for_nodes, update_our_vali_node_in_db
+from validator.db.src.sql.nodes import update_our_vali_node_in_db
 from fiber.validator import handshake, client
 import httpx
 from datetime import datetime, timedelta
 from cryptography.fernet import Fernet
-from tenacity import retry, stop_after_attempt, retry_if_exception_type, wait_fixed
+from tenacity import retry, stop_after_attempt, retry_if_exception_type, wait_exponential
 
 logger = get_logger(__name__)
 
@@ -26,7 +26,7 @@ def _format_exception(e: Exception) -> str:
     return f"Exception Type: {type(e).__name__}\nException Message: {str(e)}\nTraceback:\n{''.join(traceback.format_tb(e.__traceback__))}"
 
 
-async def get_and_store_nodes(config: Config) -> list[Node]:
+async def get_refresh_nodes(config: Config) -> list[Node]:
     async with await config.psql_db.connection() as connection:
         if await is_recent_update(connection, config.netuid):
             return await get_nodes(config.psql_db, config.netuid)
@@ -35,11 +35,6 @@ async def get_and_store_nodes(config: Config) -> list[Node]:
 
     # Ensuring the Nodes get converted to NodesWithFernet
     nodes = [Node(**node.model_dump(mode="json")) for node in raw_nodes]
-
-    await store_nodes(config, nodes)
-    await update_our_validator_node(config)
-
-    logger.info(f"Stored {len(nodes)} nodes.")
     return nodes
 
 
@@ -71,9 +66,9 @@ async def update_our_validator_node(config: Config):
 
 
 @retry(
-    stop=stop_after_attempt(2),
+    stop=stop_after_attempt(3),
     retry=retry_if_exception_type((httpx.HTTPStatusError, httpx.RequestError, httpx.ConnectError)),
-    wait=wait_fixed(1)
+    wait=wait_exponential(multiplier=1, min=2, max=5)
 )
 async def _try_handshake(
     async_client: httpx.AsyncClient,
@@ -113,7 +108,7 @@ async def _handshake(config: Config, node: Node, async_client: httpx.AsyncClient
     return node_copy
 
 
-async def perform_handshakes(nodes: list[Node], config: Config) -> list[Node]:
+async def perform_handshakes(nodes: list[Node], config: Config) -> tuple[list[Node], list[Node]]:
     tasks = []
     shaked_nodes: list[Node] = []
     for node in nodes:
@@ -131,10 +126,7 @@ async def perform_handshakes(nodes: list[Node], config: Config) -> list[Node]:
     ]
     if len(nodes_where_handshake_worked) == 0:
         logger.info("❌ Failed to perform handshakes with any nodes!")
-        return []
+        return [], []
     logger.info(f"✅ performed handshakes successfully with {len(nodes_where_handshake_worked)} nodes!")
 
-    async with await config.psql_db.connection() as connection:
-        await insert_symmetric_keys_for_nodes(connection, nodes_where_handshake_worked)
-
-    return shaked_nodes
+    return shaked_nodes, nodes_where_handshake_worked
