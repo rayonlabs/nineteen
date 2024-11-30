@@ -25,10 +25,7 @@ class WorkerConfig:
 def factory_worker_config() -> WorkerConfig:
     return WorkerConfig(
         LLAMA_3_2_3B_TEXT_WORKER_URL=os.getenv("LLAMA_3_2_3B_TEXT_WORKER_URL"),
-        LLAMA_3_2_3B_TEXT_COMP_WORKER_URL=os.getenv("LLAMA_3_2_3B_TEXT_COMP_WORKER_URL"),
         LLAMA_3_1_8B_TEXT_WORKER_URL=os.getenv("LLAMA_3_1_8B_TEXT_WORKER_URL"),
-        LLAMA_3_1_8B_TEXT_COMP_WORKER_URL=os.getenv("LLAMA_3_1_8B_TEXT_COMP_WORKER_URL"),
         LLAMA_3_1_70B_TEXT_WORKER_URL=os.getenv("LLAMA_3_1_70B_TEXT_WORKER_URL"),
-        LLAMA_3_1_70B_TEXT_COMP_WORKER_URL=os.getenv("LLAMA_3_1_70B_TEXT_COMP_WORKER_URL"),
         IMAGE_WORKER_URL=os.getenv("IMAGE_WORKER_URL"),
     )
