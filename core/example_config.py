@@ -40,16 +40,15 @@ def custom_task_configs_factory():
                     "tensor_parallel_size": 4,
                     "max_model_len": 16_000,
                     "gpu_memory_utilization": 0.5,
-                    "eos_token_id": 128009
                 },
-                endpoint=cmodels.Endpoints.chat.value,
+                endpoint=cmodels.Endpoints.chat_completions.value,
                 checking_function="check_text_result",
                 task=CHAT_LLAMA_3_1_405B,
             ),
             synthetic_generation_config=cmodels.SyntheticGenerationConfig(
                 func="generate_chat_synthetic", kwargs={"model": CHAT_LLAMA_3_1_405B}
             ),
-            endpoint=cmodels.Endpoints.chat.value,
+            endpoint=cmodels.Endpoints.chat_completions.value,
             volume_to_requests_conversion=300,
             is_stream=True,
             weight=0.20,

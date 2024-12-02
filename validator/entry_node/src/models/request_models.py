@@ -38,8 +38,8 @@ class CompletionRequest(BaseModel):
         use_enum_values = True
 
 
-def chat_to_payload(chat_request: ChatRequest) -> payload_models.ChatCompletionPayload:
-    return payload_models.ChatCompletionPayload(
+def chat_to_payload(chat_request: ChatRequest) -> payload_models.ChatPayload:
+    return payload_models.ChatPayload(
         messages=chat_request.messages,
         temperature=chat_request.temperature,
         max_tokens=chat_request.max_tokens,

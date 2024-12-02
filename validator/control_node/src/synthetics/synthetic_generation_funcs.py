@@ -22,11 +22,10 @@ import binascii
 logger = get_logger(__name__)
 
 
-async def generate_chat_synthetic(model: str, task_config: Any, word_to_token: float = 4) -> payload_models.ChatCompletionPayload:
+async def generate_chat_synthetic(model: str, task_config: Any, word_to_token: float = 4) -> payload_models.ChatPayload:
     start = time()
     synth_corpus = sutils.get_synth_corpus()
-    rand_sampled = random.random()
-
+    
     try:
         total_n_words = sutils.get_random_int_from_dist(size=1, max_value=task_config.orchestrator_server_config.load_model_config['max_model_len']//word_to_token)
         if total_n_words.size == 0:
@@ -36,50 +35,37 @@ async def generate_chat_synthetic(model: str, task_config: Any, word_to_token: f
         total_n_words = total_n_words if total_n_words > 0 else 20
         logger.debug(f"generating prompt with {total_n_words} words for synth")
 
-        if rand_sampled < 0.5:
-            # total number of alternating assistant/user messages
-            total_messages = random.randint(2, 10)
-            n_words_per_message = total_n_words // total_messages
+        # total number of alternating assistant/user messages
+        total_messages = random.randint(2, 10)
+        n_words_per_message = total_n_words // total_messages
 
-            messages = [
-                utility_models.Message(content=await sutils.generate_text(synth_corpus, n_words_per_message), role=utility_models.Role.system),
-                utility_models.Message(content=await sutils.generate_text(synth_corpus, n_words_per_message), role=utility_models.Role.user)
-            ]
-            alternate_roles = [utility_models.Role.assistant, utility_models.Role.user]
-            messages += [
-                utility_models.Message(content=await sutils.generate_text(synth_corpus, n_words_per_message), role=alternate_roles[i % 2])
-                for i in range(total_messages - 2)
-            ]
-            # make sure we end with a user message
-            if messages[-1].role != utility_models.Role.user:
-                messages.append(utility_models.Message(
-                    content=await sutils.generate_text(synth_corpus, 10),
-                    role=utility_models.Role.user
-                ))
+        messages = [
+            utility_models.Message(content=await sutils.generate_text(synth_corpus, n_words_per_message), role=utility_models.Role.system),
+            utility_models.Message(content=await sutils.generate_text(synth_corpus, n_words_per_message), role=utility_models.Role.user)
+        ]
+        alternate_roles = [utility_models.Role.assistant, utility_models.Role.user]
+        messages += [
+            utility_models.Message(content=await sutils.generate_text(synth_corpus, n_words_per_message), role=alternate_roles[i % 2])
+            for i in range(total_messages - 2)
+        ]
+        # make sure we end with a user message
+        if messages[-1].role != utility_models.Role.user:
+            messages.append(utility_models.Message(
+                content=await sutils.generate_text(synth_corpus, 10),
+                role=utility_models.Role.user
+            ))
 
-            payload = payload_models.ChatCompletionPayload(
-                messages=messages,
-                temperature=round(random.random(), 1),
-                max_tokens=random.randint(50, 2000),
-                seed=random.randint(1, scst.MAX_SEED),
-                model=model,
-                top_p=1,
-            )
-            logger.debug(f"Generated /chat/completions synth | prompt : {messages}")
-        else:
-            message = await sutils.generate_text(synth_corpus, total_n_words)
-        
-            payload = payload_models.CompletionPayload(
-                prompt=message,
-                temperature=round(random.random(), 1),
-                max_tokens=random.randint(50, 2000),
-                seed=random.randint(1, scst.MAX_SEED),
-                model=model,
-                top_p=1,
-            )
-            logger.debug(f"Generated /completions synth | prompt : {message}")
+        payload = payload_models.ChatPayload(
+            messages=messages,
+            temperature=round(random.random(), 1),
+            max_tokens=random.randint(50, 2000),
+            seed=random.randint(1, scst.MAX_SEED),
+            model=model,
+            top_p=1,
+        )
 
         logger.debug(f"Generated {total_n_words} words chat synth in {round(time()-start, 3)}s")
+        logger.debug(f"prompt : {messages}")
         return payload
     
     except Exception as e:
@@ -87,13 +73,45 @@ async def generate_chat_synthetic(model: str, task_config: Any, word_to_token: f
         logger.error("Error in new version of generate_chat_synthetic: %s", e)
         logger.error(traceback.format_exc())
         logger.error("Rolling back to the old method")
-        if rand_sampled < 0.5:
-            return await generate_chat_synthetic_markov(model)
+        return await generate_chat_synthetic_markov(model)
+
+async def generate_chat_comp_synthetic(model: str, task_config: Any, word_to_token: float = 4) -> payload_models.CompletionPayload:
+    start = time()
+    synth_corpus = sutils.get_synth_corpus()
+    
+    try:
+        total_n_words = sutils.get_random_int_from_dist(size=1, max_value=task_config.orchestrator_server_config.load_model_config['max_model_len']//word_to_token)
+        if total_n_words.size == 0:
+            total_n_words = 1000 
         else:
-            return await generate_chat_comp_synthetic_markov(model)
+            total_n_words = int(total_n_words[0])
+        total_n_words = total_n_words if total_n_words > 0 else 20
+        logger.debug(f"generating prompt with {total_n_words} words for synth")
+
+        message = await sutils.generate_text(synth_corpus, total_n_words)
+        
+        payload = payload_models.CompletionPayload(
+            prompt=message,
+            temperature=round(random.random(), 1),
+            max_tokens=random.randint(50, 2000),
+            seed=random.randint(1, scst.MAX_SEED),
+            model=model,
+            top_p=1,
+        )
+
+        logger.debug(f"Generated {total_n_words} words chat completion synth in {round(time()-start, 3)}s")
+        logger.debug(f"prompt : {message}")
+        return payload
+    
+    except Exception as e:
+
+        logger.error("Error in new version of generate_chat_comp_synthetic: %s", e)
+        logger.error(traceback.format_exc())
+        logger.error("Rolling back to the old method")
+        return await generate_chat_comp_synthetic_markov(model)
 
 
-async def generate_chat_synthetic_markov(model: str) -> payload_models.ChatCompletionPayload:
+async def generate_chat_synthetic_markov(model: str) -> payload_models.ChatPayload:
     user_content = await _get_markov_sentence(max_words=random.randint(50, 2000))
     messages = [utility_models.Message(content=user_content, role=utility_models.Role.user)]
 
@@ -110,7 +128,7 @@ async def generate_chat_synthetic_markov(model: str) -> payload_models.ChatCompl
                 role=utility_models.Role.user,
             )
         )
-    return payload_models.ChatCompletionPayload(
+    return payload_models.ChatPayload(
         messages=messages,
         temperature=round(random.random(), 1),
         max_tokens=1024,

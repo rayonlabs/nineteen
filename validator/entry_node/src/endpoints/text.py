@@ -231,7 +231,7 @@ router.add_api_route(
 )
 router.add_api_route(
     "/v1/completions",
-    chat_comp,
+    chat,
     methods=["POST", "OPTIONS"],
     tags=["Text"],
     response_model=None,

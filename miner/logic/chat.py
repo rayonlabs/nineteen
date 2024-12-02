@@ -10,9 +10,9 @@ from typing import Union
 logger = get_logger(__name__)
 
 
-async def chat_stream(
+async def chat_completions_stream(
     httpx_client: httpx.AsyncClient, 
-    decrypted_payload: Union[payload_models.ChatCompletionPayload, payload_models.CompletionPayload], 
+    decrypted_payload: Union[payload_models.ChatPayload, payload_models.CompletionPayload], 
     worker_config: WorkerConfig
 ):
     task_config = tcfg.get_enabled_task_config(decrypted_payload.model)
@@ -24,15 +24,15 @@ async def chat_stream(
 
     # NOTE: you will probably need a smarter way to do this
     try:
-        if task_config.task == "chat-llama-3-1-8b" and isinstance(decrypted_payload, payload_models.ChatCompletionPayload):
+        if task_config.task == "chat-llama-3-1-8b" and isinstance(decrypted_payload, payload_models.ChatPayload):
             address = worker_config.LLAMA_3_1_8B_TEXT_WORKER_URL + "/chat/completions"
         elif task_config.task == "chat-llama-3-1-8b" and isinstance(decrypted_payload, payload_models.CompletionPayload):
             address = worker_config.LLAMA_3_1_8B_TEXT_WORKER_URL + "/completions"
-        elif task_config.task == "chat-llama-3-1-70b" and isinstance(decrypted_payload, payload_models.ChatCompletionPayload):
+        elif task_config.task == "chat-llama-3-1-70b" and isinstance(decrypted_payload, payload_models.ChatPayload):
             address = worker_config.LLAMA_3_1_8B_TEXT_WORKER_URL + "/chat/completions"
         elif task_config.task == "chat-llama-3-1-70b" and isinstance(decrypted_payload, payload_models.CompletionPayload):
             address = worker_config.LLAMA_3_1_70B_TEXT_WORKER_URL + "/completions"
-        elif task_config.task == "chat-llama-3-2-3b" and isinstance(decrypted_payload, payload_models.ChatCompletionPayload):
+        elif task_config.task == "chat-llama-3-2-3b" and isinstance(decrypted_payload, payload_models.ChatPayload):
             address = worker_config.LLAMA_3_2_3B_TEXT_WORKER_URL + "/chat/completions"
         elif task_config.task == "chat-llama-3-2-3b" and isinstance(decrypted_payload, payload_models.CompletionPayload):
             address = worker_config.LLAMA_3_2_3B_TEXT_WORKER_URL + "/completions"
@@ -69,7 +69,7 @@ async def chat_stream(
                     # print(data)
                     data2 = json.loads(data)
                     if (
-                        type(decrypted_payload) is payload_models.ChatCompletionPayload and
+                        type(decrypted_payload) is payload_models.ChatPayload and
                         (data2["choices"][0]["logprobs"] is None
                         or data2["choices"][0]["logprobs"]["content"][0]["logprob"] is None)
                     ):
