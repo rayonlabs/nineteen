@@ -30,9 +30,17 @@ GAUGE_ORGANIC_TOKENS_PER_SEC = metrics.get_meter(__name__).create_gauge(
     "validator.query_node.query.streaming.organic.tokens_per_sec",
     description="Average tokens per second metric for LLM streaming for any organic query"
 )
+GAUGE_ORGANIC_TOKENS = metrics.get_meter(__name__).create_gauge(
+    "validator.query_node.query.streaming.organic.tokens",
+    description="Total tokens for LLM streaming for an organic LLM query"
+)
 GAUGE_SYNTHETIC_TOKENS_PER_SEC = metrics.get_meter(__name__).create_gauge(
     "validator.query_node.query.streaming.synthetic.tokens_per_sec",
     description="Average tokens per second metric for LLM streaming for any synthetic query"
+)
+GAUGE_SYNTHETIC_TOKENS = metrics.get_meter(__name__).create_gauge(
+    "validator.query_node.query.streaming.synthetic.tokens",
+    description="Total tokens for LLM streaming for a synthetic LLM query"
 )
 
 def _get_formatted_payload(content: str, first_message: bool, add_finish_reason: bool = False) -> str:
@@ -232,8 +240,10 @@ async def consume_generator(
         success = not first_message
         if success:
             if synthetic_query:
+                GAUGE_SYNTHETIC_TOKENS.set(tokens, {"task": task})
                 GAUGE_SYNTHETIC_TOKENS_PER_SEC.set(tokens / response_time, {"task": task})
             else:
+                GAUGE_ORGANIC_TOKENS.set(tokens, {"task": task})
                 GAUGE_ORGANIC_TOKENS_PER_SEC.set(tokens / response_time, {"task": task})
     except Exception as e:
         logger.error(f"Unexpected exception when querying node: {node.node_id} for task: {task}. Payload: {payload}. Error: {e}")
