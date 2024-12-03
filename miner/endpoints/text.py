@@ -8,7 +8,7 @@ from core.models import payload_models
 from fastapi.routing import APIRouter
 from fiber.logging_utils import get_logger
 
-from miner.logic.chat import chat_completions_stream, completions_stream
+from miner.logic.chat import chat_stream
 from fiber.miner.core.configuration import Config
 from fiber.miner.dependencies import blacklist_low_stake, get_config, verify_request
 from miner.config import WorkerConfig

@@ -10,7 +10,7 @@ from typing import Union
 logger = get_logger(__name__)
 
 
-async def chat_completions_stream(
+async def chat_stream(
     httpx_client: httpx.AsyncClient, 
     decrypted_payload: Union[payload_models.ChatPayload, payload_models.CompletionPayload], 
     worker_config: WorkerConfig
