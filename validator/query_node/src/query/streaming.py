@@ -214,7 +214,10 @@ async def consume_generator(
             await utils.adjust_contender_from_result(config, query_result, contender, synthetic_query, payload=payload)
             await config.redis_db.expire(rcst.QUERY_RESULTS_KEY + ":" + job_id, 10)
 
-    character_count = sum([len(text_json["choices"][0]["delta"]["content"]) for text_json in text_jsons])
+    if "comp" in task:
+        character_count = sum([len(text_json["choices"][0]["text"]) for text_json in text_jsons])
+    else:
+        character_count = sum([len(text_json["choices"][0]["delta"]["content"]) for text_json in text_jsons])
     logger.debug(f"Success: {success}; Node: {node.node_id}; Task: {task}; response_time: {response_time}; first_message: {first_message}; character_count: {character_count}")
     logger.info(f"Success: {success}")
     return success
