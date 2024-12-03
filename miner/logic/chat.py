@@ -26,15 +26,15 @@ async def chat_stream(
     try:
         if task_config.task == "chat-llama-3-1-8b" and isinstance(decrypted_payload, payload_models.ChatPayload):
             address = worker_config.LLAMA_3_1_8B_TEXT_WORKER_URL + "/chat/completions"
-        elif task_config.task == "chat-llama-3-1-8b" and isinstance(decrypted_payload, payload_models.CompletionPayload):
+        elif task_config.task == "chat-llama-3-1-8b-comp" and isinstance(decrypted_payload, payload_models.CompletionPayload):
             address = worker_config.LLAMA_3_1_8B_TEXT_WORKER_URL + "/completions"
         elif task_config.task == "chat-llama-3-1-70b" and isinstance(decrypted_payload, payload_models.ChatPayload):
             address = worker_config.LLAMA_3_1_8B_TEXT_WORKER_URL + "/chat/completions"
-        elif task_config.task == "chat-llama-3-1-70b" and isinstance(decrypted_payload, payload_models.CompletionPayload):
+        elif task_config.task == "chat-llama-3-1-70b-comp" and isinstance(decrypted_payload, payload_models.CompletionPayload):
             address = worker_config.LLAMA_3_1_70B_TEXT_WORKER_URL + "/completions"
         elif task_config.task == "chat-llama-3-2-3b" and isinstance(decrypted_payload, payload_models.ChatPayload):
             address = worker_config.LLAMA_3_2_3B_TEXT_WORKER_URL + "/chat/completions"
-        elif task_config.task == "chat-llama-3-2-3b" and isinstance(decrypted_payload, payload_models.CompletionPayload):
+        elif task_config.task == "chat-llama-3-2-3b-comp" and isinstance(decrypted_payload, payload_models.CompletionPayload):
             address = worker_config.LLAMA_3_2_3B_TEXT_WORKER_URL + "/completions"
         # NOTE: adjust on validator UID basis by adding custom endpoints in worker_config init
         else:
