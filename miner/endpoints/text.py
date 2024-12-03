@@ -25,7 +25,7 @@ async def chat_completions(
     worker_config: WorkerConfig = Depends(get_worker_config),
 ) -> StreamingResponse:
     try:
-        generator = chat_completions_stream(config.httpx_client, decrypted_payload, worker_config)
+        generator = chat_stream(config.httpx_client, decrypted_payload, worker_config)
         first_chunk = await generator.__anext__()  # TODO: use `anext(generator)`
         if first_chunk is None:
             raise HTTPException(status_code=500, detail="Error in streaming text from the server")
@@ -41,7 +41,7 @@ async def completions(
     worker_config: WorkerConfig = Depends(get_worker_config),
 ) -> StreamingResponse:
     try:
-        generator = completions_stream(config.httpx_client, decrypted_payload, worker_config)
+        generator = chat_stream(config.httpx_client, decrypted_payload, worker_config)
         first_chunk = await generator.__anext__()  # TODO: use `anext(generator)`
         if first_chunk is None:
             raise HTTPException(status_code=500, detail="Error in streaming text from the server")
