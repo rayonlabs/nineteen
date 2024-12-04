@@ -37,7 +37,7 @@ def task_configs_factory() -> dict[str, cmodels.FullTaskConfig]:
                     "half_precision": True,
                     "tokenizer": "tau-vision/llama-tokenizer-fix",
                     "max_model_len": 20_000,
-                    "gpu_utilization": 0.5,
+                    "gpu_memory_utilization": 0.5,
                     "eos_token_id": 128009
                 },
                 endpoint=cmodels.Endpoints.chat_completions.value,
@@ -65,7 +65,7 @@ def task_configs_factory() -> dict[str, cmodels.FullTaskConfig]:
                     "half_precision": True,
                     "tokenizer": "tau-vision/llama-tokenizer-fix",
                     "max_model_len": 20_000,
-                    "gpu_utilization": 0.5,
+                    "gpu_memory_utilization": 0.5,
                     "eos_token_id": 128009
                 },
                 endpoint=cmodels.Endpoints.completions.value,
@@ -93,7 +93,7 @@ def task_configs_factory() -> dict[str, cmodels.FullTaskConfig]:
                     "half_precision": True,
                     "tokenizer": "tau-vision/llama-tokenizer-fix",
                     "max_model_len": 16_000,
-                    "gpu_utilization": 0.57,
+                    "gpu_memory_utilization": 0.57,
                     "eos_token_id": 128009
                 },
                 endpoint=cmodels.Endpoints.chat_completions.value,
@@ -121,7 +121,7 @@ def task_configs_factory() -> dict[str, cmodels.FullTaskConfig]:
                     "half_precision": True,
                     "tokenizer": "tau-vision/llama-tokenizer-fix",
                     "max_model_len": 16_000,
-                    "gpu_utilization": 0.57,
+                    "gpu_memory_utilization": 0.57,
                     "eos_token_id": 128009
                 },
                 endpoint=cmodels.Endpoints.completions.value,
@@ -149,7 +149,7 @@ def task_configs_factory() -> dict[str, cmodels.FullTaskConfig]:
                     "half_precision": True,
                     "tokenizer": "tau-vision/llama-tokenizer-fix",
                     "max_model_len": 20_000,
-                    "gpu_utilization": 0.5,
+                    "gpu_memory_utilization": 0.5,
                     "eos_token_id": 128009
                 },
                 endpoint=cmodels.Endpoints.chat_completions.value,
@@ -177,7 +177,7 @@ def task_configs_factory() -> dict[str, cmodels.FullTaskConfig]:
                     "half_precision": True,
                     "tokenizer": "tau-vision/llama-tokenizer-fix",
                     "max_model_len": 20_000,
-                    "gpu_utilization": 0.5,
+                    "gpu_memory_utilization": 0.5,
                     "eos_token_id": 128009
                 },
                 endpoint=cmodels.Endpoints.completions.value,
