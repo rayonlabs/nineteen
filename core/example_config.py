@@ -40,6 +40,7 @@ def custom_task_configs_factory():
                     "tensor_parallel_size": 4,
                     "max_model_len": 16_000,
                     "gpu_memory_utilization": 0.5,
+                    "eos_token_id": 128009
                 },
                 endpoint=cmodels.Endpoints.chat_completions.value,
                 checking_function="check_text_result",

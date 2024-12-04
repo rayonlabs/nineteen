@@ -35,12 +35,35 @@ async def chat_completions(
         logger.error(f"Error in streaming text from the server: {e}. ")
         raise HTTPException(status_code=500, detail=f"Error in streaming text from the server: {e}")
 
+async def completions(
+    decrypted_payload: payload_models.CompletionPayload = Depends(partial(decrypt_general_payload, payload_models.CompletionPayload)),
+    config: Config = Depends(get_config),
+    worker_config: WorkerConfig = Depends(get_worker_config),
+) -> StreamingResponse:
+    try:
+        generator = chat_stream(config.httpx_client, decrypted_payload, worker_config)
+        first_chunk = await generator.__anext__()  # TODO: use `anext(generator)`
+        if first_chunk is None:
+            raise HTTPException(status_code=500, detail="Error in streaming text from the server")
+        else:
+            return StreamingResponse(async_chain(first_chunk, generator), media_type="text/event-stream")
+    except httpx.HTTPStatusError as e:
+        logger.error(f"Error in streaming text from the server: {e}. ")
+        raise HTTPException(status_code=500, detail=f"Error in streaming text from the server: {e}")
+
 
 def factory_router() -> APIRouter:
     router = APIRouter()
     router.add_api_route(
         "/chat/completions",
         chat_completions,
+        tags=["Subnet"],
+        methods=["POST"],
+        dependencies=[Depends(blacklist_low_stake), Depends(verify_request)],
+    )
+    router.add_api_route(
+        "/completions",
+        completions,
         tags=["Subnet"],
         methods=["POST"],
         dependencies=[Depends(blacklist_low_stake), Depends(verify_request)],
