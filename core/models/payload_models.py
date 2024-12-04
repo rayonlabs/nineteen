@@ -28,6 +28,20 @@ class ChatPayload(BaseModel):
         use_enum_values = True
 
 
+class CompletionPayload(BaseModel):
+    prompt: str = Field(...)
+    temperature: float = Field(default=..., title="Temperature", description="Temperature for text generation.")
+    seed: int = Field(default=..., title="Seed", description="Seed for text generation.")
+    model: str = Field(default=..., examples=["chat-llama-3-2-3b"], title="Model")
+    stream: bool = True
+    logprobs: bool = True
+    top_p: float =  1.0
+    top_k: int = 5
+    max_tokens: int = Field(500, title="Max Tokens", description="Max tokens for text generation.")
+
+    class Config:
+        use_enum_values = True
+
 class ImageResponse(BaseModel):
     image_b64: str | None
     is_nsfw: bool | None
