@@ -207,7 +207,7 @@ def task_configs_factory() -> dict[str, cmodels.FullTaskConfig]:
                     "tokenizer": "TheBloke/Rogue-Rose-103b-v0.2-AWQ",
                     "half_precision": True,
                     "max_model_len": 4096,
-                    "gpu_utilization": 0.6,
+                    "gpu_memory_utilization": 0.6,
                     "eos_token_id": 2,
                 },
                 endpoint=cmodels.Endpoints.completions.value,
