@@ -214,7 +214,7 @@ def task_configs_factory() -> dict[str, cmodels.FullTaskConfig]:
                 task=CHAT_ROGUE_ROSE_103B_COMP,
                 checking_function="check_text_result",
             ),
-            synthetic_generation_config=cmodels.SyntheticGenerationConfig(func="generate_chat_synthetic", kwargs={"model": CHAT_ROGUE_ROSE_103B_COMP}),
+            synthetic_generation_config=cmodels.SyntheticGenerationConfig(func="generate_chat_comp_synthetic", kwargs={"model": CHAT_ROGUE_ROSE_103B_COMP}),
             endpoint=cmodels.Endpoints.completions.value,
             volume_to_requests_conversion=300,
             is_stream=True,
