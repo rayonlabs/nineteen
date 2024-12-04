@@ -16,6 +16,8 @@ CHAT_LLAMA_3_2_3B_COMP = "chat-llama-3-2-3b-comp"
 CHAT_LLAMA_3_1_70B_COMP = "chat-llama-3-1-70b-comp"
 CHAT_LLAMA_3_1_8B_COMP = "chat-llama-3-1-8b-comp"
 
+CHAT_ROGUE_ROSE_103B_COMP = "chat-rogue-rose-103b-comp"
+
 PROTEUS_TEXT_TO_IMAGE = "proteus-text-to-image"
 PROTEUS_IMAGE_TO_IMAGE = "proteus-image-to-image"
 FLUX_SCHNELL_TEXT_TO_IMAGE = "flux-schnell-text-to-image"
@@ -194,6 +196,32 @@ def task_configs_factory() -> dict[str, cmodels.FullTaskConfig]:
             timeout=2,
             enabled=True,
         ),
+        CHAT_ROGUE_ROSE_103B_COMP: cmodels.FullTaskConfig(
+            task=CHAT_ROGUE_ROSE_103B_COMP,
+            task_type=cmodels.TaskType.TEXT,
+            max_capacity=120_000,
+            orchestrator_server_config=cmodels.OrchestratorServerConfig(
+                server_needed=cmodels.ServerType.LLM,
+                load_model_config={
+                    "model": "TheBloke/Rogue-Rose-103b-v0.2-AWQ",
+                    "tokenizer": "TheBloke/Rogue-Rose-103b-v0.2-AWQ",
+                    "half_precision": True,
+                    "max_model_len": 4096,
+                    "gpu_utilization": 0.6,
+                    "eos_token_id": 2,
+                },
+                endpoint=cmodels.Endpoints.completions.value,
+                task=CHAT_ROGUE_ROSE_103B_COMP,
+                checking_function="check_text_result",
+            ),
+            synthetic_generation_config=cmodels.SyntheticGenerationConfig(func="generate_chat_synthetic", kwargs={"model": CHAT_ROGUE_ROSE_103B_COMP}),
+            endpoint=cmodels.Endpoints.completions.value,
+            volume_to_requests_conversion=300,
+            is_stream=True,
+            weight=0.10,
+            timeout=2,
+            enabled=True,
+        ),
         PROTEUS_TEXT_TO_IMAGE: cmodels.FullTaskConfig(
             task=PROTEUS_TEXT_TO_IMAGE,
             task_type=cmodels.TaskType.IMAGE,
@@ -258,7 +286,7 @@ def task_configs_factory() -> dict[str, cmodels.FullTaskConfig]:
             endpoint=cmodels.Endpoints.text_to_image.value,
             volume_to_requests_conversion=10,
             is_stream=False,
-            weight=0.15,
+            weight=0.10,
             timeout=20,
             enabled=True,
             model_info={"model": "black-forest-labs/FLUX.1-schnell"},
@@ -304,7 +332,7 @@ def task_configs_factory() -> dict[str, cmodels.FullTaskConfig]:
             endpoint=cmodels.Endpoints.avatar.value,
             volume_to_requests_conversion=10,
             is_stream=False,
-            weight=0.15,
+            weight=0.10,
             timeout=15,
             enabled=True,
             model_info={"model": "dataautogpt3/ProteusV0.4-Lightning"},
