@@ -21,8 +21,8 @@ async def main() -> None:
     async with await config.psql_db.connection() as connection:
         await connection.execute("""
             DELETE FROM reward_data
-            where task ilike '%comp%'
-            and created_at < '2024-12-05'
+            where task ilike '%chat%'
+            and created_at < '2024-11-28'
         """)
 
 
