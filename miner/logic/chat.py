@@ -43,6 +43,7 @@ async def chat_stream(
         raise ValueError(f"URL not set in worker_config: {e}")
 
     decrypted_payload.model = model_name
+    decrypted_payload.add_special_tokens = False
 
     assert address is not None, f"Address for model: {decrypted_payload.model} is not set in your miner config!"
 

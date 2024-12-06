@@ -23,7 +23,8 @@ class ChatPayload(BaseModel):
     top_p: float =  1.0
     top_k: int = 5
     max_tokens: int = Field(500, title="Max Tokens", description="Max tokens for text generation.")
-
+    add_special_tokens: bool = False
+    
     class Config:
         use_enum_values = True
 
@@ -38,6 +39,7 @@ class CompletionPayload(BaseModel):
     top_p: float =  1.0
     top_k: int = 5
     max_tokens: int = Field(500, title="Max Tokens", description="Max tokens for text generation.")
+    add_special_tokens: bool = False
 
     class Config:
         use_enum_values = True
