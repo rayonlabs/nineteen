@@ -22,7 +22,7 @@ async def main() -> None:
         await connection.execute("""
             DELETE FROM reward_data
             where task ilike '%comp%'
-            and created_at < '2024-12-05'
+            and created_at < '2024-12-07'
         """)
 
 
