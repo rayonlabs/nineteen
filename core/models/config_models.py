@@ -20,6 +20,7 @@ class Endpoints(Enum):
     upscale = "/upscale"
     clip_embeddings = "/clip-embeddings"
     chat_completions = "/chat/completions"
+    completions = "/completions"
 
 
 class TaskScoringConfig(BaseModel):

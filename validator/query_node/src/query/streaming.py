@@ -43,17 +43,20 @@ GAUGE_SYNTHETIC_TOKENS = metrics.get_meter(__name__).create_gauge(
     description="Total tokens for LLM streaming for a synthetic LLM query"
 )
 
-def _get_formatted_payload(content: str, first_message: bool, add_finish_reason: bool = False) -> str:
-    delta_payload = {"content": content}
-    if first_message:
-        delta_payload["role"] = "assistant"
-    choices_payload: dict[str, str | dict[str, str]] = {"delta": delta_payload}
-    if add_finish_reason:
+def _get_formatted_payload(content: str, first_message: bool, add_finish_reason: bool = False, task: str = "") -> str:
+    if 'comp' in task:
+        choices_payload: dict[str, str | dict[str, str]] = {"text": content}
         choices_payload["finish_reason"] = "stop"
+    else:
+        delta_payload = {"content": content}
+        if first_message:
+            delta_payload["role"] = "assistant"
+        choices_payload: dict[str, str | dict[str, str]] = {"delta": delta_payload}
+        if add_finish_reason:
+            choices_payload["finish_reason"] = "stop"
     payload = {
         "choices": [choices_payload],
     }
-
     dumped_payload = json.dumps(payload)
     return dumped_payload
 
@@ -169,7 +172,10 @@ async def consume_generator(
                         break
 
                     try:
-                        _ = text_json["choices"][0]["delta"]["content"]
+                        if "comp" in task:
+                            _ = text_json["choices"][0]["text"]
+                        else:
+                            _ = text_json["choices"][0]["delta"]["content"]
                     except KeyError:
                         logger.debug(f"Invalid text_json because there's not delta content: {text_json}")
                         first_message = True  # NOTE: Janky, but so we mark it as a fail
@@ -201,7 +207,7 @@ async def consume_generator(
         if ttfb > TTFB_THRESHOLD:
             response_time_penalty_multiplier = TTFB_PENALTY_FACTOR
         if len(text_jsons) > 0:
-            last_payload = _get_formatted_payload("", False, add_finish_reason=True)
+            last_payload = _get_formatted_payload("", False, add_finish_reason=True, task = task)
             await _handle_event(
                 config, content=f"data: {last_payload}\n\n", synthetic_query=synthetic_query, job_id=job_id, status_code=200
             )
@@ -254,7 +260,10 @@ async def consume_generator(
             await utils.adjust_contender_from_result(config, query_result, contender, synthetic_query, payload=payload)
             await config.redis_db.expire(rcst.QUERY_RESULTS_KEY + ":" + job_id, 10)
 
-    character_count = sum([len(text_json["choices"][0]["delta"]["content"]) for text_json in text_jsons])
+    if "comp" in task:
+        character_count = sum([len(text_json["choices"][0]["text"]) for text_json in text_jsons])
+    else:
+        character_count = sum([len(text_json["choices"][0]["delta"]["content"]) for text_json in text_jsons])
     logger.debug(f"Success: {success}; Node: {node.node_id}; Task: {task}; response_time: {response_time}; first_message: {first_message}; character_count: {character_count}")
     logger.info(f"Success: {success}")
     return success
