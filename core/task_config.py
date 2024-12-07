@@ -206,7 +206,7 @@ def task_configs_factory() -> dict[str, cmodels.FullTaskConfig]:
             task=CHAT_ROGUE_ROSE_103B_COMP,
             display_name="Rogue Rose 103B",
             task_type=cmodels.TaskType.TEXT,
-            max_capacity=120_000,
+            max_capacity=80_000,
             orchestrator_server_config=cmodels.OrchestratorServerConfig(
                 server_needed=cmodels.ServerType.LLM,
                 load_model_config={
