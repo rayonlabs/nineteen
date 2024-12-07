@@ -1,6 +1,6 @@
 import openai
 
-API_KEY = "rayon_8d2MhJjOA1NILI27P5I9cks7EfwURHeu"
+API_KEY = "YOUR_API_KEY_HERE"
 client = openai.OpenAI(api_key=API_KEY, base_url="https://api.nineteen.ai/v1")
 
 # With stream!

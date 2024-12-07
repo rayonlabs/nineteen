@@ -1,7 +1,7 @@
 from langchain_core.messages import HumanMessage
 from langchain_openai import ChatOpenAI
 
-API_KEY = "rayon_8d2MhJjOA1NILI27P5I9cks7EfwURHeu"
+API_KEY = "YOUR_API_KEY_HERE"
 chat = ChatOpenAI(
     api_key=API_KEY,
     base_url="https://api.nineteen.ai/v1",
