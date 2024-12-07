@@ -25,14 +25,12 @@ class ChatRequest(BaseModel):
 
 class CompletionRequest(BaseModel):
     prompt: str = Field(...)
-    temperature: float = Field(default=..., title="Temperature", description="Temperature for text generation.")
-    seed: int = Field(default=..., title="Seed", description="Seed for text generation.")
-    model: str = Field(default=..., examples=["chat-llama-3-2-3b"], title="Model")
-    stream: bool = True
-    logprobs: bool = True
-    top_p: float =  1.0
-    top_k: int = 5
+    temperature: float = Field(default=0.5, examples=[0.5, 0.4, 0.3], title="Temperature", description="Temperature for text generation.")
     max_tokens: int = Field(500, title="Max Tokens", description="Max tokens for text generation.")
+    model: str = Field(default=..., examples=["chat-llama-3-2-3b"], title="Model")
+    top_p: float = Field(default=1.0, title="Top P", description="Top P for text generation.")
+    stream: bool = Field(default=True, title="Stream", description="Stream for text generation.")
+    logprobs: bool = True
 
     class Config:
         use_enum_values = True
