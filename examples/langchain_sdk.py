@@ -8,8 +8,7 @@ chat = ChatOpenAI(
     model="chat-llama-3-1-70b",
 )
 
-print("\nStarting stream test...")
-print("-" * 100)
+print("\nStarting stream test..." + "-" * 100)
 
 stream_messages = [
     HumanMessage(content="Say this is a test for a streaming response, in 10 ish words, nothing else")
@@ -18,10 +17,8 @@ stream_messages = [
 for chunk in chat.stream(stream_messages):
     print(chunk.content, end="")
 
-print("\n" + "-" * 100)
-print("\nStream test complete, now for non-stream...")
+print("\n" + "-" * 100 + "\n" + "Stream test complete, now for non-stream..." + "\n" + "-" * 100)
 
-print("-" * 100)
 
 messages = [
     HumanMessage(content="Say this is a test for non-streaming response, in 10 ish words, nothing else")
@@ -30,5 +27,4 @@ messages = [
 response = chat.invoke(messages)
 print(response.content)
 
-print("-" * 100)
-print("Non-stream test complete!")
+print("-" * 100 + "\n" + "Non-stream test complete!")
