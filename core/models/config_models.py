@@ -60,6 +60,7 @@ class FullTaskConfig(BaseModel):
     timeout: float
     enabled: bool = True
     model_info: dict | None = None
+    display_name: str | None = None  # TODO: Remove this when we're certain all new tasks have a display name
 
     def get_public_config(self) -> dict | None:
         if not self.enabled:
@@ -79,4 +80,5 @@ class FullTaskConfig(BaseModel):
             "endpoint": self.endpoint,
             "weight": self.weight,
             "timeout": self.timeout,
+            "display_name": self.display_name if self.display_name else self.task.strip("chat-"),
         }
