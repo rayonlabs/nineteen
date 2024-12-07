@@ -223,6 +223,7 @@ async def avatar_to_payload(
         seed=random.randint(1, 100000),
         ipadapter_strength=avatar_request.ipadapter_strength,
         control_strength=avatar_request.control_strength,
+        model=avatar_request.model or "avatar",
     )
 
 

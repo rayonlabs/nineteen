@@ -339,7 +339,7 @@ def task_configs_factory() -> dict[str, cmodels.FullTaskConfig]:
             ),
             synthetic_generation_config=cmodels.SyntheticGenerationConfig(
                 func="generate_avatar_synthetic",
-                kwargs={},
+                kwargs={"model": AVATAR},
             ),
             endpoint=cmodels.Endpoints.avatar.value,
             volume_to_requests_conversion=10,

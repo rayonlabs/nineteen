@@ -105,3 +105,4 @@ class AvatarPayload(BaseModel):
     )
     control_strength: float = Field(0.5, title="Control Strength", description="Control Strength for text generation.")
     init_image: str = Field(..., title="Init Image")
+    model: str = Field(default="avatar", title="Model")
