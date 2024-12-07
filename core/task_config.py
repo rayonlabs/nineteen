@@ -10,10 +10,12 @@ logger = get_logger(__name__)
 
 CHAT_LLAMA_3_2_3B = "chat-llama-3-2-3b"
 CHAT_LLAMA_3_1_70B = "chat-llama-3-1-70b"
+CHAT_LLAMA_3_3_70B = "chat-llama-3-3-70b"
 CHAT_LLAMA_3_1_8B = "chat-llama-3-1-8b"
 
 CHAT_LLAMA_3_2_3B_COMP = "chat-llama-3-2-3b-comp"
 CHAT_LLAMA_3_1_70B_COMP = "chat-llama-3-1-70b-comp"
+CHAT_LLAMA_3_3_70B_COMP = "chat-llama-3-3-70b-comp"
 CHAT_LLAMA_3_1_8B_COMP = "chat-llama-3-1-8b-comp"
 
 CHAT_ROGUE_ROSE_103B_COMP = "chat-rogue-rose-103b-comp"
@@ -32,7 +34,7 @@ def task_configs_factory() -> dict[str, cmodels.FullTaskConfig]:
             task=CHAT_LLAMA_3_2_3B,
             display_name="Llama 3.2 3B",
             task_type=cmodels.TaskType.TEXT,
-            max_capacity=60_000, 
+            max_capacity=60_000,
             orchestrator_server_config=cmodels.OrchestratorServerConfig(
                 server_needed=cmodels.ServerType.LLM,
                 load_model_config={
@@ -61,7 +63,7 @@ def task_configs_factory() -> dict[str, cmodels.FullTaskConfig]:
             task=CHAT_LLAMA_3_2_3B_COMP,
             display_name="Llama 3.2 3B Completions",
             task_type=cmodels.TaskType.TEXT,
-            max_capacity=60_000, 
+            max_capacity=60_000,
             orchestrator_server_config=cmodels.OrchestratorServerConfig(
                 server_needed=cmodels.ServerType.LLM,
                 load_model_config={
@@ -115,6 +117,35 @@ def task_configs_factory() -> dict[str, cmodels.FullTaskConfig]:
             timeout=2,
             enabled=True,
         ),
+        CHAT_LLAMA_3_3_70B: cmodels.FullTaskConfig(
+            task=CHAT_LLAMA_3_1_70B,
+            display_name="Llama 3.3 70B",
+            task_type=cmodels.TaskType.TEXT,
+            max_capacity=60_000,
+            orchestrator_server_config=cmodels.OrchestratorServerConfig(
+                server_needed=cmodels.ServerType.LLM,
+                load_model_config={
+                    "model": "ibnzterrell/Meta-Llama-3.3-70B-Instruct-AWQ-INT4",
+                    "half_precision": True,
+                    "tokenizer": "tau-vision/llama-tokenizer-fix",
+                    "max_model_len": 16_000,
+                    "gpu_memory_utilization": 0.57,
+                    "eos_token_id": 128009
+                },
+                endpoint=cmodels.Endpoints.chat_completions.value,
+                checking_function="check_text_result",
+                task=CHAT_LLAMA_3_3_70B,
+            ),
+            synthetic_generation_config=cmodels.SyntheticGenerationConfig(
+                func="generate_chat_synthetic", kwargs={"model": CHAT_LLAMA_3_3_70B}
+            ),
+            endpoint=cmodels.Endpoints.chat_completions.value,
+            volume_to_requests_conversion=300,
+            is_stream=True,
+            weight=0.10,
+            timeout=2,
+            enabled=True,
+        ),
         CHAT_LLAMA_3_1_70B_COMP: cmodels.FullTaskConfig(
             task=CHAT_LLAMA_3_1_70B_COMP,
             display_name="Llama 3.1 70B Completions",
@@ -136,6 +167,35 @@ def task_configs_factory() -> dict[str, cmodels.FullTaskConfig]:
             ),
             synthetic_generation_config=cmodels.SyntheticGenerationConfig(
                 func="generate_chat_comp_synthetic", kwargs={"model": CHAT_LLAMA_3_1_70B_COMP}
+            ),
+            endpoint=cmodels.Endpoints.completions.value,
+            volume_to_requests_conversion=300,
+            is_stream=True,
+            weight=0.10,
+            timeout=2,
+            enabled=True,
+        ),
+        CHAT_LLAMA_3_3_70B_COMP: cmodels.FullTaskConfig(
+            task=CHAT_LLAMA_3_3_70B_COMP,
+            display_name="Llama 3.1 70B Completions",
+            task_type=cmodels.TaskType.TEXT,
+            max_capacity=60_000,
+            orchestrator_server_config=cmodels.OrchestratorServerConfig(
+                server_needed=cmodels.ServerType.LLM,
+                load_model_config={
+                    "model": "ibnzterrell/Meta-Llama-3.3-70B-Instruct-AWQ-INT4",
+                    "half_precision": True,
+                    "tokenizer": "tau-vision/llama-tokenizer-fix",
+                    "max_model_len": 16_000,
+                    "gpu_memory_utilization": 0.57,
+                    "eos_token_id": 128009
+                },
+                endpoint=cmodels.Endpoints.completions.value,
+                checking_function="check_text_result",
+                task=CHAT_LLAMA_3_3_70B_COMP,
+            ),
+            synthetic_generation_config=cmodels.SyntheticGenerationConfig(
+                func="generate_chat_comp_synthetic", kwargs={"model": CHAT_LLAMA_3_3_70B_COMP}
             ),
             endpoint=cmodels.Endpoints.completions.value,
             volume_to_requests_conversion=300,
