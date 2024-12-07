@@ -31,6 +31,8 @@ def task_configs_factory() -> dict[str, cmodels.FullTaskConfig]:
         CHAT_LLAMA_3_2_3B: cmodels.FullTaskConfig(
             task=CHAT_LLAMA_3_2_3B,
             display_name="Llama 3.2 3B",
+            created=1733599299,
+            description="Llama 3.2 3B is a finetune of [Llama 3.2 3B](/unsloth/llama-3.2-3b-instruct) with a \"HUGE step up dataset wise\" compared to Llama 3.1 8B. Sloppy chats output were purged.\n\nUsage of this model is subject to [Meta's Acceptable Use Policy](https://llama.meta.com/llama3/use-policy/).",
             task_type=cmodels.TaskType.TEXT,
             max_capacity=60_000, 
             orchestrator_server_config=cmodels.OrchestratorServerConfig(
@@ -56,10 +58,15 @@ def task_configs_factory() -> dict[str, cmodels.FullTaskConfig]:
             weight=0.025,
             timeout=2,
             enabled=True,
+            architecture={
+                "modality": "text->text",
+                "instruct_type": "llama3"
+            }
         ),
         CHAT_LLAMA_3_2_3B_COMP: cmodels.FullTaskConfig(
             task=CHAT_LLAMA_3_2_3B_COMP,
             display_name="Llama 3.2 3B Completions",
+            description="Llama 3.2 3B Completions",
             task_type=cmodels.TaskType.TEXT,
             max_capacity=60_000, 
             orchestrator_server_config=cmodels.OrchestratorServerConfig(
@@ -85,6 +92,10 @@ def task_configs_factory() -> dict[str, cmodels.FullTaskConfig]:
             weight=0.025,
             timeout=2,
             enabled=True,
+            architecture={
+                "modality": "text->text",
+                "instruct_type": "llama3"
+            }
         ),
         CHAT_LLAMA_3_1_70B: cmodels.FullTaskConfig(
             task=CHAT_LLAMA_3_1_70B,
@@ -114,6 +125,10 @@ def task_configs_factory() -> dict[str, cmodels.FullTaskConfig]:
             weight=0.10,
             timeout=2,
             enabled=True,
+            architecture={
+                "modality": "text->text",
+                "instruct_type": "llama3"
+            }
         ),
         CHAT_LLAMA_3_1_70B_COMP: cmodels.FullTaskConfig(
             task=CHAT_LLAMA_3_1_70B_COMP,
@@ -143,6 +158,10 @@ def task_configs_factory() -> dict[str, cmodels.FullTaskConfig]:
             weight=0.10,
             timeout=2,
             enabled=True,
+            architecture={
+                "modality": "text->text",
+                "instruct_type": "llama3"
+            }
         ),
         CHAT_LLAMA_3_1_8B: cmodels.FullTaskConfig(
             task=CHAT_LLAMA_3_1_8B,
@@ -172,6 +191,10 @@ def task_configs_factory() -> dict[str, cmodels.FullTaskConfig]:
             weight=0.075,
             timeout=2,
             enabled=True,
+            architecture={
+                "modality": "text->text",
+                "instruct_type": "llama3"
+            }
         ),
         CHAT_LLAMA_3_1_8B_COMP: cmodels.FullTaskConfig(
             task=CHAT_LLAMA_3_1_8B_COMP,
@@ -201,6 +224,10 @@ def task_configs_factory() -> dict[str, cmodels.FullTaskConfig]:
             weight=0.075,
             timeout=2,
             enabled=True,
+            architecture={
+                "modality": "text->text",
+                "instruct_type": "llama3"
+            }
         ),
         CHAT_ROGUE_ROSE_103B_COMP: cmodels.FullTaskConfig(
             task=CHAT_ROGUE_ROSE_103B_COMP,
@@ -228,6 +255,10 @@ def task_configs_factory() -> dict[str, cmodels.FullTaskConfig]:
             weight=0.10,
             timeout=2,
             enabled=True,
+            architecture={
+                "modality": "text->text",
+                "instruct_type": None
+            }
         ),
         PROTEUS_TEXT_TO_IMAGE: cmodels.FullTaskConfig(
             task=PROTEUS_TEXT_TO_IMAGE,
