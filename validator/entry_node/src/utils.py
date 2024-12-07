@@ -14,7 +14,7 @@ def _create_text_model_response(config: cmodels.FullTaskConfig) -> TextModelResp
     description = config.description
     context_length = config.orchestrator_server_config.load_model_config["max_model_len"]
     architecture = config.architecture
-    endpoint = config.orchestrator_server_config.load_model_config["endpoint"]
+    endpoint = config.orchestrator_server_config.endpoint
 
     return TextModelResponse(
         id=id,
@@ -51,7 +51,7 @@ def get_text_model_responses() -> list[TextModelResponse]:
 
             if id in text_responses:
                 # Add additional endpoint to existing text model response
-                endpoint = config.orchestrator_server_config.load_model_config["endpoint"]
+                endpoint = config.orchestrator_server_config.endpoint
                 text_responses[id].endpoints.append(endpoint)
             else:
                 text_responses[id] = _create_text_model_response(config)
@@ -65,8 +65,8 @@ def get_image_model_responses() -> list[ImageModelResponse]:
     image_responses: dict[str, ImageModelResponse] = {}
 
     for config in task_configs.values():
+        task = config.task
         if config.task_type != cmodels.TaskType.TEXT:
-            id = config.model_info["model"]
-            image_responses[id] = _create_image_model_response(config)
+            image_responses[task] = _create_image_model_response(config)
 
     return list(image_responses.values())

@@ -66,7 +66,7 @@ def task_configs_factory() -> dict[str, cmodels.FullTaskConfig]:
         CHAT_LLAMA_3_2_3B_COMP: cmodels.FullTaskConfig(
             task=CHAT_LLAMA_3_2_3B_COMP,
             display_name="Llama 3.2 3B Completions",
-            description="Llama 3.2 3B Completions",
+            description="Llama 3.2 3B is a finetune of [Llama 3.2 3B](/unsloth/llama-3.2-3b-instruct) with a \"HUGE step up dataset wise\" compared to Llama 3.1 8B. Sloppy chats output were purged.\n\nUsage of this model is subject to [Meta's Acceptable Use Policy](https://llama.meta.com/llama3/use-policy/).",
             task_type=cmodels.TaskType.TEXT,
             max_capacity=60_000, 
             orchestrator_server_config=cmodels.OrchestratorServerConfig(
@@ -100,6 +100,7 @@ def task_configs_factory() -> dict[str, cmodels.FullTaskConfig]:
         CHAT_LLAMA_3_1_70B: cmodels.FullTaskConfig(
             task=CHAT_LLAMA_3_1_70B,
             display_name="Llama 3.1 70B",
+            description="Llama 3.1 70B is a finetune of [Llama 3.1 70B](/hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4) with a \"HUGE step up dataset wise\" compared to Llama 3.1 8B. Sloppy chats output were purged.\n\nUsage of this model is subject to [Meta's Acceptable Use Policy](https://llama.meta.com/llama3/use-policy/).",
             task_type=cmodels.TaskType.TEXT,
             max_capacity=60_000,
             orchestrator_server_config=cmodels.OrchestratorServerConfig(
@@ -133,6 +134,7 @@ def task_configs_factory() -> dict[str, cmodels.FullTaskConfig]:
         CHAT_LLAMA_3_1_70B_COMP: cmodels.FullTaskConfig(
             task=CHAT_LLAMA_3_1_70B_COMP,
             display_name="Llama 3.1 70B Completions",
+            description="Llama 3.1 70B is a finetune of [Llama 3.1 70B](/hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4) with a \"HUGE step up dataset wise\" compared to Llama 3.1 8B. Sloppy chats output were purged.\n\nUsage of this model is subject to [Meta's Acceptable Use Policy](https://llama.meta.com/llama3/use-policy/).",
             task_type=cmodels.TaskType.TEXT,
             max_capacity=60_000,
             orchestrator_server_config=cmodels.OrchestratorServerConfig(
@@ -166,6 +168,7 @@ def task_configs_factory() -> dict[str, cmodels.FullTaskConfig]:
         CHAT_LLAMA_3_1_8B: cmodels.FullTaskConfig(
             task=CHAT_LLAMA_3_1_8B,
             display_name="Llama 3.1 8B",
+            description="Llama 3.1 8B is a finetune of [Llama 3.1 8B](/unsloth/Meta-Llama-3.1-8B-Instruct). Sloppy chats output were purged.\n\nUsage of this model is subject to [Meta's Acceptable Use Policy](https://llama.meta.com/llama3/use-policy/).",
             task_type=cmodels.TaskType.TEXT,
             max_capacity=60_000,
             orchestrator_server_config=cmodels.OrchestratorServerConfig(
@@ -199,6 +202,7 @@ def task_configs_factory() -> dict[str, cmodels.FullTaskConfig]:
         CHAT_LLAMA_3_1_8B_COMP: cmodels.FullTaskConfig(
             task=CHAT_LLAMA_3_1_8B_COMP,
             display_name="Llama 3.1 8B Completions",
+            description="Llama 3.1 8B is a finetune of [Llama 3.1 8B](/unsloth/Meta-Llama-3.1-8B-Instruct). Sloppy chats output were purged.\n\nUsage of this model is subject to [Meta's Acceptable Use Policy](https://llama.meta.com/llama3/use-policy/).",
             task_type=cmodels.TaskType.TEXT,
             max_capacity=60_000,
             orchestrator_server_config=cmodels.OrchestratorServerConfig(
@@ -232,6 +236,7 @@ def task_configs_factory() -> dict[str, cmodels.FullTaskConfig]:
         CHAT_ROGUE_ROSE_103B_COMP: cmodels.FullTaskConfig(
             task=CHAT_ROGUE_ROSE_103B_COMP,
             display_name="Rogue Rose 103B",
+            description="Rogue Rose 103B makes roleplay go brr",
             task_type=cmodels.TaskType.TEXT,
             max_capacity=60_000,
             orchestrator_server_config=cmodels.OrchestratorServerConfig(
@@ -263,6 +268,7 @@ def task_configs_factory() -> dict[str, cmodels.FullTaskConfig]:
         PROTEUS_TEXT_TO_IMAGE: cmodels.FullTaskConfig(
             task=PROTEUS_TEXT_TO_IMAGE,
             display_name="Proteus Text to Image",
+            description="Lightning fast high quality text to image model",
             task_type=cmodels.TaskType.IMAGE,
             max_capacity=800,
             orchestrator_server_config=cmodels.OrchestratorServerConfig(
@@ -287,6 +293,7 @@ def task_configs_factory() -> dict[str, cmodels.FullTaskConfig]:
         PROTEUS_IMAGE_TO_IMAGE: cmodels.FullTaskConfig(
             task=PROTEUS_IMAGE_TO_IMAGE,
             display_name="Proteus Image to Image",
+            description="Lightning fast high quality image to image model",
             task_type=cmodels.TaskType.IMAGE,
             max_capacity=800,
             orchestrator_server_config=cmodels.OrchestratorServerConfig(
@@ -311,6 +318,7 @@ def task_configs_factory() -> dict[str, cmodels.FullTaskConfig]:
         FLUX_SCHNELL_TEXT_TO_IMAGE: cmodels.FullTaskConfig(
             task=FLUX_SCHNELL_TEXT_TO_IMAGE,
             display_name="Flux Schnell Text to Image",
+            description="Ultra high quality text to image model, capable of text",
             task_type=cmodels.TaskType.IMAGE,
             max_capacity=2100,
             orchestrator_server_config=cmodels.OrchestratorServerConfig(
@@ -335,6 +343,7 @@ def task_configs_factory() -> dict[str, cmodels.FullTaskConfig]:
         FLUX_SCHNELL_IMAGE_TO_IMAGE: cmodels.FullTaskConfig(
             task=FLUX_SCHNELL_IMAGE_TO_IMAGE,
             display_name="Flux Schnell Image to Image",
+            description="Ultra high quality image to image model, capable of text",
             task_type=cmodels.TaskType.IMAGE,
             max_capacity=800,
             orchestrator_server_config=cmodels.OrchestratorServerConfig(
@@ -359,6 +368,7 @@ def task_configs_factory() -> dict[str, cmodels.FullTaskConfig]:
         AVATAR: cmodels.FullTaskConfig(
             task=AVATAR,
             display_name="Avatar",
+            description="Make people into avatars",
             task_type=cmodels.TaskType.IMAGE,
             max_capacity=800,
             orchestrator_server_config=cmodels.OrchestratorServerConfig(
@@ -383,6 +393,7 @@ def task_configs_factory() -> dict[str, cmodels.FullTaskConfig]:
         DREAMSHAPER_TEXT_TO_IMAGE: cmodels.FullTaskConfig(
             task=DREAMSHAPER_TEXT_TO_IMAGE,
             display_name="Dreamshaper Text to Image",
+            description="Ultra high quality text to image model, capable of text",
             task_type=cmodels.TaskType.IMAGE,
             max_capacity=800,
             orchestrator_server_config=cmodels.OrchestratorServerConfig(
@@ -407,6 +418,7 @@ def task_configs_factory() -> dict[str, cmodels.FullTaskConfig]:
         DREAMSHAPER_IMAGE_TO_IMAGE: cmodels.FullTaskConfig(
             task=DREAMSHAPER_IMAGE_TO_IMAGE,
             display_name="Dreamshaper Image to Image",
+            description="Ultra high quality image to image model, capable of image to image",
             task_type=cmodels.TaskType.IMAGE,
             max_capacity=800,
             orchestrator_server_config=cmodels.OrchestratorServerConfig(
