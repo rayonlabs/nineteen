@@ -1,11 +1,11 @@
 import openai
 
-API_KEY = "YOUR_API_KEY_HERE"
+API_KEY = "rayon_8d2MhJjOA1NILI27P5I9cks7EfwURHeu"
 client = openai.OpenAI(api_key=API_KEY, base_url="https://api.nineteen.ai/v1")
 
 # With stream!
 
-print("\nStarting stream test..." + "-" * 100)
+print("\nStarting stream test..." + "\n" + "-" * 100)
 
 stream = client.chat.completions.create(
     messages=[
@@ -20,7 +20,7 @@ stream = client.chat.completions.create(
 for chunk in stream:
     print(chunk.choices[0].delta.content or "", end="")
 
-print("\n" + "-" * 100 + "\n" + "Stream test complete, now for non-stream..." + "\n" + "-" * 100)
+print("\n" + "-" * 100 + "\n\n" + "Stream test complete, now for non-stream..." + "\n" + "-" * 100)
 
 # Non-stream
 response = client.chat.completions.create(
