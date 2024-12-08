@@ -131,8 +131,9 @@ async def consume_generator(
 
         return False
 
-    stream_time_init = time.time()
     text_jsons, status_code, first_message = [], 200, True  # TODO: remove unused variable
+
+    stream_time_init = None
     try:
         async for text in async_chain(first_chunk, generator):
             if isinstance(text, bytes):
@@ -149,7 +150,10 @@ async def consume_generator(
                     logger.warning(f"Error {e} when trying to load text: {text}")
                     break
 
-                for idx, text_json in enumerate(loaded_jsons):
+                if stream_time_init is None:
+                    stream_time_init = time.time()
+                    
+                for text_json in loaded_jsons:
                     if not isinstance(text_json, dict):
                         logger.debug(f"Invalid text_json because its not a dict?: {text_json}")
                         first_message = True  # NOTE: Janky, but so we mark it as a fail
