@@ -96,6 +96,7 @@ def construct_500_query_result(node: Node, task: str) -> utility_models.QueryRes
         formatted_response=None,
         status_code=500,
         response_time=None,
+        stream_time=None
     )
     return query_result
 
@@ -132,6 +133,7 @@ async def consume_generator(
 
     text_jsons, status_code, first_message = [], 200, True  # TODO: remove unused variable
 
+    stream_time = None
     try:
         async for text in async_chain(first_chunk, generator):
             if isinstance(text, bytes):
@@ -148,7 +150,7 @@ async def consume_generator(
                     logger.warning(f"Error {e} when trying to load text: {text}")
                     break
 
-                for text_json in loaded_jsons:
+                for idx, text_json in enumerate(loaded_jsons):
                     if not isinstance(text_json, dict):
                         logger.debug(f"Invalid text_json because its not a dict?: {text_json}")
                         first_message = True  # NOTE: Janky, but so we mark it as a fail
@@ -164,6 +166,9 @@ async def consume_generator(
                         first_message = True  # NOTE: Janky, but so we mark it as a fail
                         break
 
+                    if idx == 0:
+                        stream_time_init = time.time()
+                    
                     text_jsons.append(text_json)
                     dumped_payload = json.dumps(text_json)
                     first_message = False
@@ -188,10 +193,17 @@ async def consume_generator(
             logger.info(f" 👀  Queried node: {node.node_id} for task: {task}. Success: {not first_message}.")
 
         response_time = time.time() - start_time
+        try:
+            stream_time = time.time() - stream_time_init
+        except Exception as e:
+            logger.error(f"Error in calculating stream_time: {e} ; setting stream_time as response_time")
+            stream_time = response_time
+
         query_result = utility_models.QueryResult(
             formatted_response=text_jsons if len(text_jsons) > 0 else None,
             node_id=node.node_id,
             response_time=response_time,
+            stream_time=stream_time,
             task=task,
             success=not first_message,
             node_hotkey=node.hotkey,

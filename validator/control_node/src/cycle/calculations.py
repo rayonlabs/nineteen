@@ -90,11 +90,12 @@ async def _get_period_scores(
 
 async def _calculate_metrics_and_quality_score(
     psql_db: PSQLDB, task: str, netuid: int
-) -> tuple[dict[str, float], dict[str, float]]:
+) -> tuple[dict[str, float], dict[str, float], dict[str, float]]:
     reward_datas: list[RewardData] = await _get_reward_datas(psql_db, task, netuid)
 
     metrics = {}
     quality_scores = {}
+    stream_metrics = {}
     for reward_data in reward_datas:
         if reward_data.metric is None or reward_data.quality_score is None:
             logger.warning(
@@ -108,7 +109,10 @@ async def _calculate_metrics_and_quality_score(
         quality_scores[reward_data.node_hotkey] = quality_scores.get(
             reward_data.node_hotkey, []
         ) + [reward_data.quality_score]
-    return metrics, quality_scores
+        stream_metrics[reward_data.node_hotkey] = stream_metrics.get(
+            reward_data.node_hotkey, []
+        ) + [reward_data.stream_metric]
+    return metrics, quality_scores, stream_metrics
 
 
 async def _calculate_metric_bonuses(metrics: dict[str, float]) -> dict[str, float]:
@@ -166,8 +170,8 @@ def _calculate_hotkey_effective_volume_for_task(
 
 async def _process_quality_scores(
     psql_db: PSQLDB, task: str, netuid: int
-) -> tuple[dict[str, float], dict[str, float], dict[str, float], dict[str, float]]:
-    metrics, quality_scores = await _calculate_metrics_and_quality_score(
+) -> tuple[dict[str, float], dict[str, float], dict[str, float], tuple[dict[str, float], dict[str, float]] ]:
+    metrics, quality_scores, stream_metrics = await _calculate_metrics_and_quality_score(
         psql_db, task, netuid
     )
 
@@ -190,7 +194,7 @@ async def _process_quality_scores(
         combined_quality_scores,
         average_weighted_quality_scores,
         metric_bonuses,
-        metrics,
+        (metrics, stream_metrics),
     )
 
 
@@ -283,9 +287,11 @@ async def calculate_scores_for_settings_weights(
         task_weight = config.weight
         logger.debug(f"Processing task: {task}, weight: {task_weight}\n")
 
-        combined_quality_scores, average_quality_scores, metric_bonuses, metrics = (
+        combined_quality_scores, average_quality_scores, metric_bonuses, metrics_tuple = (
             await _process_quality_scores(psql_db, task, netuid)
         )
+        metrics, stream_metrics = metrics_tuple
+
         effective_volumes, normalised_period_scores, period_score_multipliers = (
             await _calculate_effective_volumes_for_task(
                 psql_db, contenders, task, combined_quality_scores
@@ -308,6 +314,7 @@ async def calculate_scores_for_settings_weights(
 
             if contender:
                 hotkey_metrics = metrics.get(hotkey, [])
+                hotkey_stream_metrics = stream_metrics.get(hotkey, [])
                 average_metric = (
                     sum(hotkey_metrics) / len(hotkey_metrics) if hotkey_metrics else 0
                 )

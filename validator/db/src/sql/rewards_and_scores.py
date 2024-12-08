@@ -214,6 +214,7 @@ async def select_recent_reward_data_for_a_task(
             {dcst.COLUMN_MINER_HOTKEY},
             {dcst.COLUMN_SYNTHETIC_QUERY},
             {dcst.COLUMN_METRIC},
+            {dcst.COLUMN_STREAM_METRIC},
             {dcst.COLUMN_RESPONSE_TIME},
             {dcst.COLUMN_VOLUME},
             {dcst.COLUMN_CREATED_AT}
@@ -249,6 +250,7 @@ async def select_recent_reward_data(
             {dcst.COLUMN_MINER_HOTKEY},
             {dcst.COLUMN_SYNTHETIC_QUERY},
             {dcst.COLUMN_METRIC},
+            {dcst.COLUMN_STREAM_METRIC},
             {dcst.COLUMN_RESPONSE_TIME},
             {dcst.COLUMN_VOLUME},
             {dcst.COLUMN_CREATED_AT}
