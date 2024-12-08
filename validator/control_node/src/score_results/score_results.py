@@ -125,7 +125,10 @@ async def _process_and_store_score(
     volume = work_and_speed_functions.calculate_work(task_config=task_config, result=result, steps=payload.get("steps"))
     try:
         metric = volume / result["response_time"]
-        stream_metric = volume / result["stream_time"]
+        try:
+            stream_metric = volume / result["stream_time"]
+        except (KeyError, ValueError, ZeroDivisionError):
+            stream_metric = volume / result["response_time"]
     except (KeyError, ValueError, ZeroDivisionError):
         metric = None
         stream_metric = None
@@ -140,9 +143,9 @@ async def _process_and_store_score(
             node_hotkey=node_hotkey,
             synthetic_query=synthetic_query,
             response_time=result["response_time"],
-            stream_metric=stream_metric,
             volume=volume,
             metric=metric,
+            stream_metric=stream_metric,
             created_at=result["created_at"],
         )
 
