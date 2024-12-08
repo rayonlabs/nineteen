@@ -1,4 +1,6 @@
+import datetime
 from enum import Enum
+import time
 from pydantic import BaseModel, Field
 
 
@@ -60,6 +62,11 @@ class FullTaskConfig(BaseModel):
     timeout: float
     enabled: bool = True
     model_info: dict | None = None
+    # TODO: Remove the optional-ness when we're certain all new tasks have a display name
+    architecture: dict = {}
+    display_name: str | None = None  
+    description: str | None = None 
+    created: int = Field(default_factory=lambda: int(time.time()))
 
     def get_public_config(self) -> dict | None:
         if not self.enabled:
@@ -79,4 +86,5 @@ class FullTaskConfig(BaseModel):
             "endpoint": self.endpoint,
             "weight": self.weight,
             "timeout": self.timeout,
+            "display_name": self.display_name if self.display_name else self.task.strip("chat-"),
         }

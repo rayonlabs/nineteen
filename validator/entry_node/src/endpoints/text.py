@@ -17,7 +17,7 @@ import asyncio
 from validator.utils.query.query_utils import load_sse_jsons
 from redis.asyncio.client import PubSub
 import time 
-from opentelemetry import metrics
+from validator.entry_node.src import utils
 
 logger = get_logger(__name__)
 
@@ -139,7 +139,7 @@ async def _handle_no_stream(text_generator: AsyncGenerator[str, str]) -> JSONRes
                 if content == "":
                     break
 
-    return JSONResponse({"choices": [{"message": {"content": all_content}}]})
+    return JSONResponse({"choices": [{"message": {"content": all_content, "role": "assistant"}}]})
 
 
 async def _handle_no_stream_comp(text_generator: AsyncGenerator[str, str]) -> JSONResponse:
@@ -160,7 +160,7 @@ async def chat(
     chat_request: request_models.ChatRequest,
     config: Config = Depends(get_config),
 ) -> StreamingResponse | JSONResponse:
-    payload = request_models.chat_to_payload(chat_request)
+    payload = utils.chat_to_payload(chat_request)
     payload.temperature = 0.5
     
     try:
@@ -192,7 +192,7 @@ async def chat_comp(
     chat_request: request_models.CompletionRequest,
     config: Config = Depends(get_config),
 ) -> StreamingResponse | JSONResponse:
-    payload = request_models.chat_comp_to_payload(chat_request)
+    payload = utils.chat_comp_to_payload(chat_request)
     payload.temperature = 0.5
     
     try:

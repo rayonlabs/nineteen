@@ -86,6 +86,7 @@ def generate_miner_config(dev: bool = False) -> dict[str, Any]:
     config["LLAMA_3_2_3B_TEXT_COMP_WORKER_URL"] = input("Enter LLAMA_3_2_3B_TEXT_COMP_WORKER_URL: ")
     config["LLAMA_3_1_70B_TEXT_WORKER_URL"] = input("Enter LLAMA_3_1_70B_TEXT_WORKER_URL: ")
     config["LLAMA_3_1_70B_TEXT_COMP_WORKER_URL"] = input("Enter LLAMA_3_1_70B_TEXT_COMP_WORKER_URL: ")
+    config["CHAT_ROGUE_ROSE_103B_COMP_WORKER_URL"] = input("Enter CHAT_ROGUE_ROSE_103B_COMP_WORKER_URL: ")
     config["MIN_STAKE_THRESHOLD"] = input("Enter MIN_STAKE_THRESHOLD (default: 1000): ") or default_stake_threshold
     config["MINER_TYPE"] = input("Enter MINER_TYPE [text, image] (default: text): ") or "text"
     config["REFRESH_NODES"] = "true"

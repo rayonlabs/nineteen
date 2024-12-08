@@ -21,6 +21,8 @@ class WorkerConfig:
     LLAMA_3_1_8B_TEXT_COMP_WORKER_URL: str | None
     LLAMA_3_1_70B_TEXT_WORKER_URL: str | None
     LLAMA_3_1_70B_TEXT_COMP_WORKER_URL: str | None
+    CHAT_ROGUE_ROSE_103B_COMP_WORKER_URL: str | None
+
     IMAGE_WORKER_URL: str | None
 
 
@@ -33,5 +35,6 @@ def factory_worker_config() -> WorkerConfig:
         LLAMA_3_1_8B_TEXT_COMP_WORKER_URL=os.getenv("LLAMA_3_1_8B_TEXT_COMP_WORKER_URL"),
         LLAMA_3_1_70B_TEXT_WORKER_URL=os.getenv("LLAMA_3_1_70B_TEXT_WORKER_URL"),
         LLAMA_3_1_70B_TEXT_COMP_WORKER_URL=os.getenv("LLAMA_3_1_70B_TEXT_COMP_WORKER_URL"),
+        CHAT_ROGUE_ROSE_103B_COMP_WORKER_URL=os.getenv("CHAT_ROGUE_ROSE_103B_COMP_WORKER_URL"),
         IMAGE_WORKER_URL=os.getenv("IMAGE_WORKER_URL"),
     )
