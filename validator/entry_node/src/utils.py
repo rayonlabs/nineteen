@@ -1,7 +1,10 @@
+from functools import lru_cache
 from core.models import config_models as cmodels
 from fiber.logging_utils import get_logger
 from core import task_config as tcfg
-from validator.entry_node.src.models.request_models import ImageModelResponse, TextModelResponse
+from validator.entry_node.src.models.request_models import ChatRequest, CompletionRequest, ImageModelResponse, TextModelResponse
+import random
+from core.models import payload_models
 
 logger = get_logger(__name__)
 
@@ -40,6 +43,7 @@ def _create_image_model_response(config: cmodels.FullTaskConfig) -> ImageModelRe
     )
 
 
+@lru_cache
 def get_text_model_responses() -> list[TextModelResponse]:
     """Get all text model responses from task configs."""
     task_configs = tcfg.get_task_configs()
@@ -59,6 +63,7 @@ def get_text_model_responses() -> list[TextModelResponse]:
     return list(text_responses.values())
 
 
+@lru_cache
 def get_image_model_responses() -> list[ImageModelResponse]:
     """Get all image model responses from task configs."""
     task_configs = tcfg.get_task_configs()
@@ -70,3 +75,64 @@ def get_image_model_responses() -> list[ImageModelResponse]:
             image_responses[task] = _create_image_model_response(config)
 
     return list(image_responses.values())
+
+@lru_cache
+def get_model_id_to_task_text(completions: bool) -> dict[str, str]:
+    """Get a mapping of model IDs to task names for text models."""
+    if completions:
+        return {
+            config.orchestrator_server_config.load_model_config["model"]: config.task
+            for config in tcfg.get_task_configs().values()
+            if config.task_type == cmodels.TaskType.TEXT and config.endpoint == cmodels.Endpoints.completions.value
+        }
+    else:
+        return {
+            config.orchestrator_server_config.load_model_config["model"]: config.task
+            for config in tcfg.get_task_configs().values()
+            if config.task_type == cmodels.TaskType.TEXT and config.endpoint == cmodels.Endpoints.chat_completions.value
+        }
+
+
+
+
+def chat_to_payload(chat_request: ChatRequest) -> payload_models.ChatPayload:
+    task_configs = tcfg.get_task_configs()
+    model_hypened = chat_request.model.replace("_", "-")
+    if model_hypened not in task_configs:
+        model_id_to_task = get_model_id_to_task_text(completions=False)
+        model = model_id_to_task[model_hypened]
+    else:
+        model = model_hypened
+
+    return payload_models.ChatPayload(
+        messages=chat_request.messages,
+        temperature=chat_request.temperature,
+        max_tokens=chat_request.max_tokens,
+        model=model,
+        top_p=chat_request.top_p,
+        stream=True,
+        logprobs=chat_request.logprobs,
+        seed=random.randint(1, 100000),
+    )
+
+
+def chat_comp_to_payload(chat_request: CompletionRequest) -> payload_models.CompletionPayload:
+    task_configs = tcfg.get_task_configs()
+    model_hypened = chat_request.model.replace("_", "-")
+    if model_hypened not in task_configs:
+        model_id_to_task = get_model_id_to_task_text(completions=True)
+        model = model_id_to_task[model_hypened]
+    else:
+        model = model_hypened
+
+    return payload_models.CompletionPayload(
+        prompt=chat_request.prompt,
+        temperature=chat_request.temperature,
+        max_tokens=chat_request.max_tokens,
+        model=model,
+        top_p=chat_request.top_p,
+        stream=True,
+        logprobs=chat_request.logprobs,
+        seed=random.randint(1, 100000),
+    )
+

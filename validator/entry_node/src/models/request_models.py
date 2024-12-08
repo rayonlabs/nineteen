@@ -17,7 +17,7 @@ class ChatRequest(BaseModel):
         default=0.5, examples=[0.5, 0.4, 0.3], title="Temperature", description="Temperature for text generation."
     )
     max_tokens: int = Field(500, title="Max Tokens", description="Max tokens for text generation.")
-    model: str = Field(..., examples=["chat-llama-3-2-3b"], title="Model")
+    model: str = Field(..., examples=["unsloth/Llama-3.2-3B-Instruct"], title="Model")
     top_p: float = Field(default=1.0, title="Top P", description="Top P for text generation.")
     stream: bool = Field(default=True, title="Stream", description="Stream for text generation.")
     logprobs: bool = True
@@ -32,40 +32,13 @@ class CompletionRequest(BaseModel):
         default=0.5, examples=[0.5, 0.4, 0.3], title="Temperature", description="Temperature for text generation."
     )
     max_tokens: int = Field(500, title="Max Tokens", description="Max tokens for text generation.")
-    model: str = Field(default=..., examples=["chat-llama-3-2-3b"], title="Model")
+    model: str = Field(default=..., examples=["unsloth/Llama-3.2-3B-Instruct"], title="Model")
     top_p: float = Field(default=1.0, title="Top P", description="Top P for text generation.")
     stream: bool = Field(default=True, title="Stream", description="Stream for text generation.")
     logprobs: bool = True
 
     class Config:
         use_enum_values = True
-
-
-def chat_to_payload(chat_request: ChatRequest) -> payload_models.ChatPayload:
-    return payload_models.ChatPayload(
-        messages=chat_request.messages,
-        temperature=chat_request.temperature,
-        max_tokens=chat_request.max_tokens,
-        model=chat_request.model.replace("_", "-"),
-        top_p=chat_request.top_p,
-        stream=True,
-        logprobs=chat_request.logprobs,
-        seed=random.randint(1, 100000),
-    )
-
-
-def chat_comp_to_payload(chat_request: CompletionRequest) -> payload_models.CompletionPayload:
-    return payload_models.CompletionPayload(
-        prompt=chat_request.prompt,
-        temperature=chat_request.temperature,
-        max_tokens=chat_request.max_tokens,
-        model=chat_request.model.replace("_", "-"),
-        top_p=chat_request.top_p,
-        stream=True,
-        logprobs=chat_request.logprobs,
-        seed=random.randint(1, 100000),
-    )
-
 
 class TextToImageRequest(BaseModel):
     prompt: str = Field(..., description="Prompt for image generation")
@@ -247,6 +220,7 @@ class TextModelResponse(BaseModel):
     endpoints: list[str]
 
     per_request_limits: None = None
+
 
 class ImageModelResponse(BaseModel):
     id: str
