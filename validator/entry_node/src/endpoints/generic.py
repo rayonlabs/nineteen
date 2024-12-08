@@ -30,5 +30,5 @@ router = APIRouter()
 router.add_api_route("/v1/info/models", models_deprecated, methods=["GET"], tags=["Models"], response_model=None)
 
 
-router.add_api_route("/v1/models", text_models, methods=["GET"], tags=["text"])
-router.add_api_route("/v1/models/image", image_models, methods=["GET"], tags=["image"])
+router.add_api_route("/v1/models", text_models, methods=["GET"], tags=["Text"])
+router.add_api_route("/v1/models/image", image_models, methods=["GET"], tags=["Image"])
