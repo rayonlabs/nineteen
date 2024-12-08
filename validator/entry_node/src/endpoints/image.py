@@ -66,7 +66,6 @@ async def _collect_single_result(pubsub: PubSub, job_id: str) -> GenericResponse
 async def make_non_stream_organic_query(
     job_id: str, redis_db: Redis, payload: dict[str, Any], task: str, timeout: float
 ) -> GenericResponse | None:
-    
     organic_message = _construct_organic_message(payload=payload, job_id=job_id, task=task)  # NOTE: tis grim
 
     pubsub = redis_db.pubsub()
@@ -81,22 +80,22 @@ async def make_non_stream_organic_query(
     except asyncio.TimeoutError:
         logger.error(f"No confirmation received for job {job_id} within timeout period. Task: {task}")
         COUNTER_IMAGE_ERROR.add(1, {"task": task, "kind": "redis_acknowledgement_timeout", "status_code": 500})
-        raise HTTPException(status_code=500, detail=f"Unable to process task: {task} ; redis_acknowledgement_timeout, please try again later.")
-    
+        raise HTTPException(
+            status_code=500, detail=f"Unable to process task: {task} ; redis_acknowledgement_timeout, please try again later."
+        )
+
     try:
         return await asyncio.wait_for(_collect_single_result(pubsub, job_id), timeout=timeout)
     except asyncio.TimeoutError:
         logger.error(f"Timed out waiting for the first chunk of results for job {job_id}. Task: {task}")
         COUNTER_IMAGE_ERROR.add(1, {"task": task, "kind": "_collect_single_result_failed", "status_code": 500})
-        raise HTTPException(status_code=500, detail=f"Unable to process task: {task} ; _collect_single_result_failed, please try again later.")
-
+        raise HTTPException(
+            status_code=500, detail=f"Unable to process task: {task} ; _collect_single_result_failed, please try again later."
+        )
 
 
 async def process_image_request(
-    payload: payload_models.TextToImagePayload
-    | payload_models.ImageToImagePayload
-    | payload_models.InpaintPayload
-    | payload_models.AvatarPayload,
+    payload: payload_models.TextToImagePayload | payload_models.ImageToImagePayload | payload_models.AvatarPayload,
     task: str,
     config: Config,
 ) -> request_models.ImageResponse:
