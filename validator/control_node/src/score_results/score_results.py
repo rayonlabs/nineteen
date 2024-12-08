@@ -128,7 +128,7 @@ async def _process_and_store_score(
         try:
             stream_metric = volume / result["stream_time"]
         except (KeyError, ValueError, ZeroDivisionError):
-            stream_metric = volume / result["response_time"]
+            stream_metric = metric
     except (KeyError, ValueError, ZeroDivisionError):
         metric = None
         stream_metric = None

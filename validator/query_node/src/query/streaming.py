@@ -131,9 +131,8 @@ async def consume_generator(
 
         return False
 
+    stream_time_init = time.time()
     text_jsons, status_code, first_message = [], 200, True  # TODO: remove unused variable
-
-    stream_time = None
     try:
         async for text in async_chain(first_chunk, generator):
             if isinstance(text, bytes):
@@ -165,9 +164,6 @@ async def consume_generator(
                         logger.debug(f"Invalid text_json because there's not delta content: {text_json}")
                         first_message = True  # NOTE: Janky, but so we mark it as a fail
                         break
-
-                    if idx == 0:
-                        stream_time_init = time.time()
                     
                     text_jsons.append(text_json)
                     dumped_payload = json.dumps(text_json)
