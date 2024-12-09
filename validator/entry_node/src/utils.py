@@ -76,6 +76,7 @@ def get_image_model_responses() -> list[ImageModelResponse]:
 
     return list(image_responses.values())
 
+
 @lru_cache
 def get_model_id_to_task_text(completions: bool) -> dict[str, str]:
     """Get a mapping of model IDs to task names for text models."""
@@ -93,11 +94,9 @@ def get_model_id_to_task_text(completions: bool) -> dict[str, str]:
         }
 
 
-
-
 def chat_to_payload(chat_request: ChatRequest) -> payload_models.ChatPayload:
     task_configs = tcfg.get_task_configs()
-    model_hypened = chat_request.model.replace("_", "-")
+    model_hypened = "chat-" + chat_request.model.replace("_", "-").strip("chat-")
     if model_hypened not in task_configs:
         model_id_to_task = get_model_id_to_task_text(completions=False)
         model = model_id_to_task[model_hypened]
@@ -118,7 +117,7 @@ def chat_to_payload(chat_request: ChatRequest) -> payload_models.ChatPayload:
 
 def chat_comp_to_payload(chat_request: CompletionRequest) -> payload_models.CompletionPayload:
     task_configs = tcfg.get_task_configs()
-    model_hypened = chat_request.model.replace("_", "-")
+    model_hypened = "chat-" + chat_request.model.replace("_", "-").strip("chat-")
     if model_hypened not in task_configs:
         model_id_to_task = get_model_id_to_task_text(completions=True)
         model = model_id_to_task[model_hypened]
@@ -135,4 +134,3 @@ def chat_comp_to_payload(chat_request: CompletionRequest) -> payload_models.Comp
         logprobs=chat_request.logprobs,
         seed=random.randint(1, 100000),
     )
-

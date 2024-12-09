@@ -309,27 +309,6 @@ async def generate_image_to_image_synthetic(
     )
 
 
-async def generate_inpaint_synthetic() -> payload_models.InpaintPayload:
-    cache = image_cache_factory()
-    prompt = await _get_markov_sentence(max_words=20)
-    negative_prompt = await _get_markov_sentence(max_words=20)
-    seed = random.randint(1, scst.MAX_SEED)
-
-    init_image = await sutils.get_random_image_b64(cache)
-    mask_image = sutils.generate_mask_with_circle(init_image)
-
-    return payload_models.InpaintPayload(
-        prompt=prompt,
-        negative_prompt=negative_prompt,
-        cfg_scale=2.0,
-        seed=seed,
-        height=1016,
-        width=1016,
-        steps=8,
-        init_image=init_image,
-        mask_image=mask_image,
-    )
-
 
 async def generate_avatar_synthetic() -> payload_models.AvatarPayload:
     prompt = await _get_markov_sentence(max_words=20)
