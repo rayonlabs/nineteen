@@ -149,9 +149,6 @@ async def consume_generator(
                 except (IndexError, json.JSONDecodeError) as e:
                     logger.warning(f"Error {e} when trying to load text: {text}")
                     break
-
-                if stream_time_init is None:
-                    stream_time_init = time.time()
                     
                 for text_json in loaded_jsons:
                     if not isinstance(text_json, dict):
@@ -180,6 +177,10 @@ async def consume_generator(
                         job_id=job_id,
                         status_code=200,
                     )
+
+                    if stream_time_init is None:
+                        stream_time_init = time.time()
+                        
                     tokens += 1
 
         if len(text_jsons) > 0:

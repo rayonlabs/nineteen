@@ -25,6 +25,15 @@ from validator.models import Contender, PeriodScore
 from validator.models import RewardData
 from datetime import datetime, timezone, timedelta
 from fiber.logging_utils import get_logger
+from dataclasses import dataclass
+
+@dataclass 
+class QualityScores:
+    combined_quality_scores: dict[str, float]
+    average_weighted_quality_scores: dict[str, float]
+    metric_bonuses: dict[str, float]
+    metrics: dict[str, float]
+    stream_metrics: dict[str, float]
 
 
 logger = get_logger(__name__)
@@ -170,7 +179,7 @@ def _calculate_hotkey_effective_volume_for_task(
 
 async def _process_quality_scores(
     psql_db: PSQLDB, task: str, netuid: int
-) -> tuple[dict[str, float], dict[str, float], dict[str, float], tuple[dict[str, float], dict[str, float]] ]:
+) -> QualityScores:
     metrics, quality_scores, stream_metrics = await _calculate_metrics_and_quality_score(
         psql_db, task, netuid
     )
@@ -190,11 +199,12 @@ async def _process_quality_scores(
         * (1 + metric_bonuses[node_hotkey])
         for node_hotkey in metrics
     }
-    return (
+    return QualityScores (
         combined_quality_scores,
         average_weighted_quality_scores,
         metric_bonuses,
-        (metrics, stream_metrics),
+        metrics, 
+        stream_metrics
     )
 
 
@@ -287,10 +297,15 @@ async def calculate_scores_for_settings_weights(
         task_weight = config.weight
         logger.debug(f"Processing task: {task}, weight: {task_weight}\n")
 
-        combined_quality_scores, average_quality_scores, metric_bonuses, metrics_tuple = (
+        quality_scores = (
             await _process_quality_scores(psql_db, task, netuid)
         )
-        metrics, stream_metrics = metrics_tuple
+
+        combined_quality_scores, average_quality_scores, metric_bonuses, metrics, stream_metrics = quality_scores.combined_quality_scores,\
+                                                                                            quality_scores.average_weighted_quality_scores, \
+                                                                                                quality_scores.metric_bonuses, \
+                                                                                                    quality_scores.metrics, \
+                                                                                                        quality_scores.stream_metrics
 
         effective_volumes, normalised_period_scores, period_score_multipliers = (
             await _calculate_effective_volumes_for_task(
