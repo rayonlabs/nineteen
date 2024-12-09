@@ -125,35 +125,6 @@ class InpaintRequest(BaseModel):
     )
 
 
-async def inpaint_to_payload(
-    inpaint_request: InpaintRequest, httpx_client: httpx.AsyncClient, prod: bool
-) -> payload_models.InpaintPayload:
-    image_b64 = (
-        await fetch_image_b64(inpaint_request.init_image, httpx_client)
-        if "https://" in inpaint_request.init_image
-        else inpaint_request.init_image
-    )
-    if not image_b64_is_valid(image_b64):
-        raise HTTPException(status_code=400, detail="Invalid init image!")
-
-    mask_b64 = (
-        await fetch_image_b64(inpaint_request.mask, httpx_client) if "https://" in inpaint_request.mask else inpaint_request.mask
-    )
-    if not image_b64_is_valid(mask_b64):
-        raise HTTPException(status_code=400, detail="Invalid mask image!")
-    return payload_models.InpaintPayload(
-        prompt=inpaint_request.prompt,
-        negative_prompt=inpaint_request.negative_prompt,
-        steps=inpaint_request.steps,
-        cfg_scale=inpaint_request.cfg_scale,
-        width=inpaint_request.width,
-        height=inpaint_request.height,
-        init_image=image_b64,
-        mask_image=mask_b64,
-        seed=random.randint(1, 100000),
-    )
-
-
 class AvatarRequest(BaseModel):
     prompt: str = Field(
         ...,
