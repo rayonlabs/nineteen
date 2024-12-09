@@ -61,7 +61,7 @@ async def post_to_nineteen_ai(
         "x-public-key": public_address,
     }
     resp = None
-    async with httpx.AsyncClient(timeout=timeout) as client:
+    async with httpx.AsyncClient(timeout=timeout, follow_redirects=True) as client:
         try:
             resp = await client.post(
                 url=data_type_to_url[data_type_to_post],
