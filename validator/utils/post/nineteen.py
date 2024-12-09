@@ -128,6 +128,7 @@ class ContenderWeightsInfoPostObject(BaseModel):
     average_quality_score: float
     metric_bonus: float
     metric: float
+    stream_metric: float
     combined_quality_score: float
 
     period_score_multiplier: float
