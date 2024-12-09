@@ -9,7 +9,7 @@ logger = get_logger(__name__)
 def fetch_voted_weights() -> dict[str, float]:
     url = ccst.BASE_NINETEEN_API_URL + "v1/weights"
     with Client() as client:
-        response = client.get(url)
+        response = client.get(url, allow_redirects=True)
         response.raise_for_status()
         return response.json()
 

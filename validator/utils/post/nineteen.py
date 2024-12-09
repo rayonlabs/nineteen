@@ -67,6 +67,7 @@ async def post_to_nineteen_ai(
                 url=data_type_to_url[data_type_to_post],
                 data=json.dumps(data_to_post),
                 headers=headers,
+                allow_redirects=True,
             )
             logger.info(
                 f"Resp status code from {ccst.BASE_NINETEEN_API_URL}: {resp.status_code} for post type {data_type_to_post}"
