@@ -134,6 +134,7 @@ COLUMN_QUALITY_SCORE = "quality_score"
 COLUMN_VALIDATOR_HOTKEY = "validator_hotkey"
 COLUMN_SYNTHETIC_QUERY = "synthetic_query"
 COLUMN_METRIC = "metric"
+COLUMN_STREAM_METRIC = "stream_metric"
 COLUMN_RESPONSE_TIME = "response_time"
 COLUMN_VOLUME = "volume"
 

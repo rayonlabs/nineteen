@@ -75,6 +75,7 @@ class RewardData(BaseModel):
     node_hotkey: str
     synthetic_query: bool
     metric: float | None = None
+    stream_metric: float | None = None
     response_time: float | None = None
     volume: float | None = None
     created_at: datetime = Field(default_factory=datetime.now)
@@ -89,6 +90,7 @@ class RewardData(BaseModel):
             "node_hotkey": self.node_hotkey,
             "synthetic_query": self.synthetic_query,
             "metric": self.metric,
+            "stream_metric": self.stream_metric,
             "response_time": self.response_time,
             "volume": self.volume,
             "created_at": self.created_at.isoformat(),  # Convert datetime to ISO string
