@@ -74,6 +74,7 @@ class RewardData(BaseModel):
     validator_hotkey: str
     node_hotkey: str
     synthetic_query: bool
+    checking_data: str | None = None
     metric: float | None = None
     stream_metric: float | None = None
     response_time: float | None = None
@@ -89,6 +90,7 @@ class RewardData(BaseModel):
             "validator_hotkey": self.validator_hotkey,
             "node_hotkey": self.node_hotkey,
             "synthetic_query": self.synthetic_query,
+            "checking_data": self.checking_data,
             "metric": self.metric,
             "stream_metric": self.stream_metric,
             "response_time": self.response_time,
