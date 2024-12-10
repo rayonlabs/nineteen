@@ -1,4 +1,6 @@
 from functools import lru_cache
+
+from fastapi.exceptions import HTTPException
 from core.models import config_models as cmodels
 from fiber.logging_utils import get_logger
 from core import task_config as tcfg
@@ -104,6 +106,13 @@ def chat_to_payload(chat_request: ChatRequest) -> payload_models.ChatPayload:
             model = model_with_chat_prepended
         else:
             model_id_to_task = get_model_id_to_task_text(completions=False)
+            if model_hypened not in model_id_to_task:
+                raise HTTPException(
+                    status_code=404,
+                    detail=(
+                        f"Model {model_hypened} not found for /v1/chat/completions. Available models: {model_id_to_task.keys()}"
+                    ),
+                )
             model = model_id_to_task[model_hypened]
     else:
         model = model_hypened
@@ -130,7 +139,13 @@ def chat_comp_to_payload(chat_request: CompletionRequest) -> payload_models.Comp
             model = model_with_chat_prepended
         else:
             model_id_to_task = get_model_id_to_task_text(completions=True)
+            if model_hypened not in model_id_to_task:
+                raise HTTPException(
+                    status_code=404,
+                    detail=(f"Model {model_hypened} not found for /v1/completions. Available models: {model_id_to_task.keys()}"),
+                )
             model = model_id_to_task[model_hypened]
+
     else:
         model = model_hypened
 
