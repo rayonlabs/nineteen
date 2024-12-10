@@ -18,7 +18,7 @@ from validator.entry_node.src.models import request_models
 import asyncio
 
 from redis.asyncio.client import PubSub
-
+from validator.entry_node.src import utils
 from validator.utils.generic.generic_dataclasses import GenericResponse
 
 logger = get_logger(__name__)
@@ -140,7 +140,7 @@ async def text_to_image(
     text_to_image_request: request_models.TextToImageRequest,
     config: Config = Depends(get_config),
 ) -> request_models.ImageResponse:
-    payload = request_models.text_to_image_to_payload(text_to_image_request)
+    payload = utils.text_to_image_to_payload(text_to_image_request)
 
     result = await process_image_request(payload, payload.model, config)
     return result
@@ -150,7 +150,7 @@ async def image_to_image(
     image_to_image_request: request_models.ImageToImageRequest,
     config: Config = Depends(get_config),
 ) -> request_models.ImageResponse:
-    payload = await request_models.image_to_image_to_payload(
+    payload = await utils.image_to_image_to_payload(
         image_to_image_request,
         httpx_client=config.httpx_client,
         prod=config.prod,
@@ -164,7 +164,7 @@ async def avatar(
     avatar_request: request_models.AvatarRequest,
     config: Config = Depends(get_config),
 ) -> request_models.ImageResponse:
-    payload = await request_models.avatar_to_payload(avatar_request, httpx_client=config.httpx_client, prod=config.prod)
+    payload = await utils.avatar_to_payload(avatar_request, httpx_client=config.httpx_client, prod=config.prod)
 
     result = await process_image_request(payload, "avatar", config)
     return result
