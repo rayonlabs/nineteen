@@ -39,7 +39,9 @@ async def get_worker_version(gpu_server_address: str, endpoint: str = '/worker-v
     async with httpx.AsyncClient() as client:
         response = await client.get(url)
         response.raise_for_status()
-        return response.text
+        data = response.json()
+        version = data.get('orchestrator_version', '')
+        return version
 
 
 async def _post_vali_stats(config: Config):
@@ -47,7 +49,7 @@ async def _post_vali_stats(config: Config):
 
     if config.gpu_server_address:
         vali_worker_version = await get_worker_version(config.gpu_server_address)
-        versions=str(ccst.VERSION_KEY) + ':' + vali_worker_version
+        versions=str(ccst.VERSION_KEY) + ':' + str(vali_worker_version)
     else:
         versions=str(ccst.VERSION_KEY)
 
