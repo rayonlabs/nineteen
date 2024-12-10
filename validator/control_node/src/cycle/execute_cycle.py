@@ -47,7 +47,7 @@ async def _post_vali_stats(config: Config):
 
     if config.gpu_server_address:
         vali_worker_version = await get_worker_version(config.gpu_server_address)
-        versions=str(ccst.VERSION_KEY) + '::' + vali_worker_version
+        versions=str(ccst.VERSION_KEY) + ':' + vali_worker_version
     else:
         versions=str(ccst.VERSION_KEY)
 
