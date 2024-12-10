@@ -28,18 +28,34 @@ from validator.models import Contender
 from validator.utils.post.nineteen import DataTypeToPost, ValidatorInfoPostBody, post_to_nineteen_ai
 from core.task_config import get_public_task_configs
 from core import constants as ccst
+import httpx
 from validator.db.src.sql.rewards_and_scores import delete_task_data_older_than_date
 
 logger = get_logger(__name__)
 
+async def get_worker_version(gpu_server_address: str, endpoint: str = '/worker-version'):
+    url = f"{gpu_server_address.rstrip('/')}{endpoint}"
+
+    async with httpx.AsyncClient() as client:
+        response = await client.get(url)
+        response.raise_for_status()
+        return response.text
+
 
 async def _post_vali_stats(config: Config):
     public_configs = get_public_task_configs()
+
+    if config.gpu_server_address:
+        vali_worker_version = await get_worker_version(config.gpu_server_address)
+        versions=str(ccst.VERSION_KEY) + '::' + vali_worker_version
+    else:
+        versions=str(ccst.VERSION_KEY)
+
     await post_to_nineteen_ai(
         data_to_post=ValidatorInfoPostBody(
             validator_hotkey=config.keypair.ss58_address,
             task_configs=public_configs,
-            versions=str(ccst.VERSION_KEY),
+            versions=versions,
         ).model_dump(mode="json"),
         keypair=config.keypair,
         data_type_to_post=DataTypeToPost.VALIDATOR_INFO,
