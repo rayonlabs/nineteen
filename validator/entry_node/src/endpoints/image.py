@@ -11,6 +11,7 @@ from core.task_config import get_enabled_task_config
 from validator.entry_node.src.core.configuration import Config
 from validator.entry_node.src.core.dependencies import get_config
 from validator.entry_node.src.core.middleware import verify_api_key_rate_limit
+from validator.entry_node.src.utils import handle_min_steps
 from validator.utils.redis import redis_constants as rcst
 from validator.utils.generic import generic_constants as gcst
 from validator.entry_node.src.models import request_models
@@ -105,6 +106,9 @@ async def process_image_request(
         COUNTER_IMAGE_ERROR.add(1, {"reason": "no_task_config"})
         logger.error(f"Task config not found for task: {task}")
         raise HTTPException(status_code=400, detail=f"Invalid model {task}")
+
+    handle_min_steps(task_config, payload.steps)
+
 
     job_id = uuid.uuid4().hex
     result = await make_non_stream_organic_query(

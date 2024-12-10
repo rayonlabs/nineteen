@@ -7,6 +7,7 @@ from core import task_config as tcfg
 from validator.entry_node.src.models.request_models import ChatRequest, CompletionRequest, ImageModelResponse, TextModelResponse
 import random
 from core.models import payload_models
+from core import constants as cst
 
 logger = get_logger(__name__)
 
@@ -161,3 +162,13 @@ def chat_comp_to_payload(chat_request: CompletionRequest) -> payload_models.Comp
         logprobs=chat_request.logprobs,
         seed=random.randint(1, 100000),
     )
+
+
+def handle_min_steps(task_config: cmodels.FullTaskConfig, steps: int) -> None:
+    min_steps = task_config.model_info.get(cst.MIN_STEPS, 0)
+    max_steps = task_config.model_info.get(cst.MAX_STEPS, float("inf"))
+
+    if steps < min_steps:
+        raise HTTPException(status_code=422, detail=f"Minimum steps for {task_config.model_info['model']} is {min_steps}")
+    if steps > max_steps:
+        raise HTTPException(status_code=422, detail=f"Maximum steps for {task_config.model_info['model']} is {max_steps}")
