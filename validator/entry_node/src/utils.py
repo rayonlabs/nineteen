@@ -110,7 +110,7 @@ def chat_to_payload(chat_request: ChatRequest) -> payload_models.ChatPayload:
                 raise HTTPException(
                     status_code=404,
                     detail=(
-                        f"Model {model_hypened} not found for /v1/chat/completions. Available models: {model_id_to_task.keys()}"
+                        f"Model {model_hypened} not found for /v1/chat/completions. Available models: {list(model_id_to_task.keys())}"
                     ),
                 )
             model = model_id_to_task[model_hypened]
@@ -142,7 +142,9 @@ def chat_comp_to_payload(chat_request: CompletionRequest) -> payload_models.Comp
             if model_hypened not in model_id_to_task:
                 raise HTTPException(
                     status_code=404,
-                    detail=(f"Model {model_hypened} not found for /v1/completions. Available models: {model_id_to_task.keys()}"),
+                    detail=(
+                        f"Model {model_hypened} not found for /v1/completions. Available models: {list(model_id_to_task.keys())}"
+                    ),
                 )
             model = model_id_to_task[model_hypened]
 
