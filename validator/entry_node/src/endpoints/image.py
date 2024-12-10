@@ -109,7 +109,6 @@ async def process_image_request(
 
     handle_min_steps(task_config, payload.steps)
 
-
     job_id = uuid.uuid4().hex
     result = await make_non_stream_organic_query(
         job_id=job_id,
@@ -161,16 +160,6 @@ async def image_to_image(
     return result
 
 
-async def inpaint(
-    inpaint_request: request_models.InpaintRequest,
-    config: Config = Depends(get_config),
-) -> request_models.ImageResponse:
-    payload = await request_models.inpaint_to_payload(inpaint_request, httpx_client=config.httpx_client, prod=config.prod)
-
-    result = await process_image_request(payload, "inpaint", config)
-    return result
-
-
 async def avatar(
     avatar_request: request_models.AvatarRequest,
     config: Config = Depends(get_config),
@@ -188,5 +177,4 @@ router = APIRouter(
 
 router.add_api_route("/v1/text-to-image", text_to_image, methods=["POST"])
 router.add_api_route("/v1/image-to-image", image_to_image, methods=["POST"])
-router.add_api_route("/v1/inpaint", inpaint, methods=["POST"])
 router.add_api_route("/v1/avatar", avatar, methods=["POST"])
