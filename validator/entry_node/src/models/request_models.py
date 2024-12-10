@@ -100,30 +100,6 @@ async def image_to_image_to_payload(
     )
 
 
-class InpaintRequest(BaseModel):
-    prompt: str = Field(..., description="Prompt for inpainting")
-    negative_prompt: str | None = Field(None, description="Negative prompt for inpainting")
-    steps: int = Field(10, description="Steps for inpainting")
-    cfg_scale: float = Field(3, description="CFG scale for inpainting")
-    width: int = Field(1024, description="Width for inpainting")
-    height: int = Field(1024, description="Height for inpainting")
-    init_image: str = Field(
-        ...,
-        description="Base64 encoded or URL for image",
-        examples=[
-            "https://lastfm.freetls.fastly.net/i/u/770x0/443c5e1c35fd38bb5a49a7d00612dab3.jpg#443c5e1c35fd38bb5a49a7d00612dab3",
-            "iVBORw0KGgoAAAANSUhEUgAAAAUA",
-        ],
-    )
-    mask: str = Field(
-        ...,
-        description="Base64 encoded or URL for image",
-        examples=[
-            "https://lastfm.freetls.fastly.net/i/u/770x0/443c5e1c35fd38bb5a49a7d00612dab3.jpg#443c5e1c35fd38bb5a49a7d00612dab3",
-            "iVBORw0KGgoAAAANSUhEUgAAAAUA",
-        ],
-    )
-
 
 class AvatarRequest(BaseModel):
     prompt: str = Field(
