@@ -109,11 +109,14 @@ def get_model_id_to_task_text(completions: bool) -> dict[str, str]:
 
 
 @lru_cache
-def get_model_id_to_task_image() -> dict[str, str]:
+def get_model_id_to_task_image(text_to_image: bool) -> dict[str, str]:
+
+    endpoint = cmodels.Endpoints.text_to_image.value if text_to_image else cmodels.Endpoints.image_to_image.value
     return {
-        config.orchestrator_server_config.load_model_config["model"]: config.task
+        config.model_info["model"]: config.task
         for config in tcfg.get_task_configs().values()
         if config.task_type == cmodels.TaskType.IMAGE
+        and config.endpoint == endpoint
     }
 
 
@@ -142,12 +145,12 @@ def _get_text_model(request: ChatRequest | CompletionRequest, completions: bool)
     return model
 
 
-def _get_image_model(request: TextToImageRequest | ImageToImageRequest | AvatarRequest) -> str:
+def _get_image_model(request: TextToImageRequest | ImageToImageRequest | AvatarRequest, text_to_image: bool) -> str:
     task_configs = tcfg.get_task_configs()
     model_hypened = request.model.replace("_", "-")
 
     if model_hypened not in task_configs:
-        model_id_to_task = get_model_id_to_task_image()
+        model_id_to_task = get_model_id_to_task_image(text_to_image=text_to_image)
         if model_hypened not in model_id_to_task:
             raise HTTPException(
                 status_code=404,
@@ -190,7 +193,7 @@ def chat_comp_to_payload(chat_request: CompletionRequest) -> payload_models.Comp
 
 
 def text_to_image_to_payload(text_to_image_request: TextToImageRequest) -> payload_models.TextToImagePayload:
-    model = _get_image_model(text_to_image_request)
+    model = _get_image_model(text_to_image_request, text_to_image=True)
 
     payload = text_to_image_request.model_dump()
     payload["model"] = model
@@ -203,7 +206,7 @@ def text_to_image_to_payload(text_to_image_request: TextToImageRequest) -> paylo
 async def image_to_image_to_payload(
     image_to_image_request: ImageToImageRequest, httpx_client: httpx.AsyncClient, prod: bool
 ) -> payload_models.ImageToImagePayload:
-    model = _get_image_model(image_to_image_request)
+    model = _get_image_model(image_to_image_request, text_to_image=False)
 
     image_b64 = (
         await fetch_image_b64(image_to_image_request.init_image, httpx_client)
