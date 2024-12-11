@@ -85,7 +85,7 @@ async def get_random_text_from_queue():
         logger.error(f"Error retrieving text from queue: {e}")
         return None
 
-async def generate_text(corpus, n_words):
+async def generate_text(corpus, n_words, completions=False):
     random.seed(time()%10000)
     generated_text_parts = []
 
@@ -130,7 +130,7 @@ async def generate_text(corpus, n_words):
     merged_text = ' '.join(generated_text_parts)
     possible_endings = ['.', '!', '?', '...']
 
-    if merged_text and merged_text[-1] not in possible_endings:
+    if merged_text and merged_text[-1] not in possible_endings and not completions:
         if random.choice([True, False]):
             merged_text += random.choice(possible_endings)
 

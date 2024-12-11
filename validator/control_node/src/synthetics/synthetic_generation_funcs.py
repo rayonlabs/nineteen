@@ -88,7 +88,7 @@ async def generate_chat_comp_synthetic(model: str, task_config: Any, word_to_tok
         total_n_words = total_n_words if total_n_words > 0 else 20
         logger.debug(f"generating prompt with {total_n_words} words for synth")
 
-        message = await sutils.generate_text(synth_corpus, total_n_words)
+        message = await sutils.generate_text(synth_corpus, total_n_words, completions=True)
 
         payload = payload_models.CompletionPayload(
             prompt=message,
