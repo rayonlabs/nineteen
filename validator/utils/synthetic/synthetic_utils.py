@@ -79,7 +79,7 @@ async def get_random_text_from_queue():
     try:
         if not random_text_queue.empty():
             text = await random_text_queue.get()
-            return clean_text(text)
+            return text
         return None
     except Exception as e:
         logger.error(f"Error retrieving text from queue: {e}")
