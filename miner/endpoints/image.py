@@ -70,14 +70,6 @@ async def image_to_image(
     return await _process_image_request(decrypted_payload, fiber_config, mcst.IMAGE_TO_IMAGE_SERVER_ENDPOINT, worker_config)
 
 
-async def inpaint(
-    decrypted_payload: payload_models.InpaintPayload = Depends(partial(decrypt_general_payload, payload_models.InpaintPayload)),
-    fiber_config: Config = Depends(get_fiber_config),
-    worker_config: WorkerConfig = Depends(get_worker_config),
-) -> payload_models.ImageResponse:
-    return await _process_image_request(decrypted_payload, fiber_config, mcst.INPAINT_SERVER_ENDPOINT, worker_config)
-
-
 async def avatar(
     decrypted_payload: payload_models.AvatarPayload = Depends(partial(decrypt_general_payload, payload_models.AvatarPayload)),
     fiber_config: Config = Depends(get_fiber_config),
@@ -98,13 +90,6 @@ def factory_router() -> APIRouter:
     router.add_api_route(
         "/image-to-image",
         image_to_image,
-        tags=["Subnet"],
-        methods=["POST"],
-        dependencies=[Depends(blacklist_low_stake), Depends(verify_request)],
-    )
-    router.add_api_route(
-        "/inpaint",
-        inpaint,
         tags=["Subnet"],
         methods=["POST"],
         dependencies=[Depends(blacklist_low_stake), Depends(verify_request)],

@@ -1,12 +1,12 @@
 from validator.utils.entry_utils import image_b64_is_valid, fetch_image_b64
+import random
+from typing import Any
+from fastapi import HTTPException
+import httpx
+from pydantic import BaseModel, Field
 from core.models import utility_models
 from core.models import payload_models
 
-import random
-import httpx
-
-from fastapi import HTTPException
-from pydantic import BaseModel, Field
 from fiber.logging_utils import get_logger
 
 logger = get_logger(__name__)
@@ -18,7 +18,7 @@ class ChatRequest(BaseModel):
         default=0.5, examples=[0.5, 0.4, 0.3], title="Temperature", description="Temperature for text generation."
     )
     max_tokens: int = Field(500, title="Max Tokens", description="Max tokens for text generation.")
-    model: str = Field(..., examples=["chat-llama-3-2-3b"], title="Model")
+    model: str = Field(..., examples=["unsloth/Llama-3.2-3B-Instruct"], title="Model")
     top_p: float = Field(default=1.0, title="Top P", description="Top P for text generation.")
     stream: bool = Field(default=True, title="Stream", description="Stream for text generation.")
     logprobs: bool = True
@@ -27,18 +27,19 @@ class ChatRequest(BaseModel):
         use_enum_values = True
 
 
-def chat_to_payload(chat_request: ChatRequest) -> payload_models.ChatPayload:
-    return payload_models.ChatPayload(
-        messages=chat_request.messages,
-        temperature=chat_request.temperature,
-        max_tokens=chat_request.max_tokens,
-        model=chat_request.model.replace("_", "-"),
-        top_p=chat_request.top_p,
-        stream=True,
-        logprobs=chat_request.logprobs,
-        seed=random.randint(1, 100000),
+class CompletionRequest(BaseModel):
+    prompt: str = Field(...)
+    temperature: float = Field(
+        default=0.5, examples=[0.5, 0.4, 0.3], title="Temperature", description="Temperature for text generation."
     )
+    max_tokens: int = Field(500, title="Max Tokens", description="Max tokens for text generation.")
+    model: str = Field(default=..., examples=["unsloth/Llama-3.2-3B-Instruct"], title="Model")
+    top_p: float = Field(default=1.0, title="Top P", description="Top P for text generation.")
+    stream: bool = Field(default=True, title="Stream", description="Stream for text generation.")
+    logprobs: bool = True
 
+    class Config:
+        use_enum_values = True
 
 class TextToImageRequest(BaseModel):
     prompt: str = Field(..., description="Prompt for image generation")
@@ -125,35 +126,6 @@ class InpaintRequest(BaseModel):
     )
 
 
-async def inpaint_to_payload(
-    inpaint_request: InpaintRequest, httpx_client: httpx.AsyncClient, prod: bool
-) -> payload_models.InpaintPayload:
-    image_b64 = (
-        await fetch_image_b64(inpaint_request.init_image, httpx_client)
-        if "https://" in inpaint_request.init_image
-        else inpaint_request.init_image
-    )
-    if not image_b64_is_valid(image_b64):
-        raise HTTPException(status_code=400, detail="Invalid init image!")
-
-    mask_b64 = (
-        await fetch_image_b64(inpaint_request.mask, httpx_client) if "https://" in inpaint_request.mask else inpaint_request.mask
-    )
-    if not image_b64_is_valid(mask_b64):
-        raise HTTPException(status_code=400, detail="Invalid mask image!")
-    return payload_models.InpaintPayload(
-        prompt=inpaint_request.prompt,
-        negative_prompt=inpaint_request.negative_prompt,
-        steps=inpaint_request.steps,
-        cfg_scale=inpaint_request.cfg_scale,
-        width=inpaint_request.width,
-        height=inpaint_request.height,
-        init_image=image_b64,
-        mask_image=mask_b64,
-        seed=random.randint(1, 100000),
-    )
-
-
 class AvatarRequest(BaseModel):
     prompt: str = Field(
         ...,
@@ -204,3 +176,27 @@ async def avatar_to_payload(
 
 class ImageResponse(BaseModel):
     image_b64: str
+
+
+class TextModelResponse(BaseModel):
+    id: str
+    name: str
+    created: int
+    description: str
+
+    context_length: int
+    is_moderated: bool = False
+
+    architecture: dict[str, Any]
+    pricing: dict[str, Any]
+    endpoints: list[str]
+
+    per_request_limits: None = None
+
+
+class ImageModelResponse(BaseModel):
+    id: str
+    name: str
+    created: int
+    description: str
+    pricing: dict[str, Any]

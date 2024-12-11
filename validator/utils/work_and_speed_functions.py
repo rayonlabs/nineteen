@@ -45,7 +45,10 @@ def calculate_work(
         character_count = 0
         for text_json in formatted_response:
             try:
-                character_count += len(text_json["choices"][0]["delta"]["content"])
+                if "delta" in text_json["choices"][0]:
+                    character_count += len(text_json["choices"][0]["delta"]["content"])
+                elif "text" in text_json["choices"][0]:
+                    character_count += len(text_json["choices"][0]["text"])
             except KeyError:
                 logger.error(f"KeyError: {text_json}")
 

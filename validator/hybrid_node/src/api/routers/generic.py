@@ -1,15 +1,14 @@
-from validator.hybrid_node.src.api.dependencies.deps import get_config_dependency
-from validator.hybrid_node.src.api.dependencies.deps import verify_api_key_dependency
-from core import task_config as tcfg
-
-from typing import Any, Annotated
-from fastapi import Depends
+from typing import Any
+from fiber.logging_utils import get_logger
 from fastapi.routing import APIRouter
+from validator.entry_node.src.utils import get_text_model_responses, get_image_model_responses
+from core import task_config as tcfg
+from validator.entry_node.src.models.request_models import ImageModelResponse, TextModelResponse
+
+logger = get_logger(__name__)
 
 
-async def models(
-    config: Annotated[Any, Depends(get_config_dependency)], _: Annotated[None, Depends(verify_api_key_dependency)]
-) -> list[dict[str, Any]]:
+async def models_deprecated() -> list[dict[str, Any]]:
     models = tcfg.get_public_task_configs()
     new_models = []
     for model in models:
@@ -19,10 +18,17 @@ async def models(
     return new_models
 
 
-generic_router = APIRouter(tags=["Models"])
-generic_router.add_api_route(
-    "/v1/models",
-    models,
-    methods=["GET"],
-    response_model=None,
-)
+async def text_models() -> list[TextModelResponse]:
+    return get_text_model_responses()
+
+
+async def image_models() -> list[ImageModelResponse]:
+    return get_image_model_responses()
+
+
+router = APIRouter()
+router.add_api_route("/v1/info/models", models_deprecated, methods=["GET"], tags=["Models"], response_model=None)
+
+
+router.add_api_route("/v1/models", text_models, methods=["GET"], tags=["Text"])
+router.add_api_route("/v1/models/image", image_models, methods=["GET"], tags=["Image"])

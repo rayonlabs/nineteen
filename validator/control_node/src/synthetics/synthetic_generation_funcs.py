@@ -75,6 +75,41 @@ async def generate_chat_synthetic(model: str, task_config: Any, word_to_token: f
         logger.error("Rolling back to the old method")
         return await generate_chat_synthetic_markov(model)
 
+async def generate_chat_comp_synthetic(model: str, task_config: Any, word_to_token: float = 4) -> payload_models.CompletionPayload:
+    start = time()
+    synth_corpus = sutils.get_synth_corpus()
+    
+    try:
+        total_n_words = sutils.get_random_int_from_dist(size=1, max_value=task_config.orchestrator_server_config.load_model_config['max_model_len']//word_to_token)
+        if total_n_words.size == 0:
+            total_n_words = 1000 
+        else:
+            total_n_words = int(total_n_words[0])
+        total_n_words = total_n_words if total_n_words > 0 else 20
+        logger.debug(f"generating prompt with {total_n_words} words for synth")
+
+        message = await sutils.generate_text(synth_corpus, total_n_words)
+        
+        payload = payload_models.CompletionPayload(
+            prompt=message,
+            temperature=round(random.random(), 1),
+            max_tokens=random.randint(50, 2000),
+            seed=random.randint(1, scst.MAX_SEED),
+            model=model,
+            top_p=1,
+        )
+
+        logger.debug(f"Generated {total_n_words} words chat completion synth in {round(time()-start, 3)}s")
+        logger.debug(f"prompt : {message}")
+        return payload
+    
+    except Exception as e:
+
+        logger.error("Error in new version of generate_chat_comp_synthetic: %s", e)
+        logger.error(traceback.format_exc())
+        logger.error("Rolling back to the old method")
+        return await generate_chat_comp_synthetic_markov(model)
+
 
 async def generate_chat_synthetic_markov(model: str) -> payload_models.ChatPayload:
     user_content = await _get_markov_sentence(max_words=random.randint(50, 2000))
@@ -95,6 +130,17 @@ async def generate_chat_synthetic_markov(model: str) -> payload_models.ChatPaylo
         )
     return payload_models.ChatPayload(
         messages=messages,
+        temperature=round(random.random(), 1),
+        max_tokens=1024,
+        seed=random.randint(1, scst.MAX_SEED),
+        model=model,
+        top_p=1,
+    )
+
+async def generate_chat_comp_synthetic_markov(model: str) -> payload_models.CompletionPayload:
+    user_content = await _get_markov_sentence(max_words=random.randint(50, 2000))
+    return payload_models.CompletionPayload(
+        prompt=user_content,
         temperature=round(random.random(), 1),
         max_tokens=1024,
         seed=random.randint(1, scst.MAX_SEED),
@@ -263,27 +309,6 @@ async def generate_image_to_image_synthetic(
     )
 
 
-async def generate_inpaint_synthetic() -> payload_models.InpaintPayload:
-    cache = image_cache_factory()
-    prompt = await _get_markov_sentence(max_words=20)
-    negative_prompt = await _get_markov_sentence(max_words=20)
-    seed = random.randint(1, scst.MAX_SEED)
-
-    init_image = await sutils.get_random_image_b64(cache)
-    mask_image = sutils.generate_mask_with_circle(init_image)
-
-    return payload_models.InpaintPayload(
-        prompt=prompt,
-        negative_prompt=negative_prompt,
-        cfg_scale=2.0,
-        seed=seed,
-        height=1016,
-        width=1016,
-        steps=8,
-        init_image=init_image,
-        mask_image=mask_image,
-    )
-
 
 async def generate_avatar_synthetic() -> payload_models.AvatarPayload:
     prompt = await _get_markov_sentence(max_words=20)
@@ -335,7 +360,7 @@ async def generate_synthetic_data(task: str) -> Any:
     func = getattr(sys.modules[__name__], generative_function_name)
     kwargs = task_config.synthetic_generation_config.kwargs
 
-    if generative_function_name == scst.CHAT_SYNTH_GEN_FUNC_NAME:
+    if generative_function_name == scst.CHAT_SYNTH_GEN_FUNC_NAME or generative_function_name == scst.CHAT_COMP_SYNTH_GEN_FUNC_NAME:
         kwargs["task_config"] = task_config
 
     return await func(**kwargs)

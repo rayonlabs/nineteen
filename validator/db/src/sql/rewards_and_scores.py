@@ -14,8 +14,8 @@ async def sql_insert_reward_data(connection: Connection, data: RewardData) -> No
             {dcst.COLUMN_ID}, {dcst.COLUMN_TASK}, {dcst.COLUMN_NODE_ID},
             {dcst.COLUMN_QUALITY_SCORE}, {dcst.COLUMN_VALIDATOR_HOTKEY},
             {dcst.COLUMN_MINER_HOTKEY}, {dcst.COLUMN_SYNTHETIC_QUERY},
-            {dcst.COLUMN_METRIC}, {dcst.COLUMN_RESPONSE_TIME}, {dcst.COLUMN_VOLUME}
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+            {dcst.COLUMN_METRIC}, {dcst.COLUMN_STREAM_METRIC}, {dcst.COLUMN_RESPONSE_TIME}, {dcst.COLUMN_VOLUME}
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
         RETURNING {dcst.COLUMN_ID}
         """,
         data.id,
@@ -26,6 +26,7 @@ async def sql_insert_reward_data(connection: Connection, data: RewardData) -> No
         data.node_hotkey,
         data.synthetic_query,
         data.metric,
+        data.stream_metric,
         data.response_time,
         data.volume,
     )
@@ -214,6 +215,7 @@ async def select_recent_reward_data_for_a_task(
             {dcst.COLUMN_MINER_HOTKEY},
             {dcst.COLUMN_SYNTHETIC_QUERY},
             {dcst.COLUMN_METRIC},
+            {dcst.COLUMN_STREAM_METRIC},
             {dcst.COLUMN_RESPONSE_TIME},
             {dcst.COLUMN_VOLUME},
             {dcst.COLUMN_CREATED_AT}
@@ -249,6 +251,7 @@ async def select_recent_reward_data(
             {dcst.COLUMN_MINER_HOTKEY},
             {dcst.COLUMN_SYNTHETIC_QUERY},
             {dcst.COLUMN_METRIC},
+            {dcst.COLUMN_STREAM_METRIC},
             {dcst.COLUMN_RESPONSE_TIME},
             {dcst.COLUMN_VOLUME},
             {dcst.COLUMN_CREATED_AT}
