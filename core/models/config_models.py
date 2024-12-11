@@ -64,8 +64,6 @@ class FullTaskConfig(BaseModel):
     architecture: dict = {}
     display_name: str | None = None
     description: str | None = None
-    display_name: str | None = None
-    description: str | None = None
     created: int = Field(default_factory=lambda: int(time.time()))
 
     def get_public_config(self) -> dict | None:

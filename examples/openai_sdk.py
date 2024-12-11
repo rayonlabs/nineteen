@@ -3,6 +3,7 @@ import openai
 API_KEY = "YOUR_API_KEY_HERE"
 client = openai.OpenAI(api_key=API_KEY, base_url="https://api.nineteen.ai/v1")
 
+
 # With stream!
 
 print("\nStarting stream test..." + "\n" + "-" * 100)
