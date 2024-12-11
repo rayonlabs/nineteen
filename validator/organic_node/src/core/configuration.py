@@ -20,6 +20,7 @@ class Config:
     psql_db: PSQLDB
     prod: bool
     httpx_client: httpx.AsyncClient
+    netuid: int
 
 
 @cached(ttl=60 * 5)
@@ -37,9 +38,16 @@ async def factory_config() -> Config:
 
     prod = bool(os.getenv("ENV", "prod").lower() == "prod")
 
+    netuid = os.getenv("NETUID")
+    if netuid is None:
+        raise ValueError("NETUID must be set")
+    else:
+        netuid = int(netuid)
+
     return Config(
         psql_db=psql_db,
         redis_db=redis_db,
         prod=prod,
         httpx_client=httpx.AsyncClient(),
+        netuid=netuid
     )

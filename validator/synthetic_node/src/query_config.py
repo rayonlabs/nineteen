@@ -5,8 +5,8 @@ from fiber.logging_utils import get_logger
 from validator.db.src.database import PSQLDB
 from redis.asyncio import Redis
 
-logger = get_logger(__name__)
 
+logger = get_logger(__name__)
 
 @dataclass
 class Config:
