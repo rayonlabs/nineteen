@@ -65,7 +65,7 @@ async def generate_chat_synthetic(model: str, task_config: Any, word_to_token: f
         )
 
         logger.info(f"Generated {total_n_words} words chat synth in {round(time()-start, 3)}s")
-        logger.debug(f"payload : {payload}")
+        logger.info(f"payload : {payload}")
         return payload
 
     except Exception as e:
