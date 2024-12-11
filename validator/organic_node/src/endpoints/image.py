@@ -69,7 +69,7 @@ async def query_image_generation(
     raise HTTPException(status_code=500, detail="No available nodes could process the request")
 
 async def process_image_request(
-    payload: payload_models.TextToImagePayload | payload_models.ImageToImagePayload | payload_models.InpaintPayload | payload_models.AvatarPayload,
+    payload: payload_models.TextToImagePayload | payload_models.ImageToImagePayload | payload_models.AvatarPayload,
     task: str,
     config: Config,
 ) -> request_models.ImageResponse:
@@ -114,19 +114,6 @@ async def image_to_image(
     )
     return await process_image_request(payload, payload.model, config)
 
-"""
-async def inpaint(
-    inpaint_request: request_models.InpaintRequest,
-    config: Config = Depends(get_config),
-) -> request_models.ImageResponse:
-    payload = await request_models.inpaint_to_payload(
-        inpaint_request,
-        httpx_client=config.httpx_client,
-        prod=config.prod,
-    )
-    return await process_image_request(payload, "inpaint", config)
-"""
-
 async def avatar(
     avatar_request: request_models.AvatarRequest,
     config: Config = Depends(get_config),
@@ -145,5 +132,4 @@ router = APIRouter(
 
 router.add_api_route("/v1/text-to-image", text_to_image, methods=["POST"])
 router.add_api_route("/v1/image-to-image", image_to_image, methods=["POST"])
-#router.add_api_route("/v1/inpaint", inpaint, methods=["POST"])
 router.add_api_route("/v1/avatar", avatar, methods=["POST"])

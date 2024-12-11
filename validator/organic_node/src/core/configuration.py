@@ -42,6 +42,7 @@ async def factory_config() -> Config:
         await asyncio.sleep(0.1)
 
     keypair = chain_utils.load_hotkey_keypair(wallet_name=wallet_name, hotkey_name=hotkey_name)
+    prod = bool(os.getenv("ENV", "prod").lower() == "prod")
 
     return Config(
         redis_db=None,
@@ -51,4 +52,5 @@ async def factory_config() -> Config:
         replace_with_docker_localhost=replace_with_docker_localhost,
         replace_with_localhost=localhost,
         keypair=keypair,
+        prod=prod
     )
