@@ -13,6 +13,7 @@ from validator.db.src.sql.contenders import get_contenders_for_task
 from validator.db.src.sql.nodes import get_node
 from validator.common.query import nonstream
 from core.models.payload_models import ImageResponse
+from validator.organic_node.src import utils
 
 logger = get_logger(__name__)
 
@@ -80,6 +81,8 @@ async def process_image_request(
         logger.error(f"Task config not found for task: {task}")
         raise HTTPException(status_code=400, detail=f"Invalid model {task}")
 
+    utils.handle_min_steps(task_config, payload.steps)
+
     try:
         image_response = await query_image_generation(
             config=config,
@@ -100,14 +103,14 @@ async def text_to_image(
     text_to_image_request: request_models.TextToImageRequest,
     config: Config = Depends(get_config),
 ) -> request_models.ImageResponse:
-    payload = request_models.text_to_image_to_payload(text_to_image_request)
+    payload = utils.text_to_image_to_payload(text_to_image_request)
     return await process_image_request(payload, payload.model, config)
 
 async def image_to_image(
     image_to_image_request: request_models.ImageToImageRequest,
     config: Config = Depends(get_config),
 ) -> request_models.ImageResponse:
-    payload = await request_models.image_to_image_to_payload(
+    payload = await utils.image_to_image_to_payload(
         image_to_image_request,
         httpx_client=config.httpx_client,
         prod=config.prod,
@@ -118,7 +121,7 @@ async def avatar(
     avatar_request: request_models.AvatarRequest,
     config: Config = Depends(get_config),
 ) -> request_models.ImageResponse:
-    payload = await request_models.avatar_to_payload(
+    payload = await utils.avatar_to_payload(
         avatar_request,
         httpx_client=config.httpx_client,
         prod=config.prod,

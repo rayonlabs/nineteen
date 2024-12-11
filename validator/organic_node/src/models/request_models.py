@@ -1,13 +1,7 @@
-import random
 from typing import Any
-from fastapi import HTTPException
-import httpx
 from pydantic import BaseModel, Field
 from core.models import utility_models
-from core.models import payload_models
 from fiber.logging_utils import get_logger
-
-from validator.utils.entry_utils import image_b64_is_valid, fetch_image_b64
 
 logger = get_logger(__name__)
 
@@ -51,13 +45,6 @@ class TextToImageRequest(BaseModel):
     model: str = Field(..., examples=["proteus_text_to_image"], title="Model")
 
 
-def text_to_image_to_payload(text_to_image_request: TextToImageRequest) -> payload_models.TextToImagePayload:
-    return payload_models.TextToImagePayload(
-        **text_to_image_request.model_dump(),
-        seed=random.randint(1, 100000),
-    )
-
-
 class ImageToImageRequest(BaseModel):
     init_image: str = Field(
         ...,
@@ -75,55 +62,6 @@ class ImageToImageRequest(BaseModel):
     height: int = Field(1024, description="Height for image generation")
     model: str = Field(..., examples=["proteus_image_to_image"], title="Model")
     image_strength: float = Field(0.5, description="Image strength for image generation")
-
-
-async def image_to_image_to_payload(
-    image_to_image_request: ImageToImageRequest, httpx_client: httpx.AsyncClient, prod: bool
-) -> payload_models.ImageToImagePayload:
-    image_b64 = (
-        await fetch_image_b64(image_to_image_request.init_image, httpx_client)
-        if "https://" in image_to_image_request.init_image
-        else image_to_image_request.init_image
-    )
-    if not image_b64_is_valid(image_b64):
-        raise HTTPException(status_code=400, detail="Invalid init image!")
-    return payload_models.ImageToImagePayload(
-        init_image=image_b64,
-        prompt=image_to_image_request.prompt,
-        negative_prompt=image_to_image_request.negative_prompt,
-        steps=image_to_image_request.steps,
-        cfg_scale=image_to_image_request.cfg_scale,
-        width=image_to_image_request.width,
-        height=image_to_image_request.height,
-        model=image_to_image_request.model,
-        image_strength=image_to_image_request.image_strength,
-        seed=random.randint(1, 100000),
-    )
-
-
-class InpaintRequest(BaseModel):
-    prompt: str = Field(..., description="Prompt for inpainting")
-    negative_prompt: str | None = Field(None, description="Negative prompt for inpainting")
-    steps: int = Field(10, description="Steps for inpainting")
-    cfg_scale: float = Field(3, description="CFG scale for inpainting")
-    width: int = Field(1024, description="Width for inpainting")
-    height: int = Field(1024, description="Height for inpainting")
-    init_image: str = Field(
-        ...,
-        description="Base64 encoded or URL for image",
-        examples=[
-            "https://lastfm.freetls.fastly.net/i/u/770x0/443c5e1c35fd38bb5a49a7d00612dab3.jpg#443c5e1c35fd38bb5a49a7d00612dab3",
-            "iVBORw0KGgoAAAANSUhEUgAAAAUA",
-        ],
-    )
-    mask: str = Field(
-        ...,
-        description="Base64 encoded or URL for image",
-        examples=[
-            "https://lastfm.freetls.fastly.net/i/u/770x0/443c5e1c35fd38bb5a49a7d00612dab3.jpg#443c5e1c35fd38bb5a49a7d00612dab3",
-            "iVBORw0KGgoAAAANSUhEUgAAAAUA",
-        ],
-    )
 
 
 class AvatarRequest(BaseModel):
@@ -148,29 +86,6 @@ class AvatarRequest(BaseModel):
             "https://lastfm.freetls.fastly.net/i/u/770x0/443c5e1c35fd38bb5a49a7d00612dab3.jpg#443c5e1c35fd38bb5a49a7d00612dab3",
             "iVBORw0KGgoAAAANSUhEUgAAAAUA",
         ],
-    )
-
-
-async def avatar_to_payload(
-    avatar_request: AvatarRequest, httpx_client: httpx.AsyncClient, prod: bool
-) -> payload_models.AvatarPayload:
-    image_b64 = (
-        await fetch_image_b64(avatar_request.init_image, httpx_client)
-        if "https://" in avatar_request.init_image
-        else avatar_request.init_image
-    )
-    if not image_b64_is_valid(image_b64):
-        raise HTTPException(status_code=400, detail="Invalid init image!")
-    return payload_models.AvatarPayload(
-        init_image=image_b64,
-        prompt=avatar_request.prompt,
-        negative_prompt=avatar_request.negative_prompt,
-        steps=avatar_request.steps,
-        width=avatar_request.width,
-        height=avatar_request.height,
-        seed=random.randint(1, 100000),
-        ipadapter_strength=avatar_request.ipadapter_strength,
-        control_strength=avatar_request.control_strength,
     )
 
 

@@ -1,4 +1,3 @@
-import datetime
 from enum import Enum
 import time
 from pydantic import BaseModel, Field
@@ -18,7 +17,6 @@ class Endpoints(Enum):
     text_to_image = "/text-to-image"
     image_to_image = "/image-to-image"
     avatar = "/avatar"
-    inpaint = "/inpaint"
     upscale = "/upscale"
     clip_embeddings = "/clip-embeddings"
     chat_completions = "/chat/completions"
@@ -64,8 +62,10 @@ class FullTaskConfig(BaseModel):
     model_info: dict | None = None
     # TODO: Remove the optional-ness when we're certain all new tasks have a display name
     architecture: dict = {}
-    display_name: str | None = None  
-    description: str | None = None 
+    display_name: str | None = None
+    description: str | None = None
+    display_name: str | None = None
+    description: str | None = None
     created: int = Field(default_factory=lambda: int(time.time()))
 
     def get_public_config(self) -> dict | None:
