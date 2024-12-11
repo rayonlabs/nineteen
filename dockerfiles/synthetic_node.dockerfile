@@ -22,11 +22,11 @@ ARG BREAK_CACHE_ARG=0
 RUN pip install --no-cache-dir "git+https://github.com/rayonlabs/fiber.git@1.0.0#egg=fiber[full]"
 ################################################################################
 
-FROM core AS entry_node
+FROM core AS synthetic_node
 
-WORKDIR /app/validator/entry_node
+WORKDIR /app/validator/synthetic_node
 
-COPY validator/entry_node/requirements.txt .
+COPY validator/synthetic_node/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 COPY core /app/core
@@ -34,10 +34,11 @@ COPY validator/utils /app/validator/utils
 COPY validator/models.py /app/validator/models.py
 COPY validator/db /app/validator/db
 
-COPY validator/entry_node/src ./src
-COPY validator/entry_node/pyproject.toml .
+COPY validator/synthetic_node/src ./src
+COPY validator/common /app/validator/common
+COPY validator/synthetic_node/pyproject.toml .
 
 
-ENV PYTHONPATH="${PYTHONPATH}:/app/validator/entry_node/src"
+ENV PYTHONPATH="${PYTHONPATH}:/app/validator/synthetic_node/src"
 
 # CMD ["tail", "-f", "/dev/null"]
