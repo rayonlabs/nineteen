@@ -8,7 +8,7 @@ Follow these steps on a mac:
 If you're on ubuntu or windows, please visit https://www.apple.com/shop/buy-mac for further instructions
 
 
-### **Add a new model, named exactly `unsloth/Llama-3.2-3B-Instruct`**
+### **Add a new model, named exactly `hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4`**
 
 It's very important the name matches exactly
 
