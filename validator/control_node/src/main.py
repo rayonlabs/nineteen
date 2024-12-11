@@ -17,7 +17,7 @@ logger = get_logger(__name__)
 
 async def main() -> None:
     nltk.download('punkt_tab')
-    
+    nltk.download('stopwords')
     config = load_config()
     await config.psql_db.connect()
 
