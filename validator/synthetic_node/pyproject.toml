@@ -3,14 +3,14 @@ requires = ["setuptools>=45", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "query_node"
+name = "synthetic_node"
 version = "1.0.0"
 description = "Query node service for the validator"
 dynamic = ["dependencies"]
 
 [tool.setuptools.packages.find]
 where = ["src"]
-include = ["query_node*"]
+include = ["synthetic_node*"]
 
 [tool.setuptools.dynamic]
 dependencies = { file = ["requirements.txt"] }

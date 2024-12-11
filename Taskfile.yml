@@ -15,15 +15,15 @@ tasks:
   control_node_dev:
     cmds:
       - LOCALHOST=true ENV_FILE=.vali.env python -m validator.control_node.src.main
-  
-  query_node_dev:
-    cmds: 
-      - LOCALHOST=true ENV_FILE=.vali.env python -m validator.query_node.src.main
 
-  entry_node_dev:
+  synthetic_node_dev:
     cmds:
-      - LOCALHOST=true uvicorn validator.entry_node.src.server:app --reload --host 0.0.0.0 --port 8090 --env-file .vali.env
-    
+      - LOCALHOST=true ENV_FILE=.vali.env python -m validator.synthetic_node.src.main
+
+  organic_node_dev:
+    cmds:
+      - LOCALHOST=true uvicorn validator.organic_node.src.server:app --reload --host 0.0.0.0 --port 8090 --env-file .vali.env
+
   weight_setter_dev:
     cmds:
       - LOCALHOST=true ENV_FILE=.vali.env python -m validator.control_node.src.set_weights.calculate_and_schedule_weights
@@ -33,16 +33,16 @@ tasks:
       # turns off the nodes so you can run them on the host
       # turns _on_ the proxies and dev tooling so you can access the infrastructure directly from the host
       - "
-        docker compose 
-          --env-file .vali.env 
-          --profile entry_node_profile 
-          up -d --build 
-          --scale entry_node=0 
-          --scale query_node=0 
-          --scale control_node=0 
-          --scale weight_setter=0 
+        docker compose
+          --env-file .vali.env
+          --profile organic_node_profile
+          up -d --build
+          --scale organic_node=0
+          --scale synthetic_node=0
+          --scale control_node=0
+          --scale weight_setter=0
           --scale redis-proxy=1
-          --scale adminer=1 
+          --scale adminer=1
           --scale postgres-proxy=1
           --scale redis-commander=1
       "
@@ -59,8 +59,8 @@ tasks:
   update_docker_fiber_version:
     cmds:
       - docker run --rm nineteen-control_node sh -c "pip install git+https://github.com/rayonlabs/fiber.git@1.0.0 --upgrade"
-      - docker run --rm nineteen-entry_node sh -c "pip install git+https://github.com/rayonlabs/fiber.git@1.0.0 --upgrade"
-      - docker run --rm nineteen-query_node sh -c "pip install git+https://github.com/rayonlabs/fiber.git@1.0.0 --upgrade"
+      - docker run --rm nineteen-organic_node sh -c "pip install git+https://github.com/rayonlabs/fiber.git@1.0.0 --upgrade"
+      - docker run --rm nineteen-synthetic_node sh -c "pip install git+https://github.com/rayonlabs/fiber.git@1.0.0 --upgrade"
 
   createm:
     cmds:
@@ -68,24 +68,24 @@ tasks:
 
   startup:
     cmds:
-      - docker compose --env-file .vali.env --profile entry_node_profile up -d --build
+      - docker compose --env-file .vali.env --profile organic_node_profile up -d --build
 
   shutdown:
     cmds:
-      - docker compose --env-file .vali.env --profile entry_node_profile down --remove-orphans
+      - docker compose --env-file .vali.env --profile organic_node_profile down --remove-orphans
 
   shutdown_and_delete:
     cmds:
-      - docker compose --env-file .vali.env --profile entry_node_profile down --remove-orphans -v
+      - docker compose --env-file .vali.env --profile organic_node_profile down --remove-orphans -v
 
   postgres:
     cmds:
-      - docker compose --env-file .vali.env --profile entry_node_profile exec -it postgresql psql -U$POSTGRES_USER $POSTGRES_DB
+      - docker compose --env-file .vali.env --profile organic_node_profile exec -it postgresql psql -U$POSTGRES_USER $POSTGRES_DB
 
   redis:
     cmds:
-      - docker compose --env-file .vali.env --profile entry_node_profile exec -it redis redis-cli
- 
+      - docker compose --env-file .vali.env --profile organic_node_profile exec -it redis redis-cli
+
   expose-postgres:
     cmds:
-      - docker compose -f docker-compose.yml --env-file .vali.env up -d --scale postgres-proxy=1 --scale adminer=1 
+      - docker compose -f docker-compose.yml --env-file .vali.env up -d --scale postgres-proxy=1 --scale adminer=1

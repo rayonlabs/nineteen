@@ -21,19 +21,19 @@ from validator.utils.query.query_utils import load_sse_jsons
 logger = get_logger(__name__)
 
 GAUGE_ORGANIC_TOKENS_PER_SEC = metrics.get_meter(__name__).create_gauge(
-    "validator.query_node.query.streaming.organic.tokens_per_sec",
+    "validator.synthetic_node.query.streaming.organic.tokens_per_sec",
     description="Average tokens per second metric for LLM streaming for any organic query"
 )
 GAUGE_ORGANIC_TOKENS = metrics.get_meter(__name__).create_gauge(
-    "validator.query_node.query.streaming.organic.tokens",
+    "validator.synthetic_node.query.streaming.organic.tokens",
     description="Total tokens for LLM streaming for an organic LLM query"
 )
 GAUGE_SYNTHETIC_TOKENS_PER_SEC = metrics.get_meter(__name__).create_gauge(
-    "validator.query_node.query.streaming.synthetic.tokens_per_sec",
+    "validator.synthetic_node.query.streaming.synthetic.tokens_per_sec",
     description="Average tokens per second metric for LLM streaming for any synthetic query"
 )
 GAUGE_SYNTHETIC_TOKENS = metrics.get_meter(__name__).create_gauge(
-    "validator.query_node.query.streaming.synthetic.tokens",
+    "validator.synthetic_node.query.streaming.synthetic.tokens",
     description="Total tokens for LLM streaming for a synthetic LLM query"
 )
 
