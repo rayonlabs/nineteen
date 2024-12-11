@@ -48,7 +48,7 @@ QUERY_NODE_FAILED_SYNTHETIC_TASKS_COUNTER = metrics.get_meter(__name__).create_c
 )
 
 COUNTER_CONTENDER_SELECTIONS = metrics.get_meter(__name__).create_counter(
-    name="validator.query_node.contender.selections",
+    name="validator.hybrid_node.contender.selections",
     description="Number of times a contender is selected for organic queries",
 )
 

@@ -18,15 +18,15 @@ from fiber.logging_utils import get_logger
 logger = get_logger(__name__)
 
 GAUGE_ORGANIC_TOKENS_PER_SEC = metrics.get_meter(__name__).create_gauge(
-    "validator.query_node.query.streaming.organic.tokens_per_sec",
+    "validator.hybrid_node.query.streaming.organic.tokens_per_sec",
     description="Average tokens per second metric for LLM streaming for any organic query"
 )
 GAUGE_SYNTHETIC_TOKENS_PER_SEC = metrics.get_meter(__name__).create_gauge(
-    "validator.query_node.query.streaming.synthetic.tokens_per_sec",
+    "validator.hybrid_node.query.streaming.synthetic.tokens_per_sec",
     description="Average tokens per second metric for LLM streaming for any synthetic query"
 )
 GAUGE_CONTENDER_TPS = metrics.get_meter(__name__).create_gauge(
-    "validator.query_node.query.streaming.contender.tokens_per_sec",
+    "validator.hybrid_node.query.streaming.contender.tokens_per_sec",
     description="Tokens per second for each contender per task"
 )
 
