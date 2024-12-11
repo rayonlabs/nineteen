@@ -91,7 +91,7 @@ async def delete_data_older_than_date(connection: Connection, minutes: int) -> N
 async def fetch_recent_most_rewards(
     connection: Connection, task: str, node_hotkey: str | None = None, quality_tasks_to_fetch: int = 50
 ) -> List[RewardData]:
-    date = datetime.now() - timedelta(hours=72)
+    date = datetime.now() - timedelta(days=5)
     priority_results = await select_recent_reward_data_for_a_task(connection, task, date, node_hotkey) or []
 
     y = len(priority_results or [])
