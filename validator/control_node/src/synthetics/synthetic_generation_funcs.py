@@ -64,8 +64,8 @@ async def generate_chat_synthetic(model: str, task_config: Any, word_to_token: f
             top_p=1,
         )
 
-        logger.info(f"Generated {total_n_words} words chat synth in {round(time()-start, 3)}s")
-        logger.info(f"payload : {payload}")
+        logger.debug(f"Generated {total_n_words} words chat synth in {round(time()-start, 3)}s")
+        logger.debug(f"payload : {payload}")
         return payload
 
     except Exception as e:
@@ -99,8 +99,8 @@ async def generate_chat_comp_synthetic(model: str, task_config: Any, word_to_tok
             top_p=1,
         )
 
-        logger.info(f"Generated {total_n_words} words chat completion synth in {round(time()-start, 3)}s")
-        logger.info(f"payload : {payload}")
+        logger.debug(f"Generated {total_n_words} words chat completion synth in {round(time()-start, 3)}s")
+        logger.debug(f"payload : {payload}")
         return payload
 
     except Exception as e:
