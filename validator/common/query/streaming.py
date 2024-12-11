@@ -2,23 +2,21 @@ import json
 import time
 import traceback
 from typing import AsyncGenerator
-
-import httpx
-from opentelemetry import metrics
-from core.models import utility_models
-from validator.query_node.src.query_config import Config
-from validator.query_node.src import utils
-
-from validator.models import Contender
 from fiber.validator import client
 from fiber.networking.models import NodeWithFernet as Node
+from fiber.logging_utils import get_logger
+import httpx
+from opentelemetry import metrics
+
+from core.models import utility_models
+from validator.common.query_config import Config
+from validator.common import utils
+from validator.models import Contender
 from core import task_config as tcfg
 from validator.utils.generic import generic_constants as gcst, generic_utils
 from validator.utils.redis import redis_constants as rcst
-
-from fiber.logging_utils import get_logger
-
 from validator.utils.query.query_utils import load_sse_jsons
+
 
 logger = get_logger(__name__)
 

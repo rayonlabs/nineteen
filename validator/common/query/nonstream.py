@@ -2,16 +2,17 @@ import json
 import time
 from httpx import Response
 from pydantic import ValidationError
-from core.models import utility_models
-from core.models.payload_models import ImageResponse
-from validator.query_node.src.query_config import Config
-
-from validator.models import Contender
 from fiber.networking.models import NodeWithFernet as Node
 from fiber.validator import client
-from core import task_config as tcfg
 from fiber.logging_utils import get_logger
-from validator.query_node.src import utils
+from typing import Tuple, Union
+
+from core.models import utility_models
+from core.models.payload_models import ImageResponse
+from validator.common.query_config import Config
+from validator.models import Contender
+from core import task_config as tcfg
+from validator.common import utils
 from validator.utils.redis import redis_constants as rcst
 from validator.utils.generic import generic_utils
 
@@ -93,7 +94,8 @@ async def query_nonstream(
     response_model: type[ImageResponse],
     synthetic_query: bool,
     job_id: str,
-) -> bool:
+) -> Tuple[bool, Union[None, utility_models.QueryResult]]:
+
     node_id = contender.node_id
 
     assert node.fernet is not None
@@ -102,7 +104,7 @@ async def query_nonstream(
     time_before_query = time.time()
     if task_config is None:
         logger.error(f"Task config not found for task: {contender.task}")
-        return False
+        return False, None
 
     try:
         response = await client.make_non_streamed_post(
@@ -127,7 +129,7 @@ async def query_nonstream(
         await utils.adjust_contender_from_result(
             config=config, query_result=query_result, contender=contender, synthetic_query=synthetic_query, payload=payload
         )
-        return False
+        return False, None
 
     response_time = time.time() - time_before_query
     try:
@@ -138,7 +140,7 @@ async def query_nonstream(
         await utils.adjust_contender_from_result(
             config=config, query_result=query_result, contender=contender, synthetic_query=synthetic_query, payload=payload
         )
-        return False
+        return False, None
 
 
     if formatted_response is not None:
@@ -160,7 +162,7 @@ async def query_nonstream(
         await utils.adjust_contender_from_result(
             config=config, query_result=query_result, contender=contender, synthetic_query=synthetic_query, payload=payload
         )
-        return True
+        return True, query_result
     else:
         query_result = utility_models.QueryResult(
             formatted_response=None,
@@ -178,4 +180,4 @@ async def query_nonstream(
         await utils.adjust_contender_from_result(
             config=config, query_result=query_result, contender=contender, synthetic_query=synthetic_query, payload=payload
         )
-        return False
+        return False, None

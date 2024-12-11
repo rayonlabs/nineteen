@@ -1,10 +1,9 @@
 import time
-from fastapi import Depends
+from fastapi import Depends, HTTPException
 
 from validator.db.src.sql.api import get_api_key_rate_limit
-from validator.entry_node.src.core.configuration import Config
-from validator.entry_node.src.core.dependencies import get_api_key, get_config
-from fastapi import HTTPException
+from validator.organic_node.src.core.configuration import Config
+from validator.organic_node.src.core.dependencies import get_api_key, get_config
 
 
 async def verify_api_key_rate_limit(config: Config = Depends(get_config), api_key: str = Depends(get_api_key)):

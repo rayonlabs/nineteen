@@ -1,9 +1,10 @@
+from fiber.logging_utils import get_logger
+
 from core.models import utility_models
 from validator.models import Contender
-from validator.query_node.src.query_config import Config
+from validator.common.query_config import Config
 from validator.utils import work_and_speed_functions
 from core import task_config as tcfg
-from fiber.logging_utils import get_logger
 from validator.db.src import functions as db_functions
 from validator.db.src.sql.contenders import (
     update_contender_429_count,

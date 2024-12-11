@@ -7,7 +7,7 @@ import os
 from fiber.logging_utils import get_logger
 import json
 
-from validator.synthetic_node.src.query_config import Config
+from validator.common.query_config import Config
 from validator.utils.redis import redis_constants as rcst, redis_dataclasses as rdc
 from validator.synthetic_node.src.process_queries import process_task
 from validator.db.src.sql.nodes import get_vali_ss58_address

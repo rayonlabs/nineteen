@@ -7,7 +7,7 @@ from fiber.logging_utils import get_logger
 from core.models.payload_models import ImageResponse
 from core import task_config as tcfg
 from validator.models import Contender
-from validator.synthetic_node.src.query_config import Config
+from validator.common.query_config import Config
 from validator.utils.generic import generic_utils as gutils
 from validator.utils.redis import redis_constants as rcst
 from validator.utils.redis import redis_dataclasses as rdc
@@ -99,7 +99,7 @@ async def _handle_nonstream_query(config: Config, message: rdc.QueryQueueMessage
             continue
 
         await update_total_requests_made(config.psql_db, contender)
-        success = await nonstream.query_nonstream(
+        success, _ = await nonstream.query_nonstream(
             config=config,
             contender=contender,
             node=node,
