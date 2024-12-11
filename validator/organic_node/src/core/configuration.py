@@ -4,7 +4,6 @@ from typing import TypeVar
 import asyncio
 from pydantic import BaseModel
 from aiocache import cached
-from fiber.chain import chain_utils
 
 from validator.db.src.database import PSQLDB
 from validator.common.query_config import Config
@@ -17,9 +16,6 @@ load_dotenv()
 
 @cached(ttl=60 * 5)
 async def factory_config() -> Config:
-
-    wallet_name = os.getenv("WALLET_NAME", "default")
-    hotkey_name = os.getenv("HOTKEY_NAME", "default")
 
     netuid = os.getenv("NETUID")
     if netuid is None:
@@ -41,7 +37,6 @@ async def factory_config() -> Config:
         ss58_address = await get_vali_ss58_address(psql_db, netuid)
         await asyncio.sleep(0.1)
 
-    keypair = chain_utils.load_hotkey_keypair(wallet_name=wallet_name, hotkey_name=hotkey_name)
     prod = bool(os.getenv("ENV", "prod").lower() == "prod")
 
     return Config(
@@ -51,6 +46,6 @@ async def factory_config() -> Config:
         ss58_address=ss58_address,
         replace_with_docker_localhost=replace_with_docker_localhost,
         replace_with_localhost=localhost,
-        keypair=keypair,
+        keypair=None,
         prod=prod
     )

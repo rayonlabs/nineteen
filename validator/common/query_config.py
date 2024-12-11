@@ -12,7 +12,7 @@ logger = get_logger(__name__)
 
 @dataclass
 class Config:
-    keypair: Keypair
+    keypair: Union[Keypair, None]
     psql_db: PSQLDB
     redis_db: Union[Redis, None]
     ss58_address: str
