@@ -85,7 +85,7 @@ async def get_random_text_from_queue():
         logger.error(f"Error retrieving text from queue: {e}")
         return None
 
-async def generate_text(corpus, n_words, completions=False):
+async def generate_text(corpus: dict, n_words: int, completions : bool = False):
     random.seed(time()%10000)
     generated_text_parts = []
 
