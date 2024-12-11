@@ -11,13 +11,14 @@ from core.task_config import get_enabled_task_config
 from validator.entry_node.src.core.configuration import Config
 from validator.entry_node.src.core.dependencies import get_config
 from validator.entry_node.src.core.middleware import verify_api_key_rate_limit
+from validator.entry_node.src.utils import handle_min_steps
 from validator.utils.redis import redis_constants as rcst
 from validator.utils.generic import generic_constants as gcst
 from validator.entry_node.src.models import request_models
 import asyncio
 
 from redis.asyncio.client import PubSub
-
+from validator.entry_node.src import utils
 from validator.utils.generic.generic_dataclasses import GenericResponse
 
 logger = get_logger(__name__)
@@ -106,6 +107,8 @@ async def process_image_request(
         logger.error(f"Task config not found for task: {task}")
         raise HTTPException(status_code=400, detail=f"Invalid model {task}")
 
+    handle_min_steps(task_config, payload.steps)
+
     job_id = uuid.uuid4().hex
     result = await make_non_stream_organic_query(
         job_id=job_id,
@@ -137,7 +140,7 @@ async def text_to_image(
     text_to_image_request: request_models.TextToImageRequest,
     config: Config = Depends(get_config),
 ) -> request_models.ImageResponse:
-    payload = request_models.text_to_image_to_payload(text_to_image_request)
+    payload = utils.text_to_image_to_payload(text_to_image_request)
 
     result = await process_image_request(payload, payload.model, config)
     return result
@@ -147,7 +150,7 @@ async def image_to_image(
     image_to_image_request: request_models.ImageToImageRequest,
     config: Config = Depends(get_config),
 ) -> request_models.ImageResponse:
-    payload = await request_models.image_to_image_to_payload(
+    payload = await utils.image_to_image_to_payload(
         image_to_image_request,
         httpx_client=config.httpx_client,
         prod=config.prod,
@@ -157,21 +160,11 @@ async def image_to_image(
     return result
 
 
-async def inpaint(
-    inpaint_request: request_models.InpaintRequest,
-    config: Config = Depends(get_config),
-) -> request_models.ImageResponse:
-    payload = await request_models.inpaint_to_payload(inpaint_request, httpx_client=config.httpx_client, prod=config.prod)
-
-    result = await process_image_request(payload, "inpaint", config)
-    return result
-
-
 async def avatar(
     avatar_request: request_models.AvatarRequest,
     config: Config = Depends(get_config),
 ) -> request_models.ImageResponse:
-    payload = await request_models.avatar_to_payload(avatar_request, httpx_client=config.httpx_client, prod=config.prod)
+    payload = await utils.avatar_to_payload(avatar_request, httpx_client=config.httpx_client, prod=config.prod)
 
     result = await process_image_request(payload, "avatar", config)
     return result
@@ -184,5 +177,4 @@ router = APIRouter(
 
 router.add_api_route("/v1/text-to-image", text_to_image, methods=["POST"])
 router.add_api_route("/v1/image-to-image", image_to_image, methods=["POST"])
-router.add_api_route("/v1/inpaint", inpaint, methods=["POST"])
 router.add_api_route("/v1/avatar", avatar, methods=["POST"])
