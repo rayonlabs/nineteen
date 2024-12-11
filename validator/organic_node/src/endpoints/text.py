@@ -22,14 +22,14 @@ from validator.organic_node.src import utils
 logger = get_logger(__name__)
 
 # Metrics
-COUNTER_TEXT_GENERATION_ERROR = metrics.get_meter(__name__).create_counter("validator.entry_node.text.error")
-COUNTER_TEXT_GENERATION_SUCCESS = metrics.get_meter(__name__).create_counter("validator.entry_node.text.success")
+COUNTER_TEXT_GENERATION_ERROR = metrics.get_meter(__name__).create_counter("validator.organic_node.text.error")
+COUNTER_TEXT_GENERATION_SUCCESS = metrics.get_meter(__name__).create_counter("validator.organic_node.text.success")
 GAUGE_TOKENS_PER_SEC = metrics.get_meter(__name__).create_gauge(
-    "validator.entry_node.text.tokens_per_sec",
+    "validator.organic_node.text.tokens_per_sec",
     description="Average tokens per second metric for LLM streaming for an organic LLM query"
 )
 GAUGE_TOKENS = metrics.get_meter(__name__).create_gauge(
-    "validator.entry_node.text.tokens",
+    "validator.organic_node.text.tokens",
     description="Total tokens for LLM streaming for an organic LLM query"
 )
 

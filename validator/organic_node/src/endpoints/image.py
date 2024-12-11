@@ -16,8 +16,8 @@ from core.models.payload_models import ImageResponse
 
 logger = get_logger(__name__)
 
-COUNTER_IMAGE_ERROR = metrics.get_meter(__name__).create_counter("validator.entry_node.image.error")
-COUNTER_IMAGE_SUCCESS = metrics.get_meter(__name__).create_counter("validator.entry_node.image.success")
+COUNTER_IMAGE_ERROR = metrics.get_meter(__name__).create_counter("validator.organic_node.image.error")
+COUNTER_IMAGE_SUCCESS = metrics.get_meter(__name__).create_counter("validator.organic_node.image.success")
 
 async def query_image_generation(
     config: Config,
