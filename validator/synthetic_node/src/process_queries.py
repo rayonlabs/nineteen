@@ -1,26 +1,25 @@
 import json
 import time
 from redis.asyncio import Redis
-from core.models.payload_models import ImageResponse
-from validator.models import Contender
-from validator.query_node.src.query_config import Config
-from core import task_config as tcfg
-from validator.utils.generic import generic_utils as gutils
-from validator.utils.contender import contender_utils as putils
-from validator.utils.redis import redis_constants as rcst
+from opentelemetry import metrics
 from fiber.logging_utils import get_logger
+
+from core.models.payload_models import ImageResponse
+from core import task_config as tcfg
+from validator.models import Contender
+from validator.synthetic_node.src.query_config import Config
+from validator.utils.generic import generic_utils as gutils
+from validator.utils.redis import redis_constants as rcst
 from validator.utils.redis import redis_dataclasses as rdc
-from validator.query_node.src.query import nonstream, streaming
+from validator.common.query import nonstream, streaming
 from validator.db.src.sql.contenders import get_contenders_for_task, update_total_requests_made
 from validator.db.src.sql.nodes import get_node
 from validator.utils.generic import generic_constants as gcst
-from opentelemetry import metrics
 
 
 logger = get_logger(__name__)
 
 MAX_CONCURRENT_TASKS = 10
-
 
 COUNTER_TOTAL_QUERIES = metrics.get_meter(__name__).create_counter(
     name="validator.query_node.process.total_queries",
@@ -137,20 +136,26 @@ async def _handle_error(config: Config, synthetic_query: bool, job_id: str, stat
 async def process_task(config: Config, message: rdc.QueryQueueMessage):
     task = message.task
 
-    if message.query_type == gcst.ORGANIC:
-        logger.debug(f"Acknowledging job id : {message.job_id}")
-        await _acknowledge_job(config.redis_db, message.job_id)
-        logger.debug(f"Successfully acknowledged job id : {message.job_id} ✅")
-        await _decrement_requests_remaining(config.redis_db, task)
-    else:
-        message.query_payload = await putils.get_synthetic_payload(config.redis_db, task)
+    if not message.query_type == gcst.SYNTHETIC:
+        await _handle_error(
+            config=config,
+            synthetic_query=False,
+            job_id=message.job_id,
+            status_code=500,
+            error_message=f"{message.query_type} type is not supported! This node only processes synthetic queries!",
+        )
+
+    logger.debug(f"Acknowledging job id : {message.job_id}")
+    await _acknowledge_job(config.redis_db, message.job_id)
+    logger.debug(f"Successfully acknowledged job id : {message.job_id} ✅")
+    await _decrement_requests_remaining(config.redis_db, task)
 
     task_config = tcfg.get_enabled_task_config(task)
     if task_config is None:
         logger.error(f"Can't find the task {task} in the query node!")
         await _handle_error(
             config=config,
-            synthetic_query=message.query_type == gcst.SYNTHETIC,
+            synthetic_query=True,
             job_id=message.job_id,
             status_code=500,
             error_message=f"Can't find the task {task}, please try again later",
@@ -158,31 +163,31 @@ async def process_task(config: Config, message: rdc.QueryQueueMessage):
 
         COUNTER_FAILED_QUERIES.add(1, {
             "task": task,
-            "synthetic_query": str(message.query_type == gcst.SYNTHETIC),
+            "synthetic_query": str(True),
         })
 
         return
 
     stream = task_config.is_stream
 
-    contenders_to_query = await get_contenders_for_task(config.psql_db, task, 5, message.query_type)
+    contenders_to_query = await get_contenders_for_task(config.psql_db, task, 5, gcst.SYNTHETIC)
 
     if contenders_to_query is None:
         raise ValueError("No contenders to query! :(")
 
-    COUNTER_TOTAL_QUERIES.add(1, {"task": task, "synthetic_query": str(message.query_type == gcst.SYNTHETIC)})
-    
+    COUNTER_TOTAL_QUERIES.add(1, {"task": task, "synthetic_query": str(True)})
+
     try:
         if stream:
             return await _handle_stream_query(config, message, contenders_to_query)
         else:
             return await _handle_nonstream_query(config=config, message=message, contenders_to_query=contenders_to_query)
-    
+
     except Exception as e:
         logger.error(f"Error processing task {task}: {e}")
         await _handle_error(
             config=config,
-            synthetic_query=message.query_type == gcst.SYNTHETIC,
+            synthetic_query=True,
             job_id=message.job_id,
             status_code=500,
             error_message=f"Error processing task {task}: {e}",
@@ -190,5 +195,5 @@ async def process_task(config: Config, message: rdc.QueryQueueMessage):
 
         COUNTER_FAILED_QUERIES.add(1, {
             "task": task,
-            "synthetic_query": str(message.query_type == gcst.SYNTHETIC),
+            "synthetic_query": str(True),
         })

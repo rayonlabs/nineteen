@@ -139,7 +139,7 @@ async def query_nonstream(
             config=config, query_result=query_result, contender=contender, synthetic_query=synthetic_query, payload=payload
         )
         return False
-    
+
 
     if formatted_response is not None:
         query_result = utility_models.QueryResult(
