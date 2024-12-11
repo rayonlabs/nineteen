@@ -1,9 +1,10 @@
 from fastapi import Security
 from fastapi.security import HTTPAuthorizationCredentials
-from validator.entry_node.src.core.configuration import Config
-from validator.entry_node.src.core import configuration
 from fastapi import HTTPException
 from fastapi.security import HTTPBearer
+from validator.organic_node.src.core.configuration import Config
+from validator.organic_node.src.core import configuration
+
 
 auth_scheme = HTTPBearer()
 

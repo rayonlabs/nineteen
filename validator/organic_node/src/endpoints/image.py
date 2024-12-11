@@ -6,18 +6,17 @@ from opentelemetry import metrics
 from redis.asyncio import Redis
 from fiber.logging_utils import get_logger
 from fastapi.routing import APIRouter
-from core.models import payload_models
-from core.task_config import get_enabled_task_config
-from validator.entry_node.src.core.configuration import Config
-from validator.entry_node.src.core.dependencies import get_config
-from validator.entry_node.src.core.middleware import verify_api_key_rate_limit
-from validator.utils.redis import redis_constants as rcst
-from validator.utils.generic import generic_constants as gcst
-from validator.entry_node.src.models import request_models
 import asyncio
-
 from redis.asyncio.client import PubSub
 
+from core.models import payload_models
+from core.task_config import get_enabled_task_config
+from validator.organic_node.src.core.configuration import Config
+from validator.organic_node.src.core.dependencies import get_config
+from validator.organic_node.src.core.middleware import verify_api_key_rate_limit
+from validator.utils.redis import redis_constants as rcst
+from validator.utils.generic import generic_constants as gcst
+from validator.organic_node.src.models import request_models
 from validator.utils.generic.generic_dataclasses import GenericResponse
 
 logger = get_logger(__name__)

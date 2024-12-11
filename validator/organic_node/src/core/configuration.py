@@ -1,19 +1,18 @@
 import os
-
 from dotenv import load_dotenv
 from typing import TypeVar
 import httpx
 from pydantic import BaseModel
 from redis.asyncio import Redis
 from aiocache import cached
+from dataclasses import dataclass
+
 from validator.db.src.database import PSQLDB
+
 
 T = TypeVar("T", bound=BaseModel)
 
 load_dotenv()
-
-from dataclasses import dataclass
-
 
 @dataclass
 class Config:

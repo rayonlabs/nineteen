@@ -6,6 +6,7 @@ from pydantic import BaseModel, Field
 from core.models import utility_models
 from core.models import payload_models
 from fiber.logging_utils import get_logger
+
 from validator.utils.entry_utils import image_b64_is_valid, fetch_image_b64
 
 logger = get_logger(__name__)

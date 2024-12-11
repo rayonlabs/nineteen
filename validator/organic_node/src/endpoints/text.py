@@ -7,20 +7,21 @@ from opentelemetry import metrics
 from redis.asyncio import Redis
 from fiber.logging_utils import get_logger
 from fastapi.routing import APIRouter
-from validator.entry_node.src.core.configuration import Config
-from validator.entry_node.src.core.dependencies import get_config
-from validator.entry_node.src.core.middleware import verify_api_key_rate_limit
+import asyncio
+import time
+
+from validator.organic_node.src.core.configuration import Config
+from validator.organic_node.src.core.dependencies import get_config
+from validator.organic_node.src.core.middleware import verify_api_key_rate_limit
 from validator.utils.redis import redis_constants as rcst
 from validator.utils.generic import generic_constants as gcst
-from validator.entry_node.src.models import request_models
-import asyncio
+from validator.organic_node.src.models import request_models
 from validator.utils.query.query_utils import load_sse_jsons
 from redis.asyncio.client import PubSub
-import time 
-from validator.entry_node.src import utils
+from validator.organic_node.src import utils
+
 
 logger = get_logger(__name__)
-
 
 COUNTER_TEXT_GENERATION_ERROR = metrics.get_meter(__name__).create_counter("validator.entry_node.text.error")
 COUNTER_TEXT_GENERATION_SUCCESS = metrics.get_meter(__name__).create_counter("validator.entry_node.text.success")
@@ -162,7 +163,7 @@ async def chat(
 ) -> StreamingResponse | JSONResponse:
     payload = utils.chat_to_payload(chat_request)
     payload.temperature = 0.5
-    
+
     try:
         text_generator = await make_stream_organic_query(
             redis_db=config.redis_db,
@@ -194,7 +195,7 @@ async def chat_comp(
 ) -> StreamingResponse | JSONResponse:
     payload = utils.chat_comp_to_payload(chat_request)
     payload.temperature = 0.5
-    
+
     try:
         text_generator = await make_stream_organic_query(
             redis_db=config.redis_db,

@@ -1,13 +1,14 @@
 from functools import lru_cache
-from core.models import config_models as cmodels
 from fiber.logging_utils import get_logger
-from core import task_config as tcfg
-from validator.entry_node.src.models.request_models import ChatRequest, CompletionRequest, ImageModelResponse, TextModelResponse
 import random
+
+from core.models import config_models as cmodels
+from core import task_config as tcfg
+from validator.organic_node.src.models.request_models import ChatRequest, CompletionRequest, ImageModelResponse, TextModelResponse
 from core.models import payload_models
 
-logger = get_logger(__name__)
 
+logger = get_logger(__name__)
 
 def _create_text_model_response(config: cmodels.FullTaskConfig) -> TextModelResponse:
     """Create a TextModelResponse from a text task configuration."""

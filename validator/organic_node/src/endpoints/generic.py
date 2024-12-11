@@ -1,9 +1,10 @@
 from typing import Any
 from fiber.logging_utils import get_logger
 from fastapi.routing import APIRouter
-from validator.entry_node.src.utils import get_text_model_responses, get_image_model_responses
+
 from core import task_config as tcfg
-from validator.entry_node.src.models.request_models import ImageModelResponse, TextModelResponse
+from validator.organic_node.src.utils import get_text_model_responses, get_image_model_responses
+from validator.organic_node.src.models.request_models import ImageModelResponse, TextModelResponse
 
 logger = get_logger(__name__)
 
