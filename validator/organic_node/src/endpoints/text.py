@@ -16,6 +16,7 @@ from validator.db.src.sql.contenders import get_contenders_for_task
 from validator.db.src.sql.nodes import get_node
 from validator.utils.generic import generic_constants as gcst
 from validator.common.query import streaming
+from validator.common.utils import _decrement_requests_remaining
 from validator.organic_node.src import utils
 
 
@@ -126,6 +127,8 @@ async def chat(
     payload = utils.chat_to_payload(chat_request)
     payload.temperature = 0.5
 
+    await _decrement_requests_remaining(config.redis_db, payload.model)
+
     try:
         generator = _process_stream_query(
             config=config,
@@ -161,6 +164,7 @@ async def chat_comp(
 
     payload = utils.chat_comp_to_payload(chat_request)
     payload.temperature = 0.5
+    await _decrement_requests_remaining(config.redis_db, payload.model)
 
     try:
         generator = _process_stream_query(

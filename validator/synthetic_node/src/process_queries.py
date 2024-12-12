@@ -1,6 +1,4 @@
-import json
 import time
-from redis.asyncio import Redis
 from opentelemetry import metrics
 from fiber.logging_utils import get_logger
 
@@ -15,6 +13,7 @@ from validator.common.query import nonstream, streaming
 from validator.db.src.sql.contenders import get_contenders_for_task, update_total_requests_made
 from validator.db.src.sql.nodes import get_node
 from validator.utils.generic import generic_constants as gcst
+from validator.utils.contender import contender_utils as putils
 
 
 logger = get_logger(__name__)
@@ -30,15 +29,6 @@ COUNTER_FAILED_QUERIES= metrics.get_meter(__name__).create_counter(
     name="validator.synthetic_node.process.failed_queries",
     description="Number of failed queries within `process_task`",
 )
-
-async def _decrement_requests_remaining(redis_db: Redis, task: str):
-    key = f"task_synthetics_info:{task}:requests_remaining"
-    await redis_db.decr(key)
-
-
-async def _acknowledge_job(redis_db: Redis, job_id: str):
-    logger.debug(f"Acknowledging job id : {job_id}")
-    await redis_db.publish(f"{gcst.ACKNLOWEDGED}:{job_id}", json.dumps({gcst.ACKNLOWEDGED: True}))
 
 
 async def _handle_stream_query(config: Config, message: rdc.QueryQueueMessage, contenders_to_query: list[Contender]) -> bool:
@@ -145,10 +135,7 @@ async def process_task(config: Config, message: rdc.QueryQueueMessage):
             error_message=f"{message.query_type} type is not supported! This node only processes synthetic queries!",
         )
 
-    logger.debug(f"Acknowledging job id : {message.job_id}")
-    await _acknowledge_job(config.redis_db, message.job_id)
-    logger.debug(f"Successfully acknowledged job id : {message.job_id} ✅")
-    await _decrement_requests_remaining(config.redis_db, task)
+    message.query_payload = await putils.get_synthetic_payload(config.redis_db, task)
 
     task_config = tcfg.get_enabled_task_config(task)
     if task_config is None:

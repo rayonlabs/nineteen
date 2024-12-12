@@ -14,6 +14,7 @@ from validator.db.src.sql.nodes import get_node
 from validator.common.query import nonstream
 from core.models.payload_models import ImageResponse
 from validator.organic_node.src import utils
+from validator.common.utils import _decrement_requests_remaining
 
 logger = get_logger(__name__)
 
@@ -104,6 +105,7 @@ async def text_to_image(
     config: Config = Depends(get_config),
 ) -> request_models.ImageResponse:
     payload = utils.text_to_image_to_payload(text_to_image_request)
+    await _decrement_requests_remaining(config.redis_db, payload.model)
     return await process_image_request(payload, payload.model, config)
 
 async def image_to_image(
@@ -115,6 +117,7 @@ async def image_to_image(
         httpx_client=config.httpx_client,
         prod=config.prod,
     )
+    await _decrement_requests_remaining(config.redis_db, payload.model)
     return await process_image_request(payload, payload.model, config)
 
 async def avatar(
@@ -126,6 +129,7 @@ async def avatar(
         httpx_client=config.httpx_client,
         prod=config.prod,
     )
+    await _decrement_requests_remaining(config.redis_db, "avatar")
     return await process_image_request(payload, "avatar", config)
 
 router = APIRouter(

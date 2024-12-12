@@ -4,6 +4,7 @@ from typing import TypeVar
 import asyncio
 from pydantic import BaseModel
 from aiocache import cached
+from redis.asyncio import Redis
 
 from validator.db.src.database import PSQLDB
 from validator.common.query_config import Config
@@ -25,7 +26,10 @@ async def factory_config() -> Config:
 
     localhost = bool(os.getenv("LOCALHOST", "false").lower() == "true")
     if localhost:
+        redis_host = "localhost"
         os.environ["POSTGRES_HOST"] = "localhost"
+    else:
+        redis_host = os.getenv("REDIS_HOST", "redis")
 
     replace_with_docker_localhost = bool(os.getenv("REPLACE_WITH_DOCKER_LOCALHOST", "false").lower() == "true")
 
@@ -40,7 +44,7 @@ async def factory_config() -> Config:
     prod = bool(os.getenv("ENV", "prod").lower() == "prod")
 
     return Config(
-        redis_db=None,
+        redis_db=Redis(host=redis_host),
         psql_db=psql_db,
         netuid=netuid,
         ss58_address=ss58_address,

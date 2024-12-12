@@ -1,4 +1,5 @@
 from fiber.logging_utils import get_logger
+from redis.asyncio import Redis
 
 from core.models import utility_models
 from validator.models import Contender
@@ -14,6 +15,9 @@ from validator.db.src.sql.contenders import (
 
 logger = get_logger(__name__)
 
+async def _decrement_requests_remaining(redis_db: Redis, task: str):
+    key = f"task_synthetics_info:{task}:requests_remaining"
+    await redis_db.decr(key)
 
 async def adjust_contender_from_result(
     config: Config,
