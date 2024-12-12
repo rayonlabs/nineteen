@@ -96,8 +96,6 @@ services:
       - postgresql
     volumes:
       - ${HOME}/.bittensor/wallets:/root/.bittensor/wallets
-    ports:
-      - "${ORGANIC_SERVER_PORT:-8091}:${ORGANIC_SERVER_PORT:-8091}"
     entrypoint: ["opentelemetry-instrument", "--logs_exporter", "otlp", "--traces_exporter", "none", "--metrics_exporter", "otlp", "--service_name", "organic_node", "python", "-u", "/app/validator/organic_node/src/server.py"]
     environment:
       OTEL_EXPORTER_OTLP_PROTOCOL: "http/protobuf"
