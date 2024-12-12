@@ -75,10 +75,12 @@ async def _process_stream_query(
                 for chunk_data in chunks:
                     try:
                         num_tokens += 1
-                        yield json.dumps(chunk_data) + "\n"
+                        yield f"data: {json.dumps(chunk_data)}\n\n"
                     except Exception as e:
                         logger.error(f"Error processing chunk: {e}")
                         continue
+
+            yield "data: [DONE]\n\n"
 
             completion_time = time.time() - start_time
             tps = num_tokens / completion_time
@@ -94,30 +96,62 @@ async def _process_stream_query(
             logger.error(f"Error streaming from node {node.node_id}: {e}")
             continue
 
-    # If we get here, all contenders failed
     COUNTER_TEXT_GENERATION_ERROR.add(1, {"task": task, "kind": "all_contenders_failed", "status_code": 500})
     raise HTTPException(status_code=500, detail="No available nodes could process the request")
 
+
 async def _handle_nonstream_response(generator: AsyncGenerator[str, None]) -> JSONResponse:
     all_content = ""
+    first_chunk = True
+    role = "assistant"
+
     async for chunk in generator:
         chunks = load_sse_jsons(chunk)
-        if isinstance(chunks, list):
-            for chunk_data in chunks:
-                if "choices" in chunk_data:
-                    if "text" in chunk_data["choices"][0]:  # Completion
-                        content = chunk_data["choices"][0]["text"]
-                    else:  # Chat
-                        content = chunk_data["choices"][0]["delta"].get("content", "")
-                    all_content += content
-                    if content == "":
-                        break
+        if not isinstance(chunks, list):
+            continue
 
-    return JSONResponse({
-        "choices": [{
-            "message": {"content": all_content, "role": "assistant"}
-        }]
-    })
+        for chunk_data in chunks:
+            if not isinstance(chunk_data, dict) or "choices" not in chunk_data:
+                continue
+
+            choice = chunk_data["choices"][0]
+
+            if first_chunk:
+                if "delta" in choice:
+                    if "role" in choice["delta"]:
+                        role = choice["delta"]["role"]
+                elif "role" in choice:
+                    role = choice["role"]
+                first_chunk = False
+
+            content = ""
+            if "delta" in choice and "content" in choice["delta"]:
+                content = choice["delta"]["content"]
+            elif "text" in choice:
+                content = choice["text"]
+            elif "content" in choice:
+                content = choice["content"]
+
+            if content is not None:
+                all_content += content
+
+    # format response based on request type
+    if role == "assistant":
+        return JSONResponse({
+            "choices": [{
+                "message": {
+                    "content": all_content,
+                    "role": role
+                }
+            }]
+        })
+    else:
+        # completion-style responses
+        return JSONResponse({
+            "choices": [{
+                "text": all_content
+            }]
+        })
 
 async def chat(
     chat_request: request_models.ChatRequest,
