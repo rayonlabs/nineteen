@@ -56,12 +56,11 @@ if os.getenv("ENV") != "prod":
 
 if __name__ == "__main__":
 
-    port = os.getenv("ORGANIC_SERVER_PORT")
-    if port is None:
+    organic_port_nginx = os.getenv("ORGANIC_SERVER_PORT")
+    if organic_port_nginx is None:
         logger.error("ORGANIC_SERVER_PORT is not set")
         exit(1)
     else:
-        port = int(port)
-        uvicorn.run(app, host="0.0.0.0", port=port)
+        uvicorn.run(app, host="0.0.0.0", port=6919)
 
     # uvicorn validator.organic_node.src.server:app --reload --host 0.0.0.0 --port 8091 --env-file .vali.env

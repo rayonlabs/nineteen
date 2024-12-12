@@ -80,10 +80,10 @@ services:
       - .vali.env
 
   organic_node:
-    container_name: organic_node
     build:
       context: .
       dockerfile: dockerfiles/organic_node.dockerfile
+    scale: 4
     deploy:
       replicas: 1
       resources:
@@ -111,10 +111,17 @@ services:
       POSTGRES_PORT: ${POSTGRES_PORT}
       POSTGRES_HOST: ${POSTGRES_HOST}
       ENV: ${ENV}
+    expose:
+      - "6919"
     env_file:
       - .vali.env
     profiles:
       - organic_node_profile
+    healthcheck:
+      test: curl -f http://localhost:6919/docs || exit 1
+      interval: 10s
+      timeout: 2s
+      retries: 3
 
   postgresql:
     container_name: 0_postgresql
