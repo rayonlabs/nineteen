@@ -87,7 +87,7 @@ async def _process_stream_query(
                         logger.error(f"Error processing chunk: {e}")
                         continue
 
-                    text_jsons.append(json.dumps(chunk_data))
+                    text_jsons.append(chunk_data)
 
             yield "data: [DONE]\n\n"
 
