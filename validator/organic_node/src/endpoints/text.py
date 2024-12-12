@@ -16,8 +16,9 @@ from validator.db.src.sql.contenders import get_contenders_for_task
 from validator.db.src.sql.nodes import get_node
 from validator.utils.generic import generic_constants as gcst
 from validator.common.query import streaming
-from validator.common.utils import _decrement_requests_remaining
-from validator.organic_node.src import utils
+from validator.common import utils as commUtils
+from validator.organic_node.src import utils  as orgUtils
+from core.models import utility_models
 
 
 logger = get_logger(__name__)
@@ -46,6 +47,7 @@ async def _process_stream_query(
 
     start_time = time.time()
     num_tokens = 0
+    query_result = None
 
     for contender in contenders[:5]:
         node = await get_node(config.psql_db, contender.node_id, config.netuid)
@@ -63,8 +65,13 @@ async def _process_stream_query(
         if not generator:
             continue
 
+        stream_time_init = None
         try:
+            text_jsons = []
             async for chunk in generator:
+                if stream_time_init is None:
+                        stream_time_init = time.time()
+
                 if isinstance(chunk, bytes):
                     chunk = chunk.decode()
 
@@ -80,21 +87,41 @@ async def _process_stream_query(
                         logger.error(f"Error processing chunk: {e}")
                         continue
 
+                    text_jsons.append(json.dumps(chunk_data))
+
             yield "data: [DONE]\n\n"
 
             completion_time = time.time() - start_time
             tps = num_tokens / completion_time
+            if stream_time_init:
+                stream_time = time.time() - stream_time_init
+            else:
+                stream_time = completion_time
 
             GAUGE_TOKENS.set(num_tokens, {"task": task})
             GAUGE_TOKENS_PER_SEC.set(tps, {"task": task})
             COUNTER_TEXT_GENERATION_SUCCESS.add(1, {"task": task, "status_code": 200})
 
             logger.info(f"Tokens per second for task {task}: {tps}")
-            return
+            query_result = utility_models.QueryResult(
+                formatted_response=text_jsons if len(text_jsons) > 0 else None,
+                node_id=node.node_id,
+                response_time=completion_time,
+                stream_time=stream_time,
+                task=task,
+                success=True,
+                node_hotkey=node.hotkey,
+                status_code=200,
+            )
 
         except Exception as e:
             logger.error(f"Error streaming from node {node.node_id}: {e}")
+            query_result = streaming.construct_500_query_result(node, task)
             continue
+
+        finally:
+            if query_result is not None:
+                await commUtils.adjust_contender_from_result(config, query_result, contender, False, payload=payload)
 
     COUNTER_TEXT_GENERATION_ERROR.add(1, {"task": task, "kind": "all_contenders_failed", "status_code": 500})
     raise HTTPException(status_code=500, detail="No available nodes could process the request")
@@ -158,10 +185,10 @@ async def chat(
     config: Config = Depends(get_config),
 ) -> StreamingResponse | JSONResponse:
 
-    payload = utils.chat_to_payload(chat_request)
+    payload = orgUtils.chat_to_payload(chat_request)
     payload.temperature = 0.5
 
-    await _decrement_requests_remaining(config.redis_db, payload.model)
+    await commUtils._decrement_requests_remaining(config.redis_db, payload.model)
 
     try:
         generator = _process_stream_query(
@@ -196,9 +223,9 @@ async def chat_comp(
     config: Config = Depends(get_config),
 ) -> StreamingResponse | JSONResponse:
 
-    payload = utils.chat_comp_to_payload(chat_request)
+    payload = orgUtils.chat_comp_to_payload(chat_request)
     payload.temperature = 0.5
-    await _decrement_requests_remaining(config.redis_db, payload.model)
+    await commUtils._decrement_requests_remaining(config.redis_db, payload.model)
 
     try:
         generator = _process_stream_query(
