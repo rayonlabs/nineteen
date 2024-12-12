@@ -211,6 +211,7 @@ async def chat(
         raise http_exc
     except Exception as e:
         logger.error(f"Unexpected error in chat endpoint: {str(e)}")
+        logger.exception(e)
         COUNTER_TEXT_GENERATION_ERROR.add(1, {
             "task": payload.model,
             "kind": type(e).__name__,
