@@ -109,7 +109,7 @@ services:
       POSTGRES_HOST: ${POSTGRES_HOST}
       ENV: ${ENV}
     expose:
-      - "6919"
+      - "6919:6919"
     env_file:
       - .vali.env
     profiles:
