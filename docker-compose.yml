@@ -85,7 +85,6 @@ services:
       dockerfile: dockerfiles/organic_node.dockerfile
     scale: 4
     deploy:
-      replicas: 1
       resources:
         limits:
           cpus: '0.50'
