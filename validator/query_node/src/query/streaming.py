@@ -22,12 +22,6 @@ from validator.utils.query.query_utils import load_sse_jsons
 
 logger = get_logger(__name__)
 
-TTFB_PENALTY_FACTOR = 1.1
-CHUNKING_PERCENTAGE_PENALTY_FACTOR = 1.35
-
-#example: If you have 200 tokens/sec uniformly distributed for 8B model, it means that TTFB should be lower than 1 seconds to not get assigned TTFB_PENALTY_FACTOR
-TTFB_THRESHOLD_MULTIPLIER = 200.0
-
 GAUGE_ORGANIC_TOKENS_PER_SEC = metrics.get_meter(__name__).create_gauge(
     "validator.query_node.query.streaming.organic.tokens_per_sec",
     description="Average tokens per second metric for LLM streaming for any organic query"
@@ -44,6 +38,40 @@ GAUGE_SYNTHETIC_TOKENS = metrics.get_meter(__name__).create_gauge(
     "validator.query_node.query.streaming.synthetic.tokens",
     description="Total tokens for LLM streaming for a synthetic LLM query"
 )
+
+
+TTFB_PENALTY_FACTOR = 1.1
+CHUNKING_PERCENTAGE_PENALTY_FACTOR = 1.35
+#example: If you have 200 tokens/sec uniformly distributed for 8B model, it means that TTFB should be lower than 1 seconds to not get assigned TTFB_PENALTY_FACTOR
+TTFB_THRESHOLD_MULTIPLIER = 200.0
+
+def calculate_streaming_penalty_factor(time_between_chunks: list[float], total_chunks: int, bundled_chunks: float, ttfb: float):
+    response_time_penalty_multiplier = 1.0
+    #If only one token was outputted, we only have TTFB and no streaming tokens, not possible to assign a streaming penalty
+    if len(time_between_chunks) == 0:
+        return response_time_penalty_multiplier
+    # Penalize for inconsistent interval between chunks
+    else:
+        mean_interval = sum(time_between_chunks) / len(time_between_chunks)
+        std_dev_interval = statistics.stdev(time_between_chunks, mean_interval)
+        
+        sporadic_count = sum(1 for interval in time_between_chunks if abs(interval - mean_interval) > std_dev_interval)
+        extra_sporadic_count = sum(1 for interval in time_between_chunks if abs(interval - mean_interval) > 3 *std_dev_interval)
+
+        # Assign penalty for inconsistent streaming, i.e, if either or both: 
+        # (i) if streaming interval of at least 10% chunk is outside standard deviation of the mean 
+        # (ii) if bundled chunk during streaming are >10% of total chunks
+        # (iii) if sporadic chunk outliers mostly lie beyond both 1xstd and 3xstd (that means chunky streaming seams pushed the overall mean higher)
+        if bundled_chunks > 0.1 * total_chunks or sporadic_count > 0.1 * len(time_between_chunks) or extra_sporadic_count >= 0.5 * sporadic_count:
+            response_time_penalty_multiplier = response_time_penalty_multiplier * CHUNKING_PERCENTAGE_PENALTY_FACTOR
+    
+    try:
+        # If TTFB > x times the mean interval between consecutive streamed tokens, assign a penalty
+        if ttfb > TTFB_THRESHOLD_MULTIPLIER * mean_interval:
+            response_time_penalty_multiplier = TTFB_PENALTY_FACTOR
+    except Exception as e:
+        logger.error(f"Error in calculating TTFB: {e} ;")
+    return response_time_penalty_multiplier
 
 def _get_formatted_payload(content: str, first_message: bool, add_finish_reason: bool = False, task: str = "") -> str:
     if 'comp' in task:
@@ -207,8 +235,7 @@ async def consume_generator(
                 # time_between_chunks.append(time.time() - time_to_first_chunk)
                 ttfb = time.time() - start_time
                 latest_counter = time.time()
-        
-        response_time_penalty_multiplier = 1.0
+                
 
         if len(text_jsons) > 0:
             last_payload = _get_formatted_payload("", False, add_finish_reason=True, task = task)
@@ -222,27 +249,7 @@ async def consume_generator(
 
         response_time = time.time() - start_time
 
-        # Penalize for inconsistent interval between chunks
-        if len(time_between_chunks) > 0:
-            mean_interval = sum(time_between_chunks) / len(time_between_chunks)
-            std_dev_interval = statistics.stdev(time_between_chunks, mean_interval)
-            
-            sporadic_count = sum(1 for interval in time_between_chunks if abs(interval - mean_interval) > std_dev_interval)
-            extra_sporadic_count = sum(1 for interval in time_between_chunks if abs(interval - mean_interval) > 3 *std_dev_interval)
-
-            # Assign penalty for inconsistent streaming, i.e, if either or both: 
-            # (i) if streaming interval of at least 10% chunk is outside standard deviation of the mean 
-            # (ii) if bundled chunk during streaming are >10% of total chunks
-            # (iii) if sporadic chunk outliers mostly lie beyond both 1xstd and 3xstd (that means chunky streaming seams pushed the overall mean higher)
-            if bundled_chunks > 0.1 * total_chunks or sporadic_count > 0.1 * len(time_between_chunks) or extra_sporadic_count >= 0.5 * sporadic_count:
-                response_time_penalty_multiplier = response_time_penalty_multiplier * CHUNKING_PERCENTAGE_PENALTY_FACTOR
-        
-        try:
-            # If TTFB > x times the mean interval between consecutive streamed tokens, assign a penalty
-            if ttfb > TTFB_THRESHOLD_MULTIPLIER * mean_interval:
-                response_time_penalty_multiplier = TTFB_PENALTY_FACTOR
-        except Exception as e:
-            logger.error(f"Error in calculating TTFB: {e} ;")
+        response_time_penalty_multiplier = calculate_streaming_penalty_factor(time_between_chunks, total_chunks, bundled_chunks, ttfb)
 
         try:
             stream_time = time.time() - stream_time_init
