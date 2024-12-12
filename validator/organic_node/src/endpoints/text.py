@@ -16,8 +16,8 @@ from validator.db.src.sql.contenders import get_contenders_for_task
 from validator.db.src.sql.nodes import get_node
 from validator.utils.generic import generic_constants as gcst
 from validator.common.query import streaming
-from validator.common import utils as commUtils
-from validator.organic_node.src import utils  as orgUtils
+from validator.common import utils as cutils
+from validator.organic_node.src import utils  as orutils
 from core.models import utility_models
 
 
@@ -121,7 +121,7 @@ async def _process_stream_query(
 
         finally:
             if query_result is not None:
-                await commUtils.adjust_contender_from_result(config, query_result, contender, False, payload=payload)
+                await cutils.adjust_contender_from_result(config, query_result, contender, False, payload=payload)
 
     COUNTER_TEXT_GENERATION_ERROR.add(1, {"task": task, "kind": "all_contenders_failed", "status_code": 500})
     raise HTTPException(status_code=500, detail="No available nodes could process the request")
@@ -185,10 +185,10 @@ async def chat(
     config: Config = Depends(get_config),
 ) -> StreamingResponse | JSONResponse:
 
-    payload = orgUtils.chat_to_payload(chat_request)
+    payload = orutils.chat_to_payload(chat_request)
     payload.temperature = 0.5
 
-    await commUtils._decrement_requests_remaining(config.redis_db, payload.model)
+    await cutils._decrement_requests_remaining(config.redis_db, payload.model)
 
     try:
         generator = _process_stream_query(
@@ -223,9 +223,9 @@ async def chat_comp(
     config: Config = Depends(get_config),
 ) -> StreamingResponse | JSONResponse:
 
-    payload = orgUtils.chat_comp_to_payload(chat_request)
+    payload = orutils.chat_comp_to_payload(chat_request)
     payload.temperature = 0.5
-    await commUtils._decrement_requests_remaining(config.redis_db, payload.model)
+    await cutils._decrement_requests_remaining(config.redis_db, payload.model)
 
     try:
         generator = _process_stream_query(
