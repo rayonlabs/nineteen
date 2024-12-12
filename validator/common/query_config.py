@@ -11,7 +11,7 @@ logger = get_logger(__name__)
 
 @dataclass
 class Config:
-    keypair: Keypair | None
+    keypair: Keypair
     psql_db: PSQLDB
     redis_db: Redis
     ss58_address: str

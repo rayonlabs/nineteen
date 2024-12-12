@@ -4,6 +4,7 @@ from typing import TypeVar
 import asyncio
 from pydantic import BaseModel
 from aiocache import cached
+from fiber.chain import chain_utils
 from redis.asyncio import Redis
 
 from validator.db.src.database import PSQLDB
@@ -43,6 +44,10 @@ async def factory_config() -> Config:
 
     prod = bool(os.getenv("ENV", "prod").lower() == "prod")
 
+    wallet_name = os.getenv("WALLET_NAME", "default")
+    hotkey_name = os.getenv("HOTKEY_NAME", "default")
+    keypair = chain_utils.load_hotkey_keypair(wallet_name=wallet_name, hotkey_name=hotkey_name)
+
     return Config(
         redis_db=Redis(host=redis_host),
         psql_db=psql_db,
@@ -50,6 +55,6 @@ async def factory_config() -> Config:
         ss58_address=ss58_address,
         replace_with_docker_localhost=replace_with_docker_localhost,
         replace_with_localhost=localhost,
-        keypair=None,
+        keypair=keypair,
         prod=prod
     )
