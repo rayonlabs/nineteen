@@ -133,7 +133,10 @@ async def query_nonstream(
     try:
         formatted_response = get_formatted_response(response, response_model)
     except Exception as e:
-        logger.error(f"Error when deserializing response for task: {contender.task}. Error: {traceback.format_exception(e)}")
+        logger.error(f"Error when deserializing response for task: {contender.task}. Error:")
+        
+        # drop the stacktrace while we're here (otel doesn't like logger.exception)
+        logger.error("\n".join(traceback.format_exception(e)))
         query_result = _get_500_query_result(node_id=node_id, contender=contender)
         await utils.adjust_contender_from_result(
             config=config, query_result=query_result, contender=contender, synthetic_query=synthetic_query, payload=payload
