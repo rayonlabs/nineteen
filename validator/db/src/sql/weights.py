@@ -47,7 +47,7 @@ async def insert_scoring_stats(connection: Connection, scoring_stats: list[Conte
                 stat.contender_capacity,
                 stat.normalised_net_score,
                 stat.metric,
-                stat.average_response_time_penalty_multiplier
+                stat.average_response_time_penalty_multiplier,
                 stat.stream_metric
             )
             for stat in scoring_stats
