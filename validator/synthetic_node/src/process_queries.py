@@ -126,6 +126,8 @@ async def _handle_error(config: Config, synthetic_query: bool, job_id: str, stat
 async def process_task(config: Config, message: rdc.QueryQueueMessage):
     task = message.task
 
+    logger.info(f"Received : {message}")
+
     if not message.query_type == gcst.SYNTHETIC:
         await _handle_error(
             config=config,
