@@ -8,11 +8,9 @@ Follow these steps on a mac:
 If you're on ubuntu or windows, please visit https://www.apple.com/shop/buy-mac for further instructions
 
 
-### **Add a new model, named exactly `chat_llama_3_2_3b`**
+### **Add a new model, named exactly `hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4`**
 
 It's very important the name matches exactly
-
-![Adding Llama Model](add_llama_model.png)
 
 
 ### **Configure custom 'OPENAI' endpoint**
@@ -22,9 +20,9 @@ First, disable all other OpenAI models. Don't worry, they're degraded to hell an
 
 Use:
 
-Endpoint: `https://testnet.sn19.ai/v1` - NOTE: when Nineteen 5.0 is live, you can use *ANY* validator on subnet 19
+Override OpenAI Base URL: `https://api.nineteen.ai/v1` 
 
-Key: 3a1d9d2c-79d2-4408-bvfb-ab0036c01293
+Key: Visit https://nineteen.ai/app/api and sign up for an API key, add the same to `OpenAI API Key` field
 
 ![OPENAI Key Configuration](openai_key.png)
 
