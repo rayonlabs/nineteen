@@ -122,6 +122,7 @@ async def _process_stream_query(
         finally:
             if query_result is not None:
                 await cutils.adjust_contender_from_result(config, query_result, contender, False, payload=payload)
+            return
 
     COUNTER_TEXT_GENERATION_ERROR.add(1, {"task": task, "kind": "all_contenders_failed", "status_code": 500})
     raise HTTPException(status_code=500, detail="No available nodes could process the request")
