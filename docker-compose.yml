@@ -108,8 +108,8 @@ services:
       POSTGRES_PORT: ${POSTGRES_PORT}
       POSTGRES_HOST: ${POSTGRES_HOST}
       ENV: ${ENV}
-    ports:
-      - "6919:6919"
+    expose:
+      - "6919"
     env_file:
       - .vali.env
     profiles:
