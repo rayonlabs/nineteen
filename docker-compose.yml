@@ -83,12 +83,12 @@ services:
     build:
       context: .
       dockerfile: dockerfiles/organic_node.dockerfile
-    scale: 4
     deploy:
       resources:
         limits:
           cpus: '0.50'
           memory: 512M
+      replicas: 4
       restart_policy:
         condition: on-failure
     depends_on:
@@ -108,8 +108,8 @@ services:
       POSTGRES_PORT: ${POSTGRES_PORT}
       POSTGRES_HOST: ${POSTGRES_HOST}
       ENV: ${ENV}
-    expose:
-      - "6919"
+    networks:
+      - loadbalancing
     env_file:
       - .vali.env
     profiles:
@@ -127,8 +127,9 @@ services:
     volumes:
       - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
     depends_on:
-      - redis
-      - postgresql
+      - organic_node
+    networks:
+      - loadbalancing
     environment:
       OTEL_EXPORTER_OTLP_PROTOCOL: "http/protobuf"
       OTEL_EXPORTER_OTLP_ENDPOINT: "http://otel-collector:4317"
@@ -229,3 +230,6 @@ services:
       - 127.0.0.1:5432:5432
     depends_on:
       - postgresql
+
+networks:
+  loadbalancing:

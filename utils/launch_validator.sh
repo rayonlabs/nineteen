@@ -44,5 +44,5 @@ fi
 git stash
 
 # ensure any changes to grafana are reloaded
-docker compose --env-file .vali.env -f docker-compose.yml down grafana -v
+docker compose rm -f -v grafana
 docker compose --env-file .vali.env -f docker-compose.yml up grafana -d
