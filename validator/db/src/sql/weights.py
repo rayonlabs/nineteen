@@ -27,9 +27,10 @@ async def insert_scoring_stats(connection: Connection, scoring_stats: list[Conte
             {dcst.COLUMN_CONTENDER_CAPACITY},
             {dcst.COLUMN_NORMALISED_NET_SCORE},
             {dcst.COLUMN_METRIC},
+            {dcst.COLUMN_AVG_RESPONSE_TIME_MULTIPLIER},
             {dcst.COLUMN_STREAM_METRIC}
         )
-        VALUES ($1, $2, $3, NOW(), $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+        VALUES ($1, $2, $3, NOW(), $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
         """,
         [
             (
@@ -46,6 +47,7 @@ async def insert_scoring_stats(connection: Connection, scoring_stats: list[Conte
                 stat.contender_capacity,
                 stat.normalised_net_score,
                 stat.metric,
+                stat.average_response_time_penalty_multiplier,
                 stat.stream_metric
             )
             for stat in scoring_stats

@@ -77,6 +77,7 @@ class RewardData(BaseModel):
     metric: float | None = None
     stream_metric: float | None = None
     response_time: float | None = None
+    response_time_penalty_multiplier: float = 1
     volume: float | None = None
     created_at: datetime = Field(default_factory=datetime.now)
 
@@ -92,6 +93,7 @@ class RewardData(BaseModel):
             "metric": self.metric,
             "stream_metric": self.stream_metric,
             "response_time": self.response_time,
+            "response_time_penalty_multiplier": self.response_time_penalty_multiplier,
             "volume": self.volume,
             "created_at": self.created_at.isoformat(),  # Convert datetime to ISO string
         }

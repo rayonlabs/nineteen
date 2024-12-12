@@ -17,10 +17,16 @@ from validator.utils.generic import generic_constants as gcst, generic_utils
 from validator.utils.redis import redis_constants as rcst
 
 from fiber.logging_utils import get_logger
-
+import statistics
 from validator.utils.query.query_utils import load_sse_jsons
 
 logger = get_logger(__name__)
+
+TTFB_PENALTY_FACTOR = 1.1
+CHUNKING_PERCENTAGE_PENALTY_FACTOR = 1.35
+
+#example: If you have 200 tokens/sec uniformly distributed for 8B model, it means that TTFB should be lower than 1 seconds to not get assigned TTFB_PENALTY_FACTOR
+TTFB_THRESHOLD_MULTIPLIER = 200.0
 
 GAUGE_ORGANIC_TOKENS_PER_SEC = metrics.get_meter(__name__).create_gauge(
     "validator.query_node.query.streaming.organic.tokens_per_sec",
@@ -94,6 +100,7 @@ def construct_500_query_result(node: Node, task: str) -> utility_models.QueryRes
         success=False,
         node_hotkey=node.hotkey,
         formatted_response=None,
+        response_time_penalty_multiplier=1,
         status_code=500,
         response_time=None,
         stream_time=None
@@ -131,10 +138,16 @@ async def consume_generator(
 
         return False
 
-    text_jsons, status_code, first_message = [], 200, True  # TODO: remove unused variable
-
+    text_jsons, status_code, first_message =  [], 200, True
+    ttfb = None
     stream_time_init = None
     try:
+
+        total_chunks = 0
+        bundled_chunks = 0
+        time_between_chunks = []
+
+        latest_counter = None
         async for text in async_chain(first_chunk, generator):
             if isinstance(text, bytes):
                 text = text.decode()
@@ -145,7 +158,11 @@ async def consume_generator(
                     if isinstance(loaded_jsons, dict):
                         status_code = loaded_jsons.get(gcst.STATUS_CODE)  # noqa
                         break
+                    total_chunks += 1
 
+                    if len(loaded_jsons) > 1:
+                        bundled_chunks += 1
+                
                 except (IndexError, json.JSONDecodeError) as e:
                     logger.warning(f"Error {e} when trying to load text: {text}")
                     break
@@ -183,6 +200,16 @@ async def consume_generator(
                         
                     tokens += 1
 
+            if latest_counter:
+                time_between_chunks.append(time.time() - latest_counter)
+                latest_counter = time.time()
+            else:
+                # time_between_chunks.append(time.time() - time_to_first_chunk)
+                ttfb = time.time() - start_time
+                latest_counter = time.time()
+        
+        response_time_penalty_multiplier = 1.0
+
         if len(text_jsons) > 0:
             last_payload = _get_formatted_payload("", False, add_finish_reason=True, task = task)
             await _handle_event(
@@ -194,6 +221,29 @@ async def consume_generator(
             logger.info(f" 👀  Queried node: {node.node_id} for task: {task}. Success: {not first_message}.")
 
         response_time = time.time() - start_time
+
+        # Penalize for inconsistent interval between chunks
+        if len(time_between_chunks) > 0:
+            mean_interval = sum(time_between_chunks) / len(time_between_chunks)
+            std_dev_interval = statistics.stdev(time_between_chunks, mean_interval)
+            
+            sporadic_count = sum(1 for interval in time_between_chunks if abs(interval - mean_interval) > std_dev_interval)
+            extra_sporadic_count = sum(1 for interval in time_between_chunks if abs(interval - mean_interval) > 3 *std_dev_interval)
+
+            # Assign penalty for inconsistent streaming, i.e, if either or both: 
+            # (i) if streaming interval of at least 10% chunk is outside standard deviation of the mean 
+            # (ii) if bundled chunk during streaming are >10% of total chunks
+            # (iii) if sporadic chunk outliers mostly lie beyond both 1xstd and 3xstd (that means chunky streaming seams pushed the overall mean higher)
+            if bundled_chunks > 0.1 * total_chunks or sporadic_count > 0.1 * len(time_between_chunks) or extra_sporadic_count >= 0.5 * sporadic_count:
+                response_time_penalty_multiplier = response_time_penalty_multiplier * CHUNKING_PERCENTAGE_PENALTY_FACTOR
+        
+        try:
+            # If TTFB > x times the mean interval between consecutive streamed tokens, assign a penalty
+            if ttfb > TTFB_THRESHOLD_MULTIPLIER * mean_interval:
+                response_time_penalty_multiplier = TTFB_PENALTY_FACTOR
+        except Exception as e:
+            logger.error(f"Error in calculating TTFB: {e} ;")
+
         try:
             stream_time = time.time() - stream_time_init
         except Exception as e:
@@ -204,6 +254,7 @@ async def consume_generator(
             formatted_response=text_jsons if len(text_jsons) > 0 else None,
             node_id=node.node_id,
             response_time=response_time,
+            response_time_penalty_multiplier = response_time_penalty_multiplier,
             stream_time=stream_time,
             task=task,
             success=not first_message,

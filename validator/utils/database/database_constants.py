@@ -136,6 +136,7 @@ COLUMN_SYNTHETIC_QUERY = "synthetic_query"
 COLUMN_METRIC = "metric"
 COLUMN_STREAM_METRIC = "stream_metric"
 COLUMN_RESPONSE_TIME = "response_time"
+COLUMN_RESPONSE_TIME_PENALTY_MULTIPLIER = "response_time_penalty_multiplier"
 COLUMN_VOLUME = "volume"
 
 # UID record columns
@@ -157,3 +158,4 @@ COLUMN_PERIOD_SCORE_MULTIPLIER = "period_score_multiplier"
 COLUMN_NORMALISED_PERIOD_SCORE = "normalised_period_score"
 COLUMN_CONTENDER_CAPACITY = "contender_capacity"
 COLUMN_NORMALISED_NET_SCORE = "normalised_net_score"
+COLUMN_AVG_RESPONSE_TIME_MULTIPLIER = "average_response_time_penalty_multiplier"

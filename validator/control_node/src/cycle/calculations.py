@@ -32,8 +32,9 @@ class QualityScores:
     combined_quality_scores: dict[str, float]
     average_weighted_quality_scores: dict[str, float]
     metric_bonuses: dict[str, float]
-    metrics: dict[str, float]
-    stream_metrics: dict[str, float]
+    metrics: dict[str, list[float]]
+    stream_metrics: dict[str, list[float]]
+    response_time_penalty_multipliers: dict[str, list[float]]
 
 
 logger = get_logger(__name__)
@@ -99,11 +100,12 @@ async def _get_period_scores(
 
 async def _calculate_metrics_and_quality_score(
     psql_db: PSQLDB, task: str, netuid: int
-) -> tuple[dict[str, float], dict[str, float], dict[str, float]]:
+) -> tuple[dict[str, list[float]], dict[str, list[float]], dict[str, list[float]], dict[str, list[float]]]:
     reward_datas: list[RewardData] = await _get_reward_datas(psql_db, task, netuid)
 
     metrics = {}
     quality_scores = {}
+    response_time_penalty_multipliers = {}
     stream_metrics = {}
     for reward_data in reward_datas:
         if reward_data.metric is None or reward_data.quality_score is None:
@@ -117,11 +119,14 @@ async def _calculate_metrics_and_quality_score(
         ]
         quality_scores[reward_data.node_hotkey] = quality_scores.get(
             reward_data.node_hotkey, []
-        ) + [reward_data.quality_score]
+        ) + [reward_data.quality_score / reward_data.response_time_penalty_multiplier]
+        response_time_penalty_multipliers[reward_data.node_hotkey] = response_time_penalty_multipliers.get(
+            reward_data.node_hotkey, []
+        ) + [reward_data.response_time_penalty_multiplier]
         stream_metrics[reward_data.node_hotkey] = stream_metrics.get(
             reward_data.node_hotkey, []
         ) + [reward_data.stream_metric]
-    return metrics, quality_scores, stream_metrics
+    return metrics, quality_scores, stream_metrics, response_time_penalty_multipliers
 
 
 async def _calculate_metric_bonuses(metrics: dict[str, float]) -> dict[str, float]:
@@ -131,7 +136,6 @@ async def _calculate_metric_bonuses(metrics: dict[str, float]) -> dict[str, floa
     }
     metric_bonuses = _get_metric_bonuses(metric_scores)
     return metric_bonuses
-
 
 async def _calculate_normalised_period_score(
     psql_db: PSQLDB, task: str, node_hotkey: str
@@ -180,7 +184,7 @@ def _calculate_hotkey_effective_volume_for_task(
 async def _process_quality_scores(
     psql_db: PSQLDB, task: str, netuid: int
 ) -> QualityScores:
-    metrics, quality_scores, stream_metrics = await _calculate_metrics_and_quality_score(
+    metrics, quality_scores, stream_metrics, response_time_penalty_multipliers = await _calculate_metrics_and_quality_score(
         psql_db, task, netuid
     )
 
@@ -204,7 +208,8 @@ async def _process_quality_scores(
         average_weighted_quality_scores,
         metric_bonuses,
         metrics, 
-        stream_metrics
+        stream_metrics,
+        response_time_penalty_multipliers
     )
 
 
@@ -301,11 +306,12 @@ async def calculate_scores_for_settings_weights(
             await _process_quality_scores(psql_db, task, netuid)
         )
 
-        combined_quality_scores, average_quality_scores, metric_bonuses, metrics, stream_metrics = quality_scores.combined_quality_scores,\
+        combined_quality_scores, average_quality_scores, metric_bonuses, metrics, stream_metrics, response_time_penalty_multipliers = quality_scores.combined_quality_scores,\
                                                                                             quality_scores.average_weighted_quality_scores, \
                                                                                                 quality_scores.metric_bonuses, \
                                                                                                     quality_scores.metrics, \
-                                                                                                        quality_scores.stream_metrics
+                                                                                                        quality_scores.stream_metrics, \
+                                                                                                            quality_scores.response_time_penalty_multipliers
 
         effective_volumes, normalised_period_scores, period_score_multipliers = (
             await _calculate_effective_volumes_for_task(
@@ -333,6 +339,16 @@ async def calculate_scores_for_settings_weights(
                 average_metric = (
                     sum(hotkey_metrics) / len(hotkey_metrics) if hotkey_metrics else 0
                 )
+                response_time_penalty_multipliers_hotkey = response_time_penalty_multipliers.get(
+                    hotkey, []
+                )
+                average_response_time_penalty_multiplier = (
+                    sum(response_time_penalty_multipliers_hotkey)
+                    / len(response_time_penalty_multipliers_hotkey)
+                    if response_time_penalty_multipliers_hotkey
+                    else 1
+                )
+
                 average_stream_metric = (
                     sum(hotkey_stream_metrics) / len(hotkey_stream_metrics) if hotkey_stream_metrics else 0
                 )
@@ -345,6 +361,7 @@ async def calculate_scores_for_settings_weights(
                     task=task,
                     average_quality_score=average_quality_scores.get(hotkey, 0),
                     metric_bonus=metric_bonuses.get(hotkey, 0),
+                    average_response_time_penalty_multiplier=average_response_time_penalty_multiplier,
                     metric=average_metric,
                     stream_metric=average_stream_metric,
                     combined_quality_score=combined_quality_scores.get(hotkey, 0),
@@ -381,7 +398,8 @@ async def calculate_scores_for_settings_weights(
         await _post_scoring_stats_to_local_db(config_main, contender_weights_info_objects, miner_weights_objects)
         await _post_scoring_stats_to_nineteen(config_main, contender_weights_info_objects, miner_weights_objects)
     except Exception as e:
-        logger.error(f"Failed to post scoring stats to nineteen.ai: {e}")
+        logger.error(f"Failed to post scoring stats to local db or nineteen: {e}") 
+    
     scoring_stats_to_delete_locally = datetime.now() - timedelta(days=7)
     async with await config_main.psql_db.connection() as connection:
         await delete_weights_info_older_than(connection, scoring_stats_to_delete_locally)
