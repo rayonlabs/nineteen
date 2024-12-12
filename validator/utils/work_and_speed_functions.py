@@ -44,7 +44,6 @@ def calculate_work(
         )
         character_count = 0
         for text_json in formatted_response:
-            logger.info(text_json)
             try:
                 if "delta" in text_json["choices"][0]:
                     character_count += len(text_json["choices"][0]["delta"]["content"])
