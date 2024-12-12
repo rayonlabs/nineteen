@@ -28,6 +28,7 @@ class QueryResult(BaseModel):
     node_hotkey: Optional[str]
     response_time: Optional[float]
     response_time_penalty_multiplier: Optional[float]
+    stream_time: Optional[float]
     task: str
     status_code: Optional[int]
     success: bool

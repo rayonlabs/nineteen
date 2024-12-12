@@ -25,6 +25,16 @@ from validator.models import Contender, PeriodScore
 from validator.models import RewardData
 from datetime import datetime, timezone, timedelta
 from fiber.logging_utils import get_logger
+from dataclasses import dataclass
+
+@dataclass 
+class QualityScores:
+    combined_quality_scores: dict[str, float]
+    average_weighted_quality_scores: dict[str, float]
+    metric_bonuses: dict[str, float]
+    metrics: dict[str, list[float]]
+    stream_metrics: dict[str, list[float]]
+    response_time_penalty_multipliers: dict[str, list[float]]
 
 
 logger = get_logger(__name__)
@@ -90,12 +100,13 @@ async def _get_period_scores(
 
 async def _calculate_metrics_and_quality_score(
     psql_db: PSQLDB, task: str, netuid: int
-) -> tuple[dict[str, list[float]], dict[str, list[float]], dict[str, list[float]]]:
+) -> tuple[dict[str, list[float]], dict[str, list[float]], dict[str, list[float]], dict[str, list[float]]]:
     reward_datas: list[RewardData] = await _get_reward_datas(psql_db, task, netuid)
 
     metrics = {}
     quality_scores = {}
     response_time_penalty_multipliers = {}
+    stream_metrics = {}
     for reward_data in reward_datas:
         if reward_data.metric is None or reward_data.quality_score is None:
             logger.warning(
@@ -112,7 +123,10 @@ async def _calculate_metrics_and_quality_score(
         response_time_penalty_multipliers[reward_data.node_hotkey] = response_time_penalty_multipliers.get(
             reward_data.node_hotkey, []
         ) + [reward_data.response_time_penalty_multiplier]
-    return metrics, quality_scores, response_time_penalty_multipliers
+        stream_metrics[reward_data.node_hotkey] = stream_metrics.get(
+            reward_data.node_hotkey, []
+        ) + [reward_data.stream_metric]
+    return metrics, quality_scores, stream_metrics, response_time_penalty_multipliers
 
 
 async def _calculate_metric_bonuses(metrics: dict[str, float]) -> dict[str, float]:
@@ -169,8 +183,8 @@ def _calculate_hotkey_effective_volume_for_task(
 
 async def _process_quality_scores(
     psql_db: PSQLDB, task: str, netuid: int
-) -> tuple[dict[str, float], dict[str, float], tuple[dict[str, float], dict[str, list[float]]], dict[str, list[float]]]:
-    metrics, quality_scores, response_time_penalty_multipliers = await _calculate_metrics_and_quality_score(
+) -> QualityScores:
+    metrics, quality_scores, stream_metrics, response_time_penalty_multipliers = await _calculate_metrics_and_quality_score(
         psql_db, task, netuid
     )
 
@@ -189,11 +203,13 @@ async def _process_quality_scores(
         * (1 + metric_bonuses[node_hotkey])
         for node_hotkey in metrics
     }
-    return (
+    return QualityScores (
         combined_quality_scores,
         average_weighted_quality_scores,
-        (metric_bonuses, response_time_penalty_multipliers),
-        metrics
+        metric_bonuses,
+        metrics, 
+        stream_metrics,
+        response_time_penalty_multipliers
     )
 
 
@@ -286,10 +302,17 @@ async def calculate_scores_for_settings_weights(
         task_weight = config.weight
         logger.debug(f"Processing task: {task}, weight: {task_weight}\n")
 
-        combined_quality_scores, average_quality_scores, metric_scores, metrics = (
+        quality_scores = (
             await _process_quality_scores(psql_db, task, netuid)
         )
-        metric_bonuses, response_time_penalty_multipliers = metric_scores
+
+        combined_quality_scores, average_quality_scores, metric_bonuses, metrics, stream_metrics, response_time_penalty_multipliers = quality_scores.combined_quality_scores,\
+                                                                                            quality_scores.average_weighted_quality_scores, \
+                                                                                                quality_scores.metric_bonuses, \
+                                                                                                    quality_scores.metrics, \
+                                                                                                        quality_scores.stream_metrics, \
+                                                                                                            quality_scores.response_time_penalty_multipliers
+
         effective_volumes, normalised_period_scores, period_score_multipliers = (
             await _calculate_effective_volumes_for_task(
                 psql_db, contenders, task, combined_quality_scores
@@ -312,6 +335,7 @@ async def calculate_scores_for_settings_weights(
 
             if contender:
                 hotkey_metrics = metrics.get(hotkey, [])
+                hotkey_stream_metrics = stream_metrics.get(hotkey, [])
                 average_metric = (
                     sum(hotkey_metrics) / len(hotkey_metrics) if hotkey_metrics else 0
                 )
@@ -325,6 +349,9 @@ async def calculate_scores_for_settings_weights(
                     else 1
                 )
 
+                average_stream_metric = (
+                    sum(hotkey_stream_metrics) / len(hotkey_stream_metrics) if hotkey_stream_metrics else 0
+                )
                 scores_info_object = ContenderWeightsInfoPostObject(
                     version_key=ccst.VERSION_KEY,
                     netuid=netuid,
@@ -336,6 +363,7 @@ async def calculate_scores_for_settings_weights(
                     metric_bonus=metric_bonuses.get(hotkey, 0),
                     average_response_time_penalty_multiplier=average_response_time_penalty_multiplier,
                     metric=average_metric,
+                    stream_metric=average_stream_metric,
                     combined_quality_score=combined_quality_scores.get(hotkey, 0),
                     period_score_multiplier=period_score_multipliers.get(hotkey, 0),
                     normalised_period_score=normalised_period_scores.get(hotkey, 0),

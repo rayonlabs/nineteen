@@ -75,6 +75,7 @@ class RewardData(BaseModel):
     node_hotkey: str
     synthetic_query: bool
     metric: float | None = None
+    stream_metric: float | None = None
     response_time: float | None = None
     response_time_penalty_multiplier: float = 1
     volume: float | None = None
@@ -90,6 +91,7 @@ class RewardData(BaseModel):
             "node_hotkey": self.node_hotkey,
             "synthetic_query": self.synthetic_query,
             "metric": self.metric,
+            "stream_metric": self.stream_metric,
             "response_time": self.response_time,
             "response_time_penalty_multiplier": self.response_time_penalty_multiplier,
             "volume": self.volume,
