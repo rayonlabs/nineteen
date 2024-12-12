@@ -137,6 +137,8 @@ async def process_task(config: Config, message: rdc.QueryQueueMessage):
 
     message.query_payload = await putils.get_synthetic_payload(config.redis_db, task)
 
+    logger.info(f"Processing synth task : {task}")
+
     task_config = tcfg.get_enabled_task_config(task)
     if task_config is None:
         logger.error(f"Can't find the task {task} in the query node!")
