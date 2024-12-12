@@ -126,8 +126,6 @@ async def _handle_error(config: Config, synthetic_query: bool, job_id: str, stat
 async def process_task(config: Config, message: rdc.QueryQueueMessage):
     task = message.task
 
-    logger.info(f"Received : {message}")
-
     if not message.query_type == gcst.SYNTHETIC:
         await _handle_error(
             config=config,
@@ -138,8 +136,6 @@ async def process_task(config: Config, message: rdc.QueryQueueMessage):
         )
 
     message.query_payload = await putils.get_synthetic_payload(config.redis_db, task)
-
-    logger.info(f"Processing synth task : {task}")
 
     task_config = tcfg.get_enabled_task_config(task)
     if task_config is None:
