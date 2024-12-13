@@ -17,3 +17,6 @@ MINER_TYPE = "miner_type"
 BASE_NINETEEN_API_URL = "https://taovision.ai/"
 
 WORKER_VERSION_ENDPOINT = "worker-version"
+
+MIN_STEPS = "min_steps"
+MAX_STEPS = "max_steps"
