@@ -34,7 +34,7 @@ from validator.db.src.sql.rewards_and_scores import delete_task_data_older_than_
 logger = get_logger(__name__)
 
 async def get_worker_version(gpu_server_address: str):
-    url = f"{gpu_server_address.rstrip('/')}/{ccst.WORKER_VERSION_ENDPOINT}"
+    url = f"{gpu_server_address.rstrip('/')}/{ccst.GPU_WORKER_VERSION_ENDPOINT}"
 
     async with httpx.AsyncClient() as client:
         response = await client.get(url)
