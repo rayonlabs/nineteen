@@ -1,7 +1,7 @@
 <div align="center">
 
 # **👀 nineteen [τ, τ] SN19**
-Giving access to Bittensor with Decentralized subnet inference at scale.
+Giving access to Bittensor with Decentralized subnet inference at scale. 
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
