@@ -52,10 +52,10 @@ async def _post_vali_stats(config: Config):
             gpu_worker_version = await get_worker_version(config.gpu_server_address)
         except Exception as e:
             logger.error(f"Couldn't fetch the gpu worker's version - error : {e}")
-            gpu_worker_version = 'UNK'
+            gpu_worker_version = 'UNKOWN'
 
     else:
-        gpu_worker_version = 'UNK'
+        gpu_worker_version = 'UNKOWN'
 
     versions=str(ccst.VERSION_KEY) + ':' + str(gpu_worker_version)
 
