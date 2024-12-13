@@ -1,7 +1,7 @@
 from fiber.logging_utils import get_logger
 
 from asyncpg import Connection
-
+import random
 from validator.db.src.database import PSQLDB
 from validator.models import Contender, PeriodScore, calculate_period_score
 from validator.utils.database import database_constants as dcst
@@ -198,6 +198,7 @@ async def get_contenders_for_organic_task(psql_db: PSQLDB, task: str, top_x: int
 
     if rows:
         contenders = [Contender(**{k: v for k, v in row.items() if k != dcst.COLUMN_NORMALISED_NET_SCORE}) for row in rows]
+        random.shuffle(contenders)
         logger.debug(f"Selected contenders for task {task}: {contenders}")
         return contenders
     else:
