@@ -20,7 +20,7 @@ A miner consists of several parts, fitting into two categories:
 The proxy server is the server which has your hotkey, and spins up the NODE (should probably be on a CPU close to your GPU worker servers). The worker servers are the GPU workers which perform the tasks!
 
 # Worker server setup
-Documentation for all the workers is contained here https://github.com/namoray/vision-workers
+Documentation for all the workers is contained here https://github.com/rayonlabs/vision-workers
 
 # Proxy server setup
 
@@ -41,7 +41,7 @@ NO_LAUNCH=1 sudo -E ./bootstrap.sh
 source $HOME/.bashrc
 pip uninstall bittensor  # I would recommend uninstalling this so you can use fiber, but you may need it to clone keys as of now?
 pip install git+https://github.com/rayonlabs/fiber.git@1.0.0  # This is the only requirement for mining machines as of now!
-``` 
+```
 
 ### Get hot and coldkeys onto your machine
 Securely move them onto your machine as usual. Either with the btcli or with a secure method of your choosing.
