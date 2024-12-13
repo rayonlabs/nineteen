@@ -15,3 +15,5 @@ MINER_TYPE = "miner_type"
 
 # BASE_NINETEEN_API_URL = "http://localhost:8033/"
 BASE_NINETEEN_API_URL = "https://taovision.ai/"
+
+WORKER_VERSION_ENDPOINT = "worker-version"

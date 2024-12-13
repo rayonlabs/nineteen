@@ -33,14 +33,14 @@ from validator.db.src.sql.rewards_and_scores import delete_task_data_older_than_
 
 logger = get_logger(__name__)
 
-async def get_worker_version(gpu_server_address: str, endpoint: str = '/worker-version'):
-    url = f"{gpu_server_address.rstrip('/')}{endpoint}"
+async def get_worker_version(gpu_server_address: str):
+    url = f"{gpu_server_address.rstrip('/')}/{ccst.WORKER_VERSION_ENDPOINT}"
 
     async with httpx.AsyncClient() as client:
         response = await client.get(url)
         response.raise_for_status()
         data = response.json()
-        version = data.get('orchestrator_version', '')
+        version = data.get('version', '')
         return version
 
 
@@ -48,10 +48,16 @@ async def _post_vali_stats(config: Config):
     public_configs = get_public_task_configs()
 
     if config.gpu_server_address:
-        vali_worker_version = await get_worker_version(config.gpu_server_address)
-        versions=str(ccst.VERSION_KEY) + ':' + str(vali_worker_version)
+        try:
+            gpu_worker_version = await get_worker_version(config.gpu_server_address)
+        except Exception as e:
+            logger.error(f"Couldn't fetch the gpu worker's version - error : {e}")
+            gpu_worker_version = 'UNK'
+
     else:
-        versions=str(ccst.VERSION_KEY)
+        gpu_worker_version = 'UNK'
+
+    versions=str(ccst.VERSION_KEY) + ':' + str(gpu_worker_version)
 
     await post_to_nineteen_ai(
         data_to_post=ValidatorInfoPostBody(
