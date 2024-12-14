@@ -20,7 +20,6 @@ from validator.models import RewardData
 from validator.utils import work_and_speed_functions
 from validator.db.src import functions as db_functions
 from validator.db.src.sql.rewards_and_scores import (
-    delete_all_of_specific_task,
     delete_contender_history_older_than,
     delete_reward_data_older_than,
     delete_task_data_older_than_date,
@@ -169,6 +168,7 @@ async def _process_and_store_score(
             data_type_to_post=DataTypeToPost.REWARD_DATA,
         )
 
+
 async def score_results(config: Config):
     if config.gpu_server_address is None:
         logger.error("GPU_SERVER_ADDRESS is not set - skipping all scoring!")
@@ -178,52 +178,29 @@ async def score_results(config: Config):
 
     while True:
         async with await config.psql_db.connection() as connection:
-            tasks_and_results = await select_tasks_and_number_of_results(connection)
             latest_reward_dates = await select_latest_reward_dates_per_task(connection)
+            tasks_and_results = await select_tasks_and_number_of_results(connection)
 
-        total_tasks_stored = sum(tasks_and_results.values())
-        tasks_and_results = {key: val/total_tasks_stored for key, val in tasks_and_results.items()}
-
-        min_tasks_to_start_scoring = 100 if config.netuid == ccst.PROD_NETUID else 1
-
-        if total_tasks_stored < min_tasks_to_start_scoring:
+        if sum(tasks_and_results.values()) < (100 if config.netuid == ccst.PROD_NETUID else 1):
             await asyncio.sleep(5)
             continue
 
-        logger.info(f"Tasks (to score) counts : \n{tasks_and_results}")
-        #  weights based on both task count and time since last scoring
         current_time = datetime.now(timezone.utc)
-        weights = []
-        tasks = list(tasks_and_results.keys())
 
-        for task in tasks:
-            task_count = tasks_and_results[task]
-
-            last_scored_date = latest_reward_dates.get(task)
-
-            if last_scored_date is None:
-                # if never scored, give it high priority
-                logger.info(f"Task {task}: never scored")
-                time_factor = 1000.0
-            else:
-                hours_since_scoring = (current_time - last_scored_date).total_seconds() / 3600
-                logger.info(f"Task {task}: {hours_since_scoring:.1f} hours since last scoring")
-                # exp weight increase based on time
-                time_factor = 1.0 + (hours_since_scoring / 12) ** 3
-
-            weights.append(task_count * time_factor)
-
-        task_to_score_str = random.choices(tasks, weights=weights, k=1)[0]
-        logger.info(f"Selected task : {task_to_score_str}")
-        try:
-            task_to_score = task_to_score_str
-        except ValueError:
-            logger.error(f"Invalid task: {task_to_score_str}")
-            async with await config.psql_db.connection() as connection:
-                await delete_all_of_specific_task(connection, task_to_score_str)
+        # prioritize never-scored tasks
+        never_scored_tasks = [task for task in tasks_and_results if task not in latest_reward_dates]
+        if never_scored_tasks:
+            task_to_score = random.choice(never_scored_tasks)
+            logger.info(f"Selected never-scored task: {task_to_score}")
+            await _score_task(config, task_to_score, max_tasks_to_score=200)
             continue
 
-        await _score_task(config, task_to_score, max_tasks_to_score=200)
+        # pick the task that wasn't scored for longest time
+        oldest_task = max(latest_reward_dates.items(),
+                         key=lambda x: (current_time - x[1].replace(tzinfo=timezone.utc)).total_seconds())[0]
+
+        logger.info(f"Selected oldest-scored task: {oldest_task}")
+        await _score_task(config, oldest_task, max_tasks_to_score=200)
 
 
 async def _score_task(config: Config, task: str, max_tasks_to_score: int):
