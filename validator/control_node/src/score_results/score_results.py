@@ -211,6 +211,9 @@ async def score_results(config: Config):
 
             weights.append(task_count * time_factor)
 
+        for task, weight in zip(tasks, weights):
+            logger.info(f"Task : {task} -- overall weight: {weight}")
+
         task_to_score_str = random.choices(tasks, weights=weights, k=1)[0]
         logger.info(f"Selected task : {task_to_score_str}")
         try:
