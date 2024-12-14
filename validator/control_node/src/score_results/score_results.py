@@ -182,6 +182,8 @@ async def score_results(config: Config):
             latest_reward_dates = await select_latest_reward_dates_per_task(connection)
 
         total_tasks_stored = sum(tasks_and_results.values())
+        tasks_and_results = {key: val/total_tasks_stored for key, val in tasks_and_results.items()}
+
         min_tasks_to_start_scoring = 100 if config.netuid == ccst.PROD_NETUID else 1
 
         if total_tasks_stored < min_tasks_to_start_scoring:
@@ -202,7 +204,7 @@ async def score_results(config: Config):
             if last_scored_date is None:
                 # if never scored, give it high priority
                 logger.info(f"Task {task}: never scored")
-                time_factor = 100.0
+                time_factor = 1000.0
             else:
                 hours_since_scoring = (current_time - last_scored_date).total_seconds() / 3600
                 logger.info(f"Task {task}: {hours_since_scoring:.1f} hours since last scoring")
