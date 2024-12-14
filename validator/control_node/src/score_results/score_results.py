@@ -188,7 +188,7 @@ async def score_results(config: Config):
             await asyncio.sleep(5)
             continue
 
-        logger.info(f"Tasks to score counts: \n{tasks_and_results}")
+        logger.info(f"Tasks (to score) counts : \n{tasks_and_results}")
         #  weights based on both task count and time since last scoring
         current_time = datetime.now(timezone.utc)
         weights = []
