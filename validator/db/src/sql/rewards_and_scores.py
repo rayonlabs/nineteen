@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from validator.models import RewardData
 from validator.utils.database import database_constants as dcst
 from typing import List
@@ -164,7 +164,7 @@ async def select_latest_reward_dates_per_task(connection: Connection) -> dict:
         GROUP BY {dcst.COLUMN_TASK}
         """
     )
-    return {row[dcst.COLUMN_TASK]: row["latest_date"] for row in rows}
+    return {row[dcst.COLUMN_TASK]: row["latest_date"].replace(tzinfo=timezone.utc) for row in rows}
 
 
 async def select_tasks_and_number_of_results(connection: Connection) -> dict:
