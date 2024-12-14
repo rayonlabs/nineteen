@@ -181,7 +181,10 @@ async def score_results(config: Config):
             latest_reward_dates = await select_latest_reward_dates_per_task(connection)
             tasks_and_results = await select_tasks_and_number_of_results(connection)
 
-        if sum(tasks_and_results.values()) < (100 if config.netuid == ccst.PROD_NETUID else 1):
+        min_tasks_to_start_scoring = 100 if config.netuid == ccst.PROD_NETUID else 1
+        total_tasks_stored = sum(tasks_and_results.values())
+
+        if total_tasks_stored < min_tasks_to_start_scoring:
             await asyncio.sleep(5)
             continue
 
@@ -200,7 +203,7 @@ async def score_results(config: Config):
                          key=lambda x: (current_time - x[1].replace(tzinfo=timezone.utc)).total_seconds())[0]
 
         logger.info(f"Selected oldest-scored task: {oldest_task}")
-        await _score_task(config, oldest_task, max_tasks_to_score=200)
+        await _score_task(config, oldest_task, max_tasks_to_score=100)
 
 
 async def _score_task(config: Config, task: str, max_tasks_to_score: int):
