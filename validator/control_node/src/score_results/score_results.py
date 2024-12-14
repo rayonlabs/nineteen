@@ -188,6 +188,7 @@ async def score_results(config: Config):
             await asyncio.sleep(5)
             continue
 
+        logger.info(f"Tasks to score counts: \n{tasks_and_results}")
         #  weights based on both task count and time since last scoring
         current_time = datetime.now(timezone.utc)
         weights = []
@@ -200,15 +201,18 @@ async def score_results(config: Config):
 
             if last_scored_date is None:
                 # if never scored, give it high priority
+                logger.info(f"Task {task}: never scored")
                 time_factor = 10.0
             else:
                 hours_since_scoring = (current_time - last_scored_date).total_seconds() / 3600
+                logger.info(f"Task {task}: {hours_since_scoring:.1f} hours since last scoring")
                 # exp weight increase based on time
                 time_factor = 1.0 + (hours_since_scoring / 24) ** 2
 
             weights.append(task_count * time_factor)
 
         task_to_score_str = random.choices(tasks, weights=weights, k=1)[0]
+        logger.info(f"Selected task : {task_to_score_str}")
         try:
             task_to_score = task_to_score_str
         except ValueError:
