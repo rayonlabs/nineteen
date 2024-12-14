@@ -202,12 +202,12 @@ async def score_results(config: Config):
             if last_scored_date is None:
                 # if never scored, give it high priority
                 logger.info(f"Task {task}: never scored")
-                time_factor = 10.0
+                time_factor = 100.0
             else:
                 hours_since_scoring = (current_time - last_scored_date).total_seconds() / 3600
                 logger.info(f"Task {task}: {hours_since_scoring:.1f} hours since last scoring")
                 # exp weight increase based on time
-                time_factor = 1.0 + (hours_since_scoring / 24) ** 2
+                time_factor = 1.0 + (hours_since_scoring / 12) ** 3
 
             weights.append(task_count * time_factor)
 
