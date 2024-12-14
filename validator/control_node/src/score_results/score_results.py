@@ -5,7 +5,7 @@ Stores the scored results in the database and potentially posts stats to TauVisi
 """
 
 import asyncio
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import random
 import json
 from typing import Any, Dict
@@ -26,6 +26,7 @@ from validator.db.src.sql.rewards_and_scores import (
     delete_task_data_older_than_date,
     select_tasks_and_number_of_results,
     sql_insert_reward_data,
+    select_latest_reward_dates_per_task
 )
 from validator.control_node.src.control_config import Config
 
@@ -168,15 +169,17 @@ async def _process_and_store_score(
             data_type_to_post=DataTypeToPost.REWARD_DATA,
         )
 
-
 async def score_results(config: Config):
     if config.gpu_server_address is None:
         logger.error("GPU_SERVER_ADDRESS is not set - skipping all scoring!")
         return
+
     await _wait_for_external_server(config)
+
     while True:
         async with await config.psql_db.connection() as connection:
             tasks_and_results = await select_tasks_and_number_of_results(connection)
+            latest_reward_dates = await select_latest_reward_dates_per_task(connection)
 
         total_tasks_stored = sum(tasks_and_results.values())
         min_tasks_to_start_scoring = 100 if config.netuid == ccst.PROD_NETUID else 1
@@ -185,7 +188,27 @@ async def score_results(config: Config):
             await asyncio.sleep(5)
             continue
 
-        task_to_score_str = random.choices(list(tasks_and_results.keys()), weights=list(tasks_and_results.values()), k=1)[0]
+        #  weights based on both task count and time since last scoring
+        current_time = datetime.now(timezone.utc)
+        weights = []
+        tasks = list(tasks_and_results.keys())
+
+        for task in tasks:
+            task_count = tasks_and_results[task]
+
+            last_scored_date = latest_reward_dates.get(task)
+
+            if last_scored_date is None:
+                # if never scored, give it high priority
+                time_factor = 10.0
+            else:
+                hours_since_scoring = (current_time - last_scored_date).total_seconds() / 3600
+                # exp weight increase based on time
+                time_factor = 1.0 + (hours_since_scoring / 24) ** 2
+
+            weights.append(task_count * time_factor)
+
+        task_to_score_str = random.choices(tasks, weights=weights, k=1)[0]
         try:
             task_to_score = task_to_score_str
         except ValueError:
