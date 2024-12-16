@@ -190,20 +190,18 @@ async def score_results(config: Config):
 
         current_time = datetime.now(timezone.utc)
 
-        # prioritize never-scored tasks
         never_scored_tasks = [task for task in tasks_and_results if task not in latest_reward_dates]
         if never_scored_tasks:
             task_to_score = random.choice(never_scored_tasks)
             logger.info(f"Selected never-scored task: {task_to_score}")
             await _score_task(config, task_to_score, max_tasks_to_score=200)
-            continue
 
-        # pick the task that wasn't scored for longest time
-        oldest_task = max(latest_reward_dates.items(),
-                         key=lambda x: (current_time - x[1].replace(tzinfo=timezone.utc)).total_seconds())[0]
+        else:
+            task_to_score = max(latest_reward_dates.items(),
+                            key=lambda x: (current_time - x[1].replace(tzinfo=timezone.utc)).total_seconds())[0]
+            logger.info(f"Selected oldest-scored task: {task_to_score}")
 
-        logger.info(f"Selected oldest-scored task: {oldest_task}")
-        await _score_task(config, oldest_task, max_tasks_to_score=100)
+        await _score_task(config, task_to_score, max_tasks_to_score=200)
 
 
 async def _score_task(config: Config, task: str, max_tasks_to_score: int):
