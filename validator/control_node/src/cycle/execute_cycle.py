@@ -28,18 +28,42 @@ from validator.models import Contender
 from validator.utils.post.nineteen import DataTypeToPost, ValidatorInfoPostBody, post_to_nineteen_ai
 from core.task_config import get_public_task_configs
 from core import constants as ccst
+import httpx
 from validator.db.src.sql.rewards_and_scores import delete_task_data_older_than_date
 
 logger = get_logger(__name__)
 
+async def get_worker_version(gpu_server_address: str):
+    url = f"{gpu_server_address.rstrip('/')}/{ccst.GPU_WORKER_VERSION_ENDPOINT}"
+
+    async with httpx.AsyncClient() as client:
+        response = await client.get(url)
+        response.raise_for_status()
+        data = response.json()
+        version = data.get('version', '')
+        return version
+
 
 async def _post_vali_stats(config: Config):
     public_configs = get_public_task_configs()
+
+    if config.gpu_server_address:
+        try:
+            gpu_worker_version = await get_worker_version(config.gpu_server_address)
+        except Exception as e:
+            logger.error(f"Couldn't fetch the gpu worker's version - error : {e}")
+            gpu_worker_version = 'UNKNOWN'
+
+    else:
+        gpu_worker_version = 'UNKNOWN'
+
+    versions=str(ccst.VERSION_KEY) + ':' + str(gpu_worker_version)
+
     await post_to_nineteen_ai(
         data_to_post=ValidatorInfoPostBody(
             validator_hotkey=config.keypair.ss58_address,
             task_configs=public_configs,
-            versions=str(ccst.VERSION_KEY),
+            versions=versions,
         ).model_dump(mode="json"),
         keypair=config.keypair,
         data_type_to_post=DataTypeToPost.VALIDATOR_INFO,
