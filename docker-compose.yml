@@ -115,11 +115,6 @@ services:
       - .vali.env
     profiles:
       - organic_node_profile
-    healthcheck:
-      test: curl -f http://localhost:6919/docs || exit 1
-      interval: 10s
-      timeout: 2s
-      retries: 3
 
   postgresql:
     container_name: 0_postgresql
