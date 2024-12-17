@@ -84,7 +84,7 @@ services:
       context: .
       dockerfile: dockerfiles/organic_node.dockerfile
     deploy:
-      replicas: 2
+      replicas: 1
       resources:
         limits:
           cpus: '0.50'
@@ -96,7 +96,7 @@ services:
       - postgresql
       - control_node
     expose:
-      - "${ORGANIC_SERVER_PORT:-8091}"
+      - "${ORGANIC_SERVER_PORT:-8091}:${ORGANIC_SERVER_PORT:-8091}"
     volumes:
       - ${HOME}/.bittensor/wallets:/root/.bittensor/wallets
     entrypoint: ["opentelemetry-instrument", "--logs_exporter", "otlp", "--traces_exporter", "none", "--metrics_exporter", "otlp", "--service_name", "organic_node", "python", "-u", "/app/validator/organic_node/src/server.py"]
