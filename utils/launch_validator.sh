@@ -28,7 +28,6 @@ fi
 if [ -n "$ORGANIC_SERVER_PORT" ] && [ "${ORGANIC_SERVER_PORT,,}" != "none" ]; then
   if is_valid_number "$ORGANIC_SERVER_PORT"; then
     echo "ORGANIC_SERVER_PORT is set to '$ORGANIC_SERVER_PORT'. Starting organic_node service."
-    ./update-nginx-port.sh -p $ORGANIC_SERVER_PORT
     docker compose --env-file .vali.env -f docker-compose.yml --profile organic_node_profile up -d --build --remove-orphans
   else
     echo "ORGANIC_SERVER_PORT is not a valid number. Removing it from .vali.env and starting without organic_node service."
@@ -40,8 +39,6 @@ else
   docker compose --env-file .vali.env -f docker-compose.yml up -d --build --remove-orphans
 fi
 
-# stash any changes made to nginx.conf / docker-compose.yml (in order to not mess with autoupdates)
-git stash
 
 # ensure any changes to grafana are reloaded
 docker compose rm -f -v grafana
