@@ -61,6 +61,6 @@ if __name__ == "__main__":
         logger.error("ORGANIC_SERVER_PORT is not set")
         exit(1)
     else:
-        uvicorn.run(app, host="0.0.0.0", port=organic_port)
+        uvicorn.run(app, host="0.0.0.0", port=int(organic_port))
 
     # uvicorn validator.organic_node.src.server:app --reload --host 0.0.0.0 --port 8091 --env-file .vali.env
