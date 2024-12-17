@@ -94,6 +94,7 @@ services:
     depends_on:
       - redis
       - postgresql
+      - control_node
     ports:
       - "${ORGANIC_SERVER_PORT:-8091}:${ORGANIC_SERVER_PORT:-8091}"
     volumes:
