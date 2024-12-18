@@ -138,7 +138,7 @@ services:
       - ./validator/db:/db
     command: --wait up
     environment:
-      DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${POSTGRES_HOST}:5432/${POSTGRES_DB}?sslmode=require
+      DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${POSTGRES_HOST}:5432/${POSTGRES_DB}${POSTGRES_SSL_MODE:-}
     depends_on:
       postgresql:
         condition: service_healthy

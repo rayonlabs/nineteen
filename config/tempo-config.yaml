@@ -8,9 +8,9 @@ cache:
     writeback_goroutines: 5
   caches:
   - roles:
-    - frontend-search  
-    redis: 
-      endpoint: redis://redis:6379
+    - frontend-search
+    redis:
+      endpoint: ${REDIS_HOST:-redis://redis:6379}
 
 query_frontend:
   search:
