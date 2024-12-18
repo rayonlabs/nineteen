@@ -11,6 +11,8 @@ cache:
     - frontend-search
     redis:
       endpoint: ${REDIS_HOST:-redis://redis:6379}
+    jsonData:
+      tlsAuth: true
 
 query_frontend:
   search:
