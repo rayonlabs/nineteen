@@ -4,7 +4,6 @@ from fastapi.responses import JSONResponse, StreamingResponse
 from opentelemetry import metrics
 from fiber.logging_utils import get_logger
 from fastapi.routing import APIRouter
-from collections import defaultdict, deque
 import time
 import json
 
@@ -24,18 +23,6 @@ from core.models import utility_models
 
 logger = get_logger(__name__)
 
-contenders_fifo = defaultdict(lambda: deque(maxlen=100))
-
-async def _get_contenders_from_fifo_or_db(config: Config, task: str) -> list:
-    if len(contenders_fifo[task]) == 0:
-        new_contenders = await get_contenders_for_task(config.psql_db, task, 5, gcst.ORGANIC)
-        if not new_contenders:
-            return []
-        contenders_fifo[task].extend(new_contenders)
-
-    contenders = [contenders_fifo[task].popleft() for _ in range(min(5, len(contenders_fifo[task])))]
-    return contenders
-
 
 # Metrics
 COUNTER_TEXT_GENERATION_ERROR = metrics.get_meter(__name__).create_counter("validator.organic_node.text.error")
@@ -54,14 +41,7 @@ async def _process_stream_query(
     payload: dict[str, Any],
     task: str,
 ) -> AsyncGenerator[str, None]:
-
-    if len(contenders_fifo[task]) == 0:
-        new_contenders = await get_contenders_for_task(config.psql_db, task, 5, gcst.ORGANIC)
-        if not new_contenders:
-            raise ValueError(f"There are no contenders for task {task}")
-        contenders_fifo[task].extend(new_contenders)
-    contenders = [contenders_fifo[task].popleft() for _ in range(min(5, len(contenders_fifo[task])))]
-
+    contenders = await get_contenders_for_task(config.psql_db, task, 5, gcst.ORGANIC)
     if not contenders:
         COUNTER_TEXT_GENERATION_ERROR.add(1, {"task": task, "kind": "no_contenders", "status_code": 500})
         raise HTTPException(status_code=500, detail="No available nodes to process request")

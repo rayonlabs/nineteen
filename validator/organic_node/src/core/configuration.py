@@ -7,11 +7,13 @@ from substrateinterface import Keypair
 from fiber.chain import chain_utils
 from fiber.logging_utils import get_logger
 
+
 from redis.asyncio import Redis, BlockingConnectionPool
 
 from validator.db.src.database import PSQLDB
 from validator.common.query_config import Config
 from validator.db.src.sql.nodes import get_vali_ss58_address
+
 
 
 T = TypeVar("T", bound=BaseModel)
