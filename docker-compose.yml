@@ -124,8 +124,6 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
-    ports:
-      - ${POSTGRES_PORT}:${POSTGRES_PORT}
     environment:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
@@ -148,8 +146,6 @@ services:
   redis:
     container_name: 0_redis
     image: redis/redis-stack:latest
-    ports:
-      - 6379:6379
     deploy:
       restart_policy:
         condition: on-failure
