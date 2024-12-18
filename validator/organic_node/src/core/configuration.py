@@ -59,15 +59,25 @@ async def factory_config() -> Config:
 
     wallet_name = os.getenv("WALLET_NAME", "default")
     hotkey_name = os.getenv("HOTKEY_NAME", "default")
+
     try:
         keypair = chain_utils.load_hotkey_keypair(wallet_name=wallet_name, hotkey_name=hotkey_name)
-    except ValueError:
-        logger.info("Wallet doesn't exist, trying with secret seed env variable")
+
+    except (ValueError, FileNotFoundError) as e:
+        logger.info("Attempting to use WALLET_SECRET_SEED environment variable")
         secret_seed = os.getenv("WALLET_SECRET_SEED", None)
         if secret_seed:
-            keypair = load_hotkey_keypair_from_seed(secret_seed)
+            try:
+                keypair = load_hotkey_keypair_from_seed(secret_seed)
+            except Exception as e:
+                logger.error(f"Failed to load keypair from seed: {str(e)}")
+                raise ValueError(f"Invalid secret seed provided: {str(e)}")
         else:
-            raise ValueError("WALLET_SECRET_SEED env var is not set")
+            logger.error("WALLET_SECRET_SEED environment variable not set")
+            raise ValueError(f"Could not load wallet from path and WALLET_SECRET_SEED env var is not set. Original error: {str(e)}")
+    except Exception as e:
+        logger.error(f"Unexpected error loading hotkey from wallet: {str(e)}")
+        raise
 
     return Config(
         redis_db=Redis(host=redis_host),
