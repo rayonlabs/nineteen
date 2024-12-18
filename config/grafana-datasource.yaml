@@ -23,3 +23,5 @@ datasources:
     secureJsonData:
       username: ${REDIS_USERNAME:-}
       password: ${REDIS_PASSWORD:-}
+    jsonData:
+      tlsAuth: ${REDIS_TLS_AUTH:-false}
