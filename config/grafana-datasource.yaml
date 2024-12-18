@@ -24,4 +24,4 @@ datasources:
       username: ${REDIS_USERNAME:-}
       password: ${REDIS_PASSWORD:-}
     jsonData:
-      tlsAuth: ${REDIS_TLS_AUTH:-false}
+      tlsAuth: '${REDIS_USERNAME:+true}'
