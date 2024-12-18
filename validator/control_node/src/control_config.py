@@ -87,11 +87,16 @@ def load_config() -> Config:
         os.getenv("SET_METAGRAPH_WEIGHTS_WITH_HIGH_UPDATED_TO_NOT_DEREG", "false").lower() == "true"
     )
 
+    if "rediss://" in redis_host:
+        redis = Redis.from_url(redis_host)
+    else:
+        redis = Redis(host=redis_host)
+
     return Config(
         substrate=substrate,  # type: ignore
         keypair=keypair,
         psql_db=PSQLDB(),
-        redis_db=Redis(host=redis_host),
+        redis_db=redis,
         subtensor_network=subtensor_network,
         subtensor_address=subtensor_address,
         netuid=netuid,

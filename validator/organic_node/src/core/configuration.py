@@ -29,7 +29,10 @@ def load_hotkey_keypair_from_seed(secret_seed: str) -> Keypair:
         raise ValueError(f"Failed to load keypair: {str(e)}")
 
 def create_redis_pool(host: str) -> BlockingConnectionPool:
-    return BlockingConnectionPool(host=host, max_connections=300, timeout=20)
+    if "rediss://" in host:
+        return BlockingConnectionPool.from_url(host)
+    else:
+        return BlockingConnectionPool(host=host)
 
 async def load_config_once() -> Config:
 
@@ -79,6 +82,7 @@ async def load_config_once() -> Config:
     except Exception as e:
         logger.error(f"Unexpected error loading hotkey from wallet: {str(e)}")
         raise
+
 
     redis_pool = create_redis_pool(redis_host)
 
