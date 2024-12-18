@@ -10,6 +10,8 @@ services:
     depends_on:
       dbmate:
         condition: service_completed_successfully
+      redis:
+        condition: service_started
     entrypoint: ["opentelemetry-instrument", "--logs_exporter", "otlp", "--traces_exporter", "none", "--metrics_exporter", "otlp", "--service_name", "control_node", "python", "-u", "/app/validator/control_node/src/main.py"]
     volumes:
       - ${HOME}/.bittensor/wallets:/root/.bittensor/wallets
@@ -32,6 +34,8 @@ services:
     depends_on:
       dbmate:
         condition: service_completed_successfully
+      redis:
+        condition: service_started
     entrypoint: [ "python", "-u", "/app/validator/control_node/src/set_weights/calculate_and_schedule_weights.py" ]
     volumes:
       - ${HOME}/.bittensor/wallets:/root/.bittensor/wallets
@@ -54,6 +58,9 @@ services:
           memory: 1G
       restart_policy:
         condition: on-failure
+    depends_on:
+      - redis
+      - postgresql
     volumes:
       - ${HOME}/.bittensor/wallets:/root/.bittensor/wallets
     entrypoint: ["opentelemetry-instrument", "--logs_exporter", "otlp", "--traces_exporter", "none", "--metrics_exporter", "otlp", "--service_name", "synthetic_node", "python", "-u", "/app/validator/synthetic_node/src/main.py"]
@@ -83,6 +90,8 @@ services:
           cpus: '0.50'
           memory: 512M
     depends_on:
+      - redis
+      - postgresql
       - control_node
     ports:
       - ${ORGANIC_SERVER_PORT:-8091}:${ORGANIC_SERVER_PORT:-8091}
@@ -105,6 +114,23 @@ services:
     profiles:
       - organic_node_profile
 
+  postgresql:
+    container_name: 0_postgresql
+    image: postgres:latest
+    volumes:
+      - ./postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}" ]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_PORT: ${POSTGRES_PORT}
+      POSTGRES_HOST: ${POSTGRES_HOST}
+
   dbmate:
     container_name: 0_dbmate_nineteen
     image: amacneil/dbmate
@@ -116,6 +142,13 @@ services:
     depends_on:
       postgresql:
         condition: service_healthy
+
+  redis:
+    container_name: 0_redis
+    image: redis/redis-stack:latest
+    deploy:
+      restart_policy:
+        condition: on-failure
 
   # if you want this, scale it to `1`
   adminer:
@@ -129,3 +162,41 @@ services:
       ADMINER_PLUGINS: tables-filter tinymce
     ports:
       - 5051:8080
+    depends_on:
+      postgresql:
+        condition: service_healthy
+
+  # if you want this, scale it to `1`
+  redis-commander:
+    scale: 0
+    container_name: 0_redis_commander
+    image: ghcr.io/joeferner/redis-commander:latest
+    restart: always
+    environment:
+      - REDIS_HOSTS=local:redis:6379
+    ports:
+      - '8081:8081'
+    depends_on:
+      - redis
+
+  # if you want this, scale it to `1`
+  redis-proxy:
+    scale: 0
+    container_name: 0_redis_proxy
+    image: hpello/tcp-proxy
+    command: redis 6379
+    ports:
+      - 127.0.0.1:6379:6379
+    depends_on:
+      - redis
+
+  # if you want this, scale it to `1`
+  postgres-proxy:
+    scale: 0
+    container_name: 0_postgres_proxy
+    image: hpello/tcp-proxy
+    command: postgresql 5432
+    ports:
+      - 127.0.0.1:5432:5432
+    depends_on:
+      - postgresql
