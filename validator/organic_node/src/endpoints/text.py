@@ -54,7 +54,14 @@ async def _process_stream_query(
     payload: dict[str, Any],
     task: str,
 ) -> AsyncGenerator[str, None]:
-    contenders = await _get_contenders_from_fifo_or_db(config, task)
+
+    if len(contenders_fifo[task]) == 0:
+        new_contenders = await get_contenders_for_task(config.psql_db, task, 5, gcst.ORGANIC)
+        if not new_contenders:
+            raise ValueError(f"There are no contenders for task {task}")
+        contenders_fifo[task].extend(new_contenders)
+    contenders = [contenders_fifo[task].popleft() for _ in range(min(5, len(contenders_fifo[task])))]
+
     if not contenders:
         COUNTER_TEXT_GENERATION_ERROR.add(1, {"task": task, "kind": "no_contenders", "status_code": 500})
         raise HTTPException(status_code=500, detail="No available nodes to process request")
