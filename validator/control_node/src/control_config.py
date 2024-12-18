@@ -87,7 +87,7 @@ def load_config() -> Config:
         os.getenv("SET_METAGRAPH_WEIGHTS_WITH_HIGH_UPDATED_TO_NOT_DEREG", "false").lower() == "true"
     )
 
-    if "rediss://" in redis_host:
+    if "://" in redis_host:
         redis = Redis.from_url(redis_host)
     else:
         redis = Redis(host=redis_host)

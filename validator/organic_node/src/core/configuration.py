@@ -29,7 +29,7 @@ def load_hotkey_keypair_from_seed(secret_seed: str) -> Keypair:
         raise ValueError(f"Failed to load keypair: {str(e)}")
 
 def create_redis_pool(host: str) -> BlockingConnectionPool:
-    if "rediss://" in host:
+    if "://" in host:
         return BlockingConnectionPool.from_url(host)
     else:
         return BlockingConnectionPool(host=host)

@@ -41,7 +41,7 @@ QUERY_NODE_FAILED_TASKS_COUNTER = metrics.get_meter(__name__).create_counter(
 
 
 def create_redis_pool(host: str) -> BlockingConnectionPool:
-    if "rediss://" in host:
+    if "://" in host:
         return BlockingConnectionPool.from_url(host)
     else:
         return BlockingConnectionPool(host=host)
