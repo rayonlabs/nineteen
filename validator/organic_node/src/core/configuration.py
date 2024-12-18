@@ -86,7 +86,6 @@ async def load_config_once() -> Config:
 
     redis_pool = create_redis_pool(redis_host)
 
-
     return Config(
         redis_db=Redis(connection_pool=redis_pool),
         psql_db=psql_db,
