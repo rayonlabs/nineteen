@@ -3,12 +3,11 @@ from dotenv import load_dotenv
 from typing import TypeVar
 import asyncio
 from pydantic import BaseModel
-from aiocache import cached
 from substrateinterface import Keypair
 from fiber.chain import chain_utils
 from fiber.logging_utils import get_logger
 
-from redis.asyncio import Redis
+from redis.asyncio import Redis, BlockingConnectionPool
 
 from validator.db.src.database import PSQLDB
 from validator.common.query_config import Config
@@ -29,8 +28,10 @@ def load_hotkey_keypair_from_seed(secret_seed: str) -> Keypair:
     except Exception as e:
         raise ValueError(f"Failed to load keypair: {str(e)}")
 
-@cached(ttl=60 * 5)
-async def factory_config() -> Config:
+def create_redis_pool(host: str) -> BlockingConnectionPool:
+    return BlockingConnectionPool(host=host, max_connections=300, timeout=20)
+
+async def load_config_once() -> Config:
 
     netuid = os.getenv("NETUID")
     if netuid is None:
@@ -79,8 +80,11 @@ async def factory_config() -> Config:
         logger.error(f"Unexpected error loading hotkey from wallet: {str(e)}")
         raise
 
+    redis_pool = create_redis_pool(redis_host)
+
+
     return Config(
-        redis_db=Redis(host=redis_host),
+        redis_db=Redis(connection_pool=redis_pool),
         psql_db=psql_db,
         netuid=netuid,
         ss58_address=ss58_address,
@@ -89,3 +93,11 @@ async def factory_config() -> Config:
         keypair=keypair,
         prod=prod
     )
+
+_config = None
+
+async def factory_config():
+    global _config
+    if not _config:
+        _config = await load_config_once()
+    return _config
