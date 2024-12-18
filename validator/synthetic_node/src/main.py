@@ -7,7 +7,7 @@ load_dotenv(os.getenv("ENV_FILE", ".vali.env"))
 from fiber.chain import chain_utils
 from opentelemetry import metrics
 import asyncio
-from redis.asyncio import Redis
+from redis.asyncio import Redis, BlockingConnectionPool
 from fiber.logging_utils import get_logger
 import json
 
@@ -39,6 +39,13 @@ QUERY_NODE_FAILED_TASKS_COUNTER = metrics.get_meter(__name__).create_counter(
     unit="1"
 )
 
+
+def create_redis_pool(host: str) -> BlockingConnectionPool:
+    if "://" in host:
+        return BlockingConnectionPool.from_url(host)
+    else:
+        return BlockingConnectionPool(host=host)
+
 async def load_config() -> Config:
     wallet_name = os.getenv("WALLET_NAME", "default")
     hotkey_name = os.getenv("HOTKEY_NAME", "default")
@@ -69,8 +76,10 @@ async def load_config() -> Config:
     keypair = chain_utils.load_hotkey_keypair(wallet_name=wallet_name, hotkey_name=hotkey_name)
     prod = bool(os.getenv("ENV", "prod").lower() == "prod")
 
+    redis_pool = create_redis_pool(redis_host)
+
     return Config(
-        redis_db=Redis(host=redis_host),
+        redis_db=Redis(connection_pool=redis_pool),
         psql_db=psql_db,
         netuid=netuid,
         ss58_address=ss58_address,
