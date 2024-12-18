@@ -89,8 +89,6 @@ services:
         limits:
           cpus: '0.50'
           memory: 512M
-      restart_policy:
-        condition: on-failure
     depends_on:
       - redis
       - postgresql
