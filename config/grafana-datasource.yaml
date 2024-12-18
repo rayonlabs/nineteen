@@ -21,4 +21,5 @@ datasources:
     type: redis-datasource
     url: ${GRAFANA_REDIS_URL:-redis://redis:6379}
     secureJsonData:
+      username: ${REDIS_USERNAME:-}
       password: ${REDIS_PASSWORD:-}
