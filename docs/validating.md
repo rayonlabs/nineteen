@@ -24,7 +24,7 @@ A Validator consists of two parts:
 - Proxy API server
 - Orchestrator server
 
-The proxy server is the server which has your hotkey,  spins up the NODE, allows you to sell your bandwidth, etc. 
+The proxy server is the server which has your hotkey,  spins up the NODE, allows you to sell your bandwidth, etc.
 
 The Orchestrator performs the checking tasks, to make sure the miners are behaving 🫡
 
@@ -50,13 +50,13 @@ sudo -E ./bootstrap.sh
 source $HOME/.bashrc
 source $HOME/.venv/bin/activate
 ```
-Your server will now automatically be running - but it wont work until the config has been created
+Your server will now automatically be running - but it won't work until the config has been created
 
 **Without autoupdates :-(**
 
 If you are concerned about running autoupdates because of security, please message me and I'm sure we can work something out!
 ```bash
-WITH_AUTOUPDATES=0 sudo -E ./bootstrap.sh 
+WITH_AUTOUPDATES=0 sudo -E ./bootstrap.sh
 ```
 
 
@@ -92,7 +92,7 @@ See [helpful commands](./helpful-commands.md) for more information on the docker
 
 ## If you ever need to set weights manually to stop dereg etc
 
-Run 
+Run
 ```bash
 task set_weights
 ```
@@ -119,10 +119,10 @@ docker compose --env-file .vali.env -f docker-compose.yml  up -d --build
 
 During the config setup, add an 'ORGANIC_SERVER_PORT' when asked for it.
 
-Then use 
+Then use
 ```bash
 ./cli.sh --help
-``` 
+```
 To manage all your api keys and similar stuff. Your service will now start up on the port you specified :)
 
 Go to http://ip_address:port/docs to see all the swagger docs
@@ -141,7 +141,6 @@ at the top of the file!
 
 ## Starting the Orchestrator server
 
-Currently, a bare metal GPU is necessary for validating the GPU models. Please see here for the full instructions!(https://github.com/namoray/vision-workers/tree/main/validator_orchestrator#readme)
+Currently, a bare metal GPU is necessary for validating the GPU models. Please see here for the full instructions!(https://github.com/rayonlabs/vision-workers/tree/main/validator_orchestrator#readme)
 
 Once this is done, make a note of the IP address of that machine, and the port the orchestrator is running on (the default is 6920, if you didn't change anything)
-

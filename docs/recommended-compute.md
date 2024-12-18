@@ -17,4 +17,4 @@
 Note: These recommendations depend on traffic. Higher bandwidth is generally better for both miners and validators.
 
 For worker recommendations for both miners and validators, please refer to:
-https://github.com/namoray/vision-workers/blob/main/recommend-compute.md
+https://github.com/rayonlabs/vision-workers/blob/main/recommend-compute.md

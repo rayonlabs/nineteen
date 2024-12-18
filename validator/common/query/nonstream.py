@@ -6,6 +6,7 @@ from fiber.networking.models import NodeWithFernet as Node
 from fiber.validator import client
 from fiber.logging_utils import get_logger
 from typing import Tuple, Union
+import traceback
 
 from core.models import utility_models
 from core.models.payload_models import ImageResponse
@@ -136,7 +137,7 @@ async def query_nonstream(
     try:
         formatted_response = get_formatted_response(response, response_model)
     except Exception as e:
-        logger.error(f"Error when deserializing response for task: {contender.task}. Error: {e}")
+        logger.error(f"Error when deserializing response for task: {contender.task}. Error: {traceback.format_exception(e)}")
         query_result = _get_500_query_result(node_id=node_id, contender=contender)
         await utils.adjust_contender_from_result(
             config=config, query_result=query_result, contender=contender, synthetic_query=synthetic_query, payload=payload
