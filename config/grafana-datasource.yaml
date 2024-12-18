@@ -19,9 +19,6 @@ datasources:
     url: http://tempo:3200
   - name: Redis
     type: redis-datasource
-    url: ${GRAFANA_REDIS_URL:-redis://redis:6379}
-    secureJsonData:
-      username: ${REDIS_USERNAME:-}
-      password: ${REDIS_PASSWORD:-}
+    url: ${REDIS_HOST:-redis://redis:6379}
     jsonData:
       tlsAuth: true
