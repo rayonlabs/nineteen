@@ -4,7 +4,10 @@ from typing import TypeVar
 import asyncio
 from pydantic import BaseModel
 from aiocache import cached
+from substrateinterface import Keypair
 from fiber.chain import chain_utils
+from fiber.logging_utils import get_logger
+
 from redis.asyncio import Redis
 
 from validator.db.src.database import PSQLDB
@@ -15,6 +18,16 @@ from validator.db.src.sql.nodes import get_vali_ss58_address
 T = TypeVar("T", bound=BaseModel)
 
 load_dotenv()
+
+logger = get_logger(__name__)
+
+def load_hotkey_keypair_from_seed(secret_seed: str) -> Keypair:
+    try:
+        keypair = Keypair.create_from_seed(secret_seed)
+        logger.info("Loaded keypair from seed directly!")
+        return keypair
+    except Exception as e:
+        raise ValueError(f"Failed to load keypair: {str(e)}")
 
 @cached(ttl=60 * 5)
 async def factory_config() -> Config:
@@ -46,7 +59,15 @@ async def factory_config() -> Config:
 
     wallet_name = os.getenv("WALLET_NAME", "default")
     hotkey_name = os.getenv("HOTKEY_NAME", "default")
-    keypair = chain_utils.load_hotkey_keypair(wallet_name=wallet_name, hotkey_name=hotkey_name)
+    try:
+        keypair = chain_utils.load_hotkey_keypair(wallet_name=wallet_name, hotkey_name=hotkey_name)
+    except ValueError:
+        logger.info("Wallet doesn't exist, trying with secret seed env variable")
+        secret_seed = os.getenv("WALLET_SECRET_SEED", None)
+        if secret_seed:
+            keypair = load_hotkey_keypair_from_seed(secret_seed)
+        else:
+            raise ValueError("WALLET_SECRET_SEED env var is not set")
 
     return Config(
         redis_db=Redis(host=redis_host),
