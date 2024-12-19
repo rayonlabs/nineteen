@@ -30,11 +30,42 @@ def load_hotkey_keypair_from_seed(secret_seed: str) -> Keypair:
     except Exception as e:
         raise ValueError(f"Failed to load keypair: {str(e)}")
 
-def create_redis_pool(host: str) -> BlockingConnectionPool:
+def create_redis_pool(
+    host: str,
+    max_connections: int = 100,
+    timeout: float = 20.0,
+    idle_timeout: int = 20,
+    max_idle_connections: int | None = None,
+    retry_on_timeout: bool = True,
+    socket_keepalive: bool = True,
+    socket_timeout: float = 10.0,
+) -> BlockingConnectionPool:
+    pool_kwargs = {
+        "max_connections": max_connections,
+        "timeout": timeout,
+        "retry_on_timeout": retry_on_timeout,
+        "socket_timeout": socket_timeout,
+        "socket_keepalive": socket_keepalive,
+    }
+
+    if max_idle_connections is not None:
+        pool_kwargs["max_idle_connections"] = max_idle_connections
+
     if "://" in host:
-        return BlockingConnectionPool.from_url(host)
+        connection_kwargs = {
+            "connection_pool_class_kwargs": {
+                "timeout": idle_timeout,
+            }
+        }
+        return BlockingConnectionPool.from_url(
+            host,
+            **pool_kwargs,
+            **connection_kwargs
+        )
     else:
-        return BlockingConnectionPool(host=host)
+        pool_kwargs["host"] = host
+        pool_kwargs["timeout"] = idle_timeout
+        return BlockingConnectionPool(**pool_kwargs)
 
 async def load_config_once() -> Config:
 
