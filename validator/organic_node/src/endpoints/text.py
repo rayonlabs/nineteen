@@ -12,7 +12,7 @@ from validator.organic_node.src.core.dependencies import get_config
 from validator.organic_node.src.core.middleware import verify_api_key_rate_limit
 from validator.organic_node.src.models import request_models
 from validator.utils.query.query_utils import load_sse_jsons
-from validator.db.src.sql.contenders import get_contenders_for_task
+from validator.db.src.sql.contenders import get_contenders_for_task, update_total_requests_made
 from validator.db.src.sql.nodes import get_node
 from validator.utils.generic import generic_constants as gcst
 from validator.common.query import streaming
@@ -55,6 +55,8 @@ async def _process_stream_query(
         if not node:
             logger.error(f"Node {contender.node_id} not found")
             continue
+
+        await update_total_requests_made(config.psql_db, contender)
 
         generator = await streaming.query_node_stream(
             config=config,
