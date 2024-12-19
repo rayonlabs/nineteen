@@ -52,15 +52,9 @@ def create_redis_pool(
         pool_kwargs["max_idle_connections"] = max_idle_connections
 
     if "://" in host:
-        connection_kwargs = {
-            "connection_pool_class_kwargs": {
-                "timeout": idle_timeout,
-            }
-        }
         return BlockingConnectionPool.from_url(
             host,
-            **pool_kwargs,
-            **connection_kwargs
+            **pool_kwargs
         )
     else:
         pool_kwargs["host"] = host
