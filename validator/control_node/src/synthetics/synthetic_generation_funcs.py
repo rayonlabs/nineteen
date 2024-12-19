@@ -25,11 +25,11 @@ logger = get_logger(__name__)
 async def generate_chat_synthetic(model: str, task_config: Any, word_to_token: float = 4) -> payload_models.ChatPayload:
     start = time()
     synth_corpus = sutils.get_synth_corpus()
-    
+
     try:
         total_n_words = sutils.get_random_int_from_dist(size=1, max_value=task_config.orchestrator_server_config.load_model_config['max_model_len']//word_to_token)
         if total_n_words.size == 0:
-            total_n_words = 1000 
+            total_n_words = 1000
         else:
             total_n_words = int(total_n_words[0])
         total_n_words = total_n_words if total_n_words > 0 else 20
@@ -65,9 +65,9 @@ async def generate_chat_synthetic(model: str, task_config: Any, word_to_token: f
         )
 
         logger.debug(f"Generated {total_n_words} words chat synth in {round(time()-start, 3)}s")
-        logger.debug(f"prompt : {messages}")
+        logger.debug(f"payload : {payload}")
         return payload
-    
+
     except Exception as e:
 
         logger.error("Error in new version of generate_chat_synthetic: %s", e)
@@ -78,18 +78,18 @@ async def generate_chat_synthetic(model: str, task_config: Any, word_to_token: f
 async def generate_chat_comp_synthetic(model: str, task_config: Any, word_to_token: float = 4) -> payload_models.CompletionPayload:
     start = time()
     synth_corpus = sutils.get_synth_corpus()
-    
+
     try:
         total_n_words = sutils.get_random_int_from_dist(size=1, max_value=task_config.orchestrator_server_config.load_model_config['max_model_len']//word_to_token)
         if total_n_words.size == 0:
-            total_n_words = 1000 
+            total_n_words = 1000
         else:
             total_n_words = int(total_n_words[0])
         total_n_words = total_n_words if total_n_words > 0 else 20
         logger.debug(f"generating prompt with {total_n_words} words for synth")
 
-        message = await sutils.generate_text(synth_corpus, total_n_words)
-        
+        message = await sutils.generate_text(synth_corpus, total_n_words, completions=True)
+
         payload = payload_models.CompletionPayload(
             prompt=message,
             temperature=round(random.random(), 1),
@@ -100,9 +100,9 @@ async def generate_chat_comp_synthetic(model: str, task_config: Any, word_to_tok
         )
 
         logger.debug(f"Generated {total_n_words} words chat completion synth in {round(time()-start, 3)}s")
-        logger.debug(f"prompt : {message}")
+        logger.debug(f"payload : {payload}")
         return payload
-    
+
     except Exception as e:
 
         logger.error("Error in new version of generate_chat_comp_synthetic: %s", e)
