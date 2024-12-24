@@ -122,7 +122,7 @@ async def consume_generator(
 
     except (StopAsyncIteration, httpx.ConnectError, httpx.ReadError, httpx.HTTPError, httpx.ReadTimeout, Exception) as e:
         logger.error(f"Error when querying node: {node.node_id} for task: {task}.")
-        
+
         # drop the stacktrace while we're here (otel doesn't like logger.exception)
         logger.error("\n".join(traceback.format_exception(e)))
 
@@ -150,9 +150,6 @@ async def consume_generator(
                     logger.warning(f"Error {e} when trying to load text: {text}")
                     break
 
-                if stream_time_init is None:
-                    stream_time_init = time.time()
-                    
                 for text_json in loaded_jsons:
                     if not isinstance(text_json, dict):
                         logger.debug(f"Invalid text_json because its not a dict?: {text_json}")
@@ -168,7 +165,7 @@ async def consume_generator(
                         logger.debug(f"Invalid text_json because there's not delta content: {text_json}")
                         first_message = True  # NOTE: Janky, but so we mark it as a fail
                         break
-                    
+
                     text_jsons.append(text_json)
                     dumped_payload = json.dumps(text_json)
                     first_message = False
@@ -180,6 +177,10 @@ async def consume_generator(
                         job_id=job_id,
                         status_code=200,
                     )
+
+                    if stream_time_init is None:
+                        stream_time_init = time.time()
+
                     tokens += 1
 
         if len(text_jsons) > 0:

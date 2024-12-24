@@ -4,6 +4,7 @@ from fiber.logging_utils import get_logger
 
 from core.utils import get_updated_task_config_with_voted_weights, normalise_task_config_weights
 from core.models import config_models as cmodels
+from core import constants as cst
 
 logger = get_logger(__name__)
 
@@ -34,7 +35,7 @@ def task_configs_factory() -> dict[str, cmodels.FullTaskConfig]:
             created=1733599299,
             description="Llama 3.2 3B is a finetune of [Llama 3.2 3B](/unsloth/llama-3.2-3b-instruct) with a \"HUGE step up dataset wise\" compared to Llama 3.1 8B. Sloppy chats output were purged.\n\nUsage of this model is subject to [Meta's Acceptable Use Policy](https://llama.meta.com/llama3/use-policy/).",
             task_type=cmodels.TaskType.TEXT,
-            max_capacity=60_000, 
+            max_capacity=60_000,
             orchestrator_server_config=cmodels.OrchestratorServerConfig(
                 server_needed=cmodels.ServerType.LLM,
                 load_model_config={
@@ -68,7 +69,7 @@ def task_configs_factory() -> dict[str, cmodels.FullTaskConfig]:
             display_name="Llama 3.2 3B Completions",
             description="Llama 3.2 3B is a finetune of [Llama 3.2 3B](/unsloth/llama-3.2-3b-instruct) with a \"HUGE step up dataset wise\" compared to Llama 3.1 8B. Sloppy chats output were purged.\n\nUsage of this model is subject to [Meta's Acceptable Use Policy](https://llama.meta.com/llama3/use-policy/).",
             task_type=cmodels.TaskType.TEXT,
-            max_capacity=60_000, 
+            max_capacity=60_000,
             orchestrator_server_config=cmodels.OrchestratorServerConfig(
                 server_needed=cmodels.ServerType.LLM,
                 load_model_config={
@@ -288,7 +289,7 @@ def task_configs_factory() -> dict[str, cmodels.FullTaskConfig]:
             weight=0.1,
             timeout=5,
             enabled=True,
-            model_info={"model": "dataautogpt3/ProteusV0.4-Lightning"},
+            model_info={"model": "dataautogpt3/ProteusV0.4-Lightning", cst.MIN_STEPS: 6, cst.MAX_STEPS: 12},
         ),
         PROTEUS_IMAGE_TO_IMAGE: cmodels.FullTaskConfig(
             task=PROTEUS_IMAGE_TO_IMAGE,
@@ -313,7 +314,7 @@ def task_configs_factory() -> dict[str, cmodels.FullTaskConfig]:
             weight=0.05,
             timeout=20,
             enabled=True,
-            model_info={"model": "dataautogpt3/ProteusV0.4-Lightning"},
+            model_info={"model": "dataautogpt3/ProteusV0.4-Lightning", cst.MIN_STEPS: 6, cst.MAX_STEPS: 12},
         ),
         FLUX_SCHNELL_TEXT_TO_IMAGE: cmodels.FullTaskConfig(
             task=FLUX_SCHNELL_TEXT_TO_IMAGE,
@@ -338,7 +339,7 @@ def task_configs_factory() -> dict[str, cmodels.FullTaskConfig]:
             weight=0.10,
             timeout=20,
             enabled=True,
-            model_info={"model": "black-forest-labs/FLUX.1-schnell"},
+            model_info={"model": "black-forest-labs/FLUX.1-schnell", cst.MIN_STEPS: 2, cst.MAX_STEPS: 20},
         ),
         FLUX_SCHNELL_IMAGE_TO_IMAGE: cmodels.FullTaskConfig(
             task=FLUX_SCHNELL_IMAGE_TO_IMAGE,
@@ -363,7 +364,7 @@ def task_configs_factory() -> dict[str, cmodels.FullTaskConfig]:
             weight=0.05,
             timeout=15,
             enabled=True,
-            model_info={"model": "black-forest-labs/FLUX.1-schnell"},
+            model_info={"model": "black-forest-labs/FLUX.1-schnell", cst.MIN_STEPS: 2, cst.MAX_STEPS: 20},
         ),
         AVATAR: cmodels.FullTaskConfig(
             task=AVATAR,
@@ -413,7 +414,7 @@ def task_configs_factory() -> dict[str, cmodels.FullTaskConfig]:
             weight=0.05,
             timeout=5,
             enabled=True,
-            model_info={"model": "Lykon/dreamshaper-xl-lightning"},
+            model_info={"model": "Lykon/dreamshaper-xl-lightning", cst.MIN_STEPS: 6, cst.MAX_STEPS: 12},
         ),
         DREAMSHAPER_IMAGE_TO_IMAGE: cmodels.FullTaskConfig(
             task=DREAMSHAPER_IMAGE_TO_IMAGE,
@@ -438,7 +439,7 @@ def task_configs_factory() -> dict[str, cmodels.FullTaskConfig]:
             weight=0.05,
             timeout=15,
             enabled=True,
-            model_info={"model": "Lykon/dreamshaper-xl-lightning"},
+            model_info={"model": "Lykon/dreamshaper-xl-lightning", cst.MIN_STEPS: 6, cst.MAX_STEPS: 12},
         ),
     }
 

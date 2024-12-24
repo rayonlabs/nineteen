@@ -2,8 +2,6 @@ from fiber.logging_utils import get_logger
 
 from asyncpg import Connection
 from datetime import datetime
-from validator.db.src.database import PSQLDB
-from validator.models import Contender, PeriodScore, calculate_period_score
 from validator.utils.database import database_constants as dcst
 from validator.utils.post.nineteen import ContenderWeightsInfoPostObject, MinerWeightsPostObject
 
@@ -31,7 +29,7 @@ async def insert_scoring_stats(connection: Connection, scoring_stats: list[Conte
             {dcst.COLUMN_METRIC},
             {dcst.COLUMN_STREAM_METRIC}
         )
-        VALUES ($1, $2, $3, NOW(), $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+        VALUES ($1, $2, $3, NOW(), $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
         """,
         [
             (

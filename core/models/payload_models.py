@@ -59,7 +59,7 @@ class TextToImagePayload(BaseModel):
     cfg_scale: float = Field(3, title="CFG Scale", description="CFG Scale for text generation.")
     width: int = Field(1024, title="Width", description="Width for text generation.")
     height: int = Field(1024, title="Height", description="Height for text generation.")
-    model: str = Field(default="proteus_text_to_image", title="Model")
+    model: str = Field(default="proteus-text-to-image", title="Model")
 
 
 class ImageToImagePayload(BaseModel):
@@ -73,22 +73,9 @@ class ImageToImagePayload(BaseModel):
     width: int = Field(1024, title="Width", description="Width for text generation.")
     height: int = Field(1024, title="Height", description="Height for text generation.")
     image_strength: float = Field(0.5, title="Image Strength", description="Image Strength for text generation.")
-    model: str = Field(default="proteus_text_to_image", title="Model")
+    model: str = Field(default="proteus-text-to-image", title="Model")
     init_image: str = Field(...)
 
-
-class InpaintPayload(BaseModel):
-    prompt: str = Field(...)
-    negative_prompt: str | None = Field(
-        None, title="Negative Prompt", description="Negative Prompt for text generation."
-    )
-    seed: int = Field(0, title="Seed", description="Seed for text generation.")
-    steps: int = Field(10, title="Steps", description="Steps for text generation.")
-    cfg_scale: float = Field(3, title="CFG Scale", description="CFG Scale for text generation.")
-    width: int = Field(1024, title="Width", description="Width for text generation.")
-    height: int = Field(1024, title="Height", description="Height for text generation.")
-    init_image: str = Field(..., title="Init Image")
-    mask_image: str = Field(..., title="Mask Image")
 
 
 class AvatarPayload(BaseModel):
