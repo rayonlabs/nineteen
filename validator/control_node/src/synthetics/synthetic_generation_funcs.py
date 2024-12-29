@@ -284,7 +284,7 @@ async def generate_text_to_image_synthetic(
     height = 1024
     width = 1024
     cfg_scale = random.randint(3, 15)
-    steps = random.randint(2, 10)
+    steps = random.randint(4, 10)
 
     return payload_models.TextToImagePayload(
         prompt=prompt,
