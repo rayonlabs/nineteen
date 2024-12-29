@@ -18,6 +18,7 @@ import traceback
 from fiber.logging_utils import get_logger
 from validator.utils.synthetic import synthetic_utils as sutils
 import binascii
+import aiohttp
 
 logger = get_logger(__name__)
 
@@ -25,11 +26,11 @@ logger = get_logger(__name__)
 async def generate_chat_synthetic(model: str, task_config: Any, word_to_token: float = 4) -> payload_models.ChatPayload:
     start = time()
     synth_corpus = sutils.get_synth_corpus()
-    
+
     try:
         total_n_words = sutils.get_random_int_from_dist(size=1, max_value=task_config.orchestrator_server_config.load_model_config['max_model_len']//word_to_token)
         if total_n_words.size == 0:
-            total_n_words = 1000 
+            total_n_words = 1000
         else:
             total_n_words = int(total_n_words[0])
         total_n_words = total_n_words if total_n_words > 0 else 20
@@ -67,7 +68,7 @@ async def generate_chat_synthetic(model: str, task_config: Any, word_to_token: f
         logger.debug(f"Generated {total_n_words} words chat synth in {round(time()-start, 3)}s")
         logger.debug(f"prompt : {messages}")
         return payload
-    
+
     except Exception as e:
 
         logger.error("Error in new version of generate_chat_synthetic: %s", e)
@@ -78,18 +79,18 @@ async def generate_chat_synthetic(model: str, task_config: Any, word_to_token: f
 async def generate_chat_comp_synthetic(model: str, task_config: Any, word_to_token: float = 4) -> payload_models.CompletionPayload:
     start = time()
     synth_corpus = sutils.get_synth_corpus()
-    
+
     try:
         total_n_words = sutils.get_random_int_from_dist(size=1, max_value=task_config.orchestrator_server_config.load_model_config['max_model_len']//word_to_token)
         if total_n_words.size == 0:
-            total_n_words = 1000 
+            total_n_words = 1000
         else:
             total_n_words = int(total_n_words[0])
         total_n_words = total_n_words if total_n_words > 0 else 20
         logger.debug(f"generating prompt with {total_n_words} words for synth")
 
         message = await sutils.generate_text(synth_corpus, total_n_words)
-        
+
         payload = payload_models.CompletionPayload(
             prompt=message,
             temperature=round(random.random(), 1),
@@ -102,7 +103,7 @@ async def generate_chat_comp_synthetic(model: str, task_config: Any, word_to_tok
         logger.debug(f"Generated {total_n_words} words chat completion synth in {round(time()-start, 3)}s")
         logger.debug(f"prompt : {message}")
         return payload
-    
+
     except Exception as e:
 
         logger.error("Error in new version of generate_chat_comp_synthetic: %s", e)
@@ -179,6 +180,15 @@ async def _get_markov_sentence(max_words: int = 10) -> str:
         text = markov_text_generation_model.make_sentence(max_words=max_words)
     return text
 
+async def get_random_face() -> str:
+    async with aiohttp.ClientSession() as session:
+        async with session.get(
+            "https://thispersondoesnotexist.com",
+            headers={'User-Agent': 'My User Agent 1.0'}
+        ) as response:
+            image_bytes = await response.read()
+            base64_image = base64.b64encode(image_bytes).decode('utf-8')
+            return base64_image
 
 def base64_to_pil(image_b64: str) -> Image.Image | None:
     try:
@@ -197,7 +207,7 @@ def _load_postie_to_pil(image_path: str) -> Image.Image | None:
     return pil_image
 
 
-def get_randomly_edited_face_picture_for_avatar() -> str | None:
+async def get_randomly_edited_face_picture_for_avatar() -> str | None:
     """
     For avatar we need a face image.
 
@@ -207,10 +217,19 @@ def get_randomly_edited_face_picture_for_avatar() -> str | None:
 
     Hence, we can use a single picture and just edit it to generate 2**(1024*1024) unique images
     """
+
+    try:
+        random_face = await get_random_face()
+        return random_face
+    except Exception as e:
+        logger.warning(f"Failed to get random face online: {e}")
+
+    # fall back to local image
     try:
         my_boy_postie = _load_postie_to_pil("assets/postie.png")
     except FileNotFoundError:
         my_boy_postie = _load_postie_to_pil("validator/control_node/assets/postie.png")
+
     return _alter_my_boy_postie(my_boy_postie)
 
 
@@ -253,16 +272,19 @@ def alter_image(
 async def generate_text_to_image_synthetic(
     model: str,
 ) -> payload_models.TextToImagePayload:
-    prompt = await _get_markov_sentence(max_words=20)
-    negative_prompt = await _get_markov_sentence(max_words=20)
+
+    synth_corpus = sutils.get_synth_corpus()
+    prompt = await sutils.generate_text(synth_corpus, 30)
+    negative_prompt = await sutils.generate_text(synth_corpus, 30)
+
     # TODO: Fix to be our allowed seeds for the relay mining solution
     seed = random.randint(1, scst.MAX_SEED)
 
     # NOTE: Needs to be in task config perhaps to make more robust?
     height = 1024
     width = 1024
-    cfg_scale = 3.0
-    steps = 8
+    cfg_scale = random.randint(3, 15)
+    steps = random.randint(2, 10)
 
     return payload_models.TextToImagePayload(
         prompt=prompt,
@@ -281,16 +303,18 @@ async def generate_image_to_image_synthetic(
 ) -> payload_models.ImageToImagePayload:
     cache = image_cache_factory()
 
-    prompt = await _get_markov_sentence(max_words=20)
-    negative_prompt = await _get_markov_sentence(max_words=20)
+    synth_corpus = sutils.get_synth_corpus()
+    prompt = await sutils.generate_text(synth_corpus, 30)
+    negative_prompt = await sutils.generate_text(synth_corpus, 30)
+
     # TODO: Fix to be our allowed seeds for the relay mining solution
     seed = random.randint(1, scst.MAX_SEED)
 
     # NOTE: Needs to be in task config perhaps to make more robust?
     height = 1024
     width = 1024
-    cfg_scale = 2.0
-    steps = 8
+    cfg_scale = random.randint(3, 15)
+    steps = random.randint(4, 20)
     image_strength = 0.5
 
     init_image = await sutils.get_random_image_b64(cache)
@@ -308,18 +332,19 @@ async def generate_image_to_image_synthetic(
         init_image=init_image,
     )
 
-
-
 async def generate_avatar_synthetic() -> payload_models.AvatarPayload:
-    prompt = await _get_markov_sentence(max_words=20)
-    negative_prompt = await _get_markov_sentence(max_words=20)
+
+    synth_corpus = sutils.get_synth_corpus()
+    prompt = await sutils.generate_text(synth_corpus, 30)
+    negative_prompt = await sutils.generate_text(synth_corpus, 30)
+
     seed = random.randint(1, scst.MAX_SEED)
 
     init_image = None
     max_retries = 10
     retries = 0
     while init_image is None and retries < max_retries:
-        init_image = get_randomly_edited_face_picture_for_avatar()
+        init_image = await get_randomly_edited_face_picture_for_avatar()
         if init_image is None:
             logger.warning("Init image is None, regenerating")
             retries += 1
@@ -335,7 +360,7 @@ async def generate_avatar_synthetic() -> payload_models.AvatarPayload:
         height=1280,
         width=1280,
         seed=seed,
-        steps=8,
+        steps=random.randint(4, 20),
         init_image=init_image,
     )
 
