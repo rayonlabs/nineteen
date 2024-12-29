@@ -8,6 +8,8 @@ from fiber.chain import chain_utils
 from opentelemetry import metrics
 import asyncio
 from redis.asyncio import Redis, BlockingConnectionPool
+from redis.retry import Retry
+from redis.backoff import ExponentialBackoff
 from fiber.logging_utils import get_logger
 import json
 
@@ -41,10 +43,17 @@ QUERY_NODE_FAILED_TASKS_COUNTER = metrics.get_meter(__name__).create_counter(
 
 
 def create_redis_pool(host: str) -> BlockingConnectionPool:
+    pool_config = {
+        "max_connections": 10,
+        "socket_keepalive": True,
+        "health_check_interval": 30,
+        "retry": Retry(ExponentialBackoff(), 3),
+        "timeout": 20,
+    }
     if "://" in host:
-        return BlockingConnectionPool.from_url(host)
+        return BlockingConnectionPool.from_url(host, **pool_config)
     else:
-        return BlockingConnectionPool(host=host)
+        return BlockingConnectionPool(host=host, **pool_config)
 
 async def load_config() -> Config:
     wallet_name = os.getenv("WALLET_NAME", "default")
@@ -113,6 +122,14 @@ async def listen_for_tasks(config: Config):
             except TypeError:
                 QUERY_NODE_FAILED_TASKS_COUNTER.add(1)
                 logger.error(f"Failed to process message: {message_json}")
+            except (ConnectionError, TimeoutError) as e:
+                logger.warning(f"Redis connection error, retrying: {e}")
+                QUERY_NODE_FAILED_POPS_COUNTER.add(1)
+                await asyncio.sleep(1)
+            except Exception as e:
+                logger.error(f"Unexpected error in listen_for_tasks: {e}")
+                await asyncio.sleep(1)
+
 
         await asyncio.sleep(0.01)
 
