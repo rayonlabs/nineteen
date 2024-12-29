@@ -16,12 +16,12 @@ from validator.db.src.sql.contenders import (
     update_contenders_period_scores,
 )
 from validator.models import Contender
-from fiber.networking.models import NodeWithFernet as Node
+from fiber.encrypted.networking.models import NodeWithFernet as Node
 from core import task_config as tcfg
 from validator.control_node.src.control_config import Config
 from fiber.logging_utils import get_logger
 from core import constants as cst
-from fiber.validator import client
+from fiber.encrypted.validator import client
 
 from validator.utils.post.nineteen import (
     ContenderPayload,

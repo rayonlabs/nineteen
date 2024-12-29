@@ -7,13 +7,13 @@ import asyncio
 import traceback
 
 
-from fiber.networking.models import NodeWithFernet as Node
+from fiber.encrypted.networking.models import NodeWithFernet as Node
 from validator.db.src.sql.nodes import get_nodes, migrate_nodes_to_history, insert_nodes, get_last_updated_time_for_nodes
 from fiber.logging_utils import get_logger
 from fiber.chain import fetch_nodes
 from validator.control_node.src.control_config import Config
 from validator.db.src.sql.nodes import update_our_vali_node_in_db
-from fiber.validator import handshake, client
+from fiber.encrypted.validator import handshake, client
 import httpx
 from datetime import datetime, timedelta
 from cryptography.fernet import Fernet

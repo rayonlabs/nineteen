@@ -20,7 +20,7 @@ from fiber.logging_utils import get_logger
 from core import constants as ccst
 from validator.db.src.sql.nodes import get_vali_node_id
 from fiber.chain import fetch_nodes
-from fiber.networking.models import NodeWithFernet as Node
+from fiber.encrypted.networking.models import NodeWithFernet as Node
 from fiber.chain.interface import get_substrate
 
 logger = get_logger(__name__)

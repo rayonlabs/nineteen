@@ -4,7 +4,7 @@ from asyncpg import Connection
 
 from validator.db.src.database import PSQLDB
 from validator.control_node.src.cycle.refresh_nodes import Config, get_and_store_nodes
-from fiber.networking.models import NodeWithFernet as Node
+from fiber.encrypted.networking.models import NodeWithFernet as Node
 
 
 class TestRefreshNodes(unittest.IsolatedAsyncioTestCase):
