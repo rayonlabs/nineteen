@@ -2,7 +2,6 @@ from fiber.logging_utils import get_logger
 
 from asyncpg import Connection
 import random
-
 from validator.db.src.database import PSQLDB
 from validator.models import Contender, PeriodScore, calculate_period_score
 from validator.utils.database import database_constants as dcst
@@ -160,12 +159,13 @@ async def get_contenders_for_organic_task(psql_db: PSQLDB, task: str, top_x: int
     async with await psql_db.connection() as connection:
         rows = await connection.fetch(
             f"""
-            WITH ranked_contenders AS (
+            WITH filtered_contenders AS (
                 SELECT DISTINCT ON (c.{dcst.NODE_HOTKEY}, c.{dcst.TASK})
                     c.{dcst.CONTENDER_ID}, c.{dcst.NODE_HOTKEY}, c.{dcst.NODE_ID}, c.{dcst.TASK},
                     c.{dcst.RAW_CAPACITY}, c.{dcst.CAPACITY_TO_SCORE}, c.{dcst.CONSUMED_CAPACITY},
                     c.{dcst.TOTAL_REQUESTS_MADE}, c.{dcst.REQUESTS_429}, c.{dcst.REQUESTS_500},
-                    c.{dcst.CAPACITY}, c.{dcst.PERIOD_SCORE}, c.{dcst.NETUID}, s.{dcst.COLUMN_NORMALISED_NET_SCORE}
+                    c.{dcst.CAPACITY}, c.{dcst.PERIOD_SCORE}, c.{dcst.NETUID}, s.{dcst.COLUMN_NORMALISED_NET_SCORE},
+                    (c.{dcst.TOTAL_REQUESTS_MADE} - c.{dcst.REQUESTS_429} - c.{dcst.REQUESTS_500})::FLOAT / NULLIF(c.{dcst.TOTAL_REQUESTS_MADE}, 0) AS success_ratio
                 FROM {dcst.CONTENDERS_TABLE} c
                 JOIN {dcst.NODES_TABLE} n ON c.{dcst.NODE_ID} = n.{dcst.NODE_ID} AND c.{dcst.NETUID} = n.{dcst.NETUID}
                 JOIN {dcst.CONTENDERS_WEIGHTS_STATS_TABLE} s ON c.{dcst.NODE_HOTKEY} = s.{dcst.NODE_HOTKEY}
@@ -175,37 +175,32 @@ async def get_contenders_for_organic_task(psql_db: PSQLDB, task: str, top_x: int
                 AND n.{dcst.SYMMETRIC_KEY_UUID} IS NOT NULL
                 AND s.{dcst.COLUMN_NORMALISED_NET_SCORE} IS NOT NULL
                 AND s.{dcst.COLUMN_NORMALISED_NET_SCORE} > 0
-                ORDER BY c.{dcst.NODE_HOTKEY}, c.{dcst.TASK}, s.{dcst.COLUMN_NORMALISED_NET_SCORE} DESC, s.{dcst.CREATED_AT} DESC
+            ),
+            percentiles AS (
+                SELECT percentile_cont(0.75) WITHIN GROUP (ORDER BY {dcst.COLUMN_NORMALISED_NET_SCORE}) AS score_75th
+                FROM filtered_contenders
+            ),
+            top_contenders AS (
+                SELECT f.*
+                FROM filtered_contenders f, percentiles p
+                WHERE f.{dcst.COLUMN_NORMALISED_NET_SCORE} >= p.score_75th
+                ORDER BY success_ratio DESC, f.{dcst.CONSUMED_CAPACITY}
+                LIMIT $2
             )
             SELECT *
-            FROM ranked_contenders
+            FROM top_contenders
             """,
             task,
+            top_x
         )
+
     logger.debug(f"Number of valid contenders for task {task} for organic query : {len(rows)}")
 
-    contenders = [Contender(**{k: v for k, v in row.items() if k != dcst.COLUMN_NORMALISED_NET_SCORE}) for row in rows]
-    scores = {c.node_id: row[dcst.COLUMN_NORMALISED_NET_SCORE] for c, row in zip(contenders, rows)}
-
-    if contenders:
-        if len(contenders) > top_x:
-            top_x_percent = contenders[:max(1, int(gcst.ORGANIC_SELECT_CONTENDER_LOW_POURC * len(contenders)))]  # top 75%
-            best_top_x_percent = top_x_percent[:max(1, int(gcst.ORGANIC_TOP_POURC * len(top_x_percent)))]  # top 25% within the top 75%
-            remaining_top_x_percent = top_x_percent[len(best_top_x_percent):]
-
-            best_top_x_weights = [gcst.ORGANIC_TOP_POURC_FACTOR / (len(top_x_percent) + 1) for _ in range(len(best_top_x_percent))]  # higher weight for top 25%
-            remaining_top_x_weights = [1 / (len(top_x_percent) + 1) for _ in range(len(remaining_top_x_percent))]
-
-            combined_contenders = best_top_x_percent + remaining_top_x_percent
-            combined_weights = best_top_x_weights + remaining_top_x_weights
-
-            selected_contenders = random.choices(combined_contenders, weights=combined_weights, k=min(top_x, len(combined_contenders)))
-            selected_contenders = sorted(selected_contenders, key=lambda x: scores[x.node_id], reverse=True)
-            logger.debug(f"Selected contenders for task {task} : {selected_contenders}")
-            return selected_contenders
-        else:
-            logger.debug(f"Number of contenders ({len(contenders)}) < top_x ({top_x}). Returning all contenders")
-            return contenders
+    if rows:
+        contenders = [Contender(**{k: v for k, v in row.items() if k != dcst.COLUMN_NORMALISED_NET_SCORE}) for row in rows]
+        random.shuffle(contenders)
+        logger.debug(f"Selected contenders for task {task}: {contenders}")
+        return contenders
     else:
         logger.debug(f"Contenders selection for organic queries with task {task} yielded nothing (probably statistiques table is empty), falling back to synthetic queries logic.")
         return await get_contenders_for_synthetic_task(psql_db, task, top_x)
