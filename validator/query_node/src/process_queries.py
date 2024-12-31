@@ -146,7 +146,7 @@ async def process_task(config: Config, message: rdc.QueryQueueMessage):
         start = time.time()
         message.query_payload = await sgen.generate_synthetic_data(task)
         end = time.time()
-        logger.info(f"Generated synth query in {round(end-start, 3)}s : {message.query_payload}")
+        logger.info(f"Generated synth query for task {task} in {round(end-start, 3)}s : {message.query_payload}")
     task_config = tcfg.get_enabled_task_config(task)
     if task_config is None:
         logger.error(f"Can't find the task {task} in the query node!")
