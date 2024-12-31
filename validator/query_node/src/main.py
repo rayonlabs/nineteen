@@ -237,15 +237,15 @@ async def main() -> None:
     while True:
         try:
             control_node_ready = await config.redis_db.get(ccst.CONTROL_NODE_READY_KEY)
-            logger.info(f"Control node ready status (raw): {control_node_ready!r}")
+            logger.debug(f"Control node ready status (raw): {control_node_ready!r}")
 
             if control_node_ready is None:
-                logger.info("Control node key not found in Redis")
-            elif str(control_node_ready) == '1':
+                logger.debug("Control node key not found in Redis")
+            elif control_node_ready == b'1':
                 logger.info("Control node is ready, proceeding...")
                 break
             else:
-                logger.info(f"Unexpected value for control node ready key: {control_node_ready!r}")
+                logger.debug(f"Control node not ready yet: {control_node_ready!r}")
 
             attempts += 1
             if attempts % 10 == 0:
