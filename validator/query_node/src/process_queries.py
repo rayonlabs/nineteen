@@ -15,7 +15,6 @@ from validator.db.src.sql.contenders import get_contenders_for_task, update_tota
 from validator.db.src.sql.nodes import get_node
 from validator.utils.generic import generic_constants as gcst
 from opentelemetry import metrics
-from dataclasses import asdict
 
 
 logger = get_logger(__name__)
@@ -145,7 +144,8 @@ async def process_task(config: Config, message: rdc.QueryQueueMessage):
         await _decrement_requests_remaining(config.redis_db, task)
     else:
         start = time.time()
-        message.query_payload = asdict(await sgen.generate_synthetic_data(task))
+        message.query_payload = await sgen.generate_synthetic_data(task)
+        logger.info(f"type : {type(message.query_payload)}")
         end = time.time()
         logger.info(f"Generated synth query for task {task} in {round(end-start, 3)}s : {message.query_payload}")
     task_config = tcfg.get_enabled_task_config(task)
