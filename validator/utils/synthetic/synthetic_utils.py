@@ -19,9 +19,7 @@ import aiohttp
 import diskcache
 from PIL import Image
 import uuid
-import numpy as np
 from fiber.logging_utils import get_logger
-import random
 import json
 from functools import lru_cache
 
@@ -35,7 +33,7 @@ def get_synth_corpus():
         with open("assets/synth_corpus.json", "r") as fh:
             synth_corpus = json.load(fh)
     except FileNotFoundError:
-        with open("validator/control_node/assets/synth_corpus.json", "r") as fh:
+        with open("validator/query_node/assets/synth_corpus.json", "r") as fh:
             synth_corpus = json.load(fh)
     return synth_corpus
 
@@ -44,7 +42,7 @@ def split_sentences(text):
     fragments = sent_tokenize(text)
     return [frag for frag in fragments if len(frag.split()) > 2]
 
-async def get_random_text_from_queue(): 
+async def get_random_text_from_queue():
     try:
         if not random_text_queue.empty():
             return await random_text_queue.get()
@@ -72,12 +70,12 @@ async def generate_text(corpus, n_words):
 
             if i > 0 and i%3 == 0:
                 sentence_part = await get_random_text_from_queue()
-            else:    
+            else:
                 sentence_part = random.choice(sentences_in_category)
 
             if not sentence_part:
                 continue
-            
+
             sentence_word_count = len(word_tokenize(sentence_part))
             if current_word_count + sentence_word_count > n_words:
                 remaining_words = n_words - current_word_count
@@ -94,7 +92,7 @@ async def generate_text(corpus, n_words):
 
         if not generated_text_parts:
             raise ValueError("Unable to generate text, problem with corpus?")
-        
+
     merged_text = ' '.join(generated_text_parts).strip()
     possible_endings = ['.', '!', '?', '...']
 
@@ -119,7 +117,7 @@ async def fetch_random_text() -> Tuple[str, int, int]:
     n_paragraphes = random.randint(2, 4)
     n_sentences = random.randint(1, 6)
     url = f'http://metaphorpsum.com/paragraphs/{n_paragraphes}/{n_sentences}'
-    
+
     async with aiohttp.ClientSession() as session:
         try:
             async with session.get(url) as response:
@@ -142,16 +140,16 @@ async def get_save_random_text() -> None:
     while True:
         try:
             queue_size = random_text_queue.qsize()
-            
+
             if queue_size < scst.RANDOM_TEXT_QUEUE_MAX_SIZE:
-                text, n_paragraphes, n_sentences = await fetch_random_text()                
+                text, n_paragraphes, n_sentences = await fetch_random_text()
                 await random_text_queue.put(text)
                 logger.debug(f"Pushed random metaphorpsum.com text with {n_paragraphes} paragraphs, and {n_sentences} sentences to queue")
             else:
-                logger.debug("Queue is full. Skipping text insertion")                
-            
+                logger.debug("Queue is full. Skipping text insertion")
+
             await asyncio.sleep(2)
-            
+
         except Exception as e:
             logger.error(f"Error fetching and saving synthetic data: {e} - sleeping for 60s")
             await asyncio.sleep(60)

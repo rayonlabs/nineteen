@@ -12,6 +12,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     curl \
     git \
+    wget \
     && rm -rf /var/lib/apt/lists/*
 
 RUN pip install --upgrade pip
@@ -37,6 +38,8 @@ COPY validator/db /app/validator/db
 COPY validator/query_node/src ./src
 COPY validator/query_node/pyproject.toml .
 
+RUN mkdir -p /app/validator/query_node/assets && \
+    wget https://huggingface.co/datasets/tau-vision/synth-gen/resolve/main/synth_corpus.json -P /app/validator/query_node/assets
 
 ENV PYTHONPATH="${PYTHONPATH}:/app/validator/query_node/src"
 
