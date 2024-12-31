@@ -7,6 +7,7 @@ from validator.query_node.src.query_config import Config
 from core import task_config as tcfg
 from validator.utils.generic import generic_utils as gutils
 from validator.utils.contender import contender_utils as putils
+from validator.utils.synthetic import synthetic_constants as scst
 from validator.utils.redis import redis_constants as rcst
 from fiber.logging_utils import get_logger
 from validator.utils.redis import redis_dataclasses as rdc
@@ -15,7 +16,7 @@ from validator.db.src.sql.contenders import get_contenders_for_task, update_tota
 from validator.db.src.sql.nodes import get_node
 from validator.utils.generic import generic_constants as gcst
 from opentelemetry import metrics
-
+import random
 
 logger = get_logger(__name__)
 
@@ -144,6 +145,7 @@ async def process_task(config: Config, message: rdc.QueryQueueMessage):
         await _decrement_requests_remaining(config.redis_db, task)
     else:
         message.query_payload = await putils.get_synthetic_payload(config.redis_db, task)
+        message.query_payload['seed'] = random.randint(1, scst.MAX_SEED)
 
     task_config = tcfg.get_enabled_task_config(task)
     if task_config is None:
