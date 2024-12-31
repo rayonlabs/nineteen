@@ -1,3 +1,14 @@
+"""
+A cycle consists of
+- Refreshing metagraph to get nodes (if not refreshed for X time in the case of restarts)
+- Handshaking with the nodes
+- Gathering the contenders from the nodes by querying for capacities
+- Deciding what % of each contender should be queried
+- Getting the contender_scores from the 429's, 500's and successful queries
+- Calculating weights when the scoring period is expired
+- Setting the weights on the nodes async while starting the next cycle
+"""
+
 import asyncio
 from datetime import datetime
 from validator.control_node.src.control_config import Config
