@@ -235,24 +235,32 @@ async def main() -> None:
     logger.info("Waiting for control node....")
     attempts = 0
     while True:
-        control_node_ready = await config.redis_db.get(ccst.CONTROL_NODE_READY_KEY)
-        logger.debug(f"Control node ready status: {control_node_ready}")
+        try:
+            control_node_ready = await config.redis_db.get(ccst.CONTROL_NODE_READY_KEY)
+            logger.debug(f"Control node ready status (raw): {control_node_ready!r}")
 
-        if str(control_node_ready) == '1':
-            logger.info("Control node is ready, proceeding...")
-            break
+            if control_node_ready is None:
+                logger.debug("Control node key not found in Redis")
+            elif str(control_node_ready) == '1':
+                logger.info("Control node is ready, proceeding...")
+                break
+            else:
+                logger.debug(f"Unexpected value for control node ready key: {control_node_ready!r}")
 
-        attempts += 1
-        if attempts % 10 == 0:
-            logger.info(f"Still waiting for control node... (attempt {attempts})")
+            attempts += 1
+            if attempts % 10 == 0:
+                logger.info(f"Still waiting for control node... (attempt {attempts})")
 
-        await asyncio.sleep(1)
+            await asyncio.sleep(1)
+
+        except Exception as e:
+            logger.error(f"Error checking control node status: {e}")
+            await asyncio.sleep(1)
 
     await asyncio.gather(
         sutils.get_save_random_text(),
         listen_for_tasks_and_schedule_synth(config),
     )
-
 
 if __name__ == "__main__":
     asyncio.run(main())

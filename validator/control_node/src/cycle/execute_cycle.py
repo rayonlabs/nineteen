@@ -91,7 +91,13 @@ async def refresh_network_state(config: Config) -> list[Contender] | None:
     contenders = await refresh_contenders.get_and_store_contenders(config, nodes_where_handshake_worked)
     logger.info(f"Updated contender list with {len(contenders) if contenders else 0} contenders")
 
-    await config.redis_db.set(ccst.CONTROL_NODE_READY_KEY, 1)
+    try:
+        await config.redis_db.set(ccst.CONTROL_NODE_READY_KEY, 1)
+        value = await config.redis_db.get(ccst.CONTROL_NODE_READY_KEY)
+        logger.info(f"Set control node ready key. Verification value: {value}")
+    except Exception as e:
+        logger.error(f"Failed to set control node ready key: {e}")
+
     return contenders
 
 async def _remove_task_data(config: Config):
