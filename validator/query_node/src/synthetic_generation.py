@@ -5,6 +5,7 @@ import sys
 from typing import Any
 from core.models import utility_models
 from validator.utils.synthetic import synthetic_constants as scst
+from validator.query_node.src.synthetic_utils import generate_text
 from core import task_config as tcfg
 from core.models import payload_models
 from PIL import Image
@@ -25,11 +26,11 @@ logger = get_logger(__name__)
 async def generate_chat_synthetic(model: str, task_config: Any, word_to_token: float = 4) -> payload_models.ChatPayload:
     start = time()
     synth_corpus = sutils.get_synth_corpus()
-    
+
     try:
         total_n_words = sutils.get_random_int_from_dist(size=1, max_value=task_config.orchestrator_server_config.load_model_config['max_model_len']//word_to_token)
         if total_n_words.size == 0:
-            total_n_words = 1000 
+            total_n_words = 1000
         else:
             total_n_words = int(total_n_words[0])
         total_n_words = total_n_words if total_n_words > 0 else 20
@@ -40,18 +41,18 @@ async def generate_chat_synthetic(model: str, task_config: Any, word_to_token: f
         n_words_per_message = total_n_words // total_messages
 
         messages = [
-            utility_models.Message(content=await sutils.generate_text(synth_corpus, n_words_per_message), role=utility_models.Role.system),
-            utility_models.Message(content=await sutils.generate_text(synth_corpus, n_words_per_message), role=utility_models.Role.user)
+            utility_models.Message(content=await generate_text(synth_corpus, n_words_per_message), role=utility_models.Role.system),
+            utility_models.Message(content=await generate_text(synth_corpus, n_words_per_message), role=utility_models.Role.user)
         ]
         alternate_roles = [utility_models.Role.assistant, utility_models.Role.user]
         messages += [
-            utility_models.Message(content=await sutils.generate_text(synth_corpus, n_words_per_message), role=alternate_roles[i % 2])
+            utility_models.Message(content=await generate_text(synth_corpus, n_words_per_message), role=alternate_roles[i % 2])
             for i in range(total_messages - 2)
         ]
         # make sure we end with a user message
         if messages[-1].role != utility_models.Role.user:
             messages.append(utility_models.Message(
-                content=await sutils.generate_text(synth_corpus, 10),
+                content=await generate_text(synth_corpus, 10),
                 role=utility_models.Role.user
             ))
 
@@ -67,7 +68,7 @@ async def generate_chat_synthetic(model: str, task_config: Any, word_to_token: f
         logger.debug(f"Generated {total_n_words} words chat synth in {round(time()-start, 3)}s")
         logger.debug(f"prompt : {messages}")
         return payload
-    
+
     except Exception as e:
 
         logger.error("Error in new version of generate_chat_synthetic: %s", e)
@@ -78,18 +79,18 @@ async def generate_chat_synthetic(model: str, task_config: Any, word_to_token: f
 async def generate_chat_comp_synthetic(model: str, task_config: Any, word_to_token: float = 4) -> payload_models.CompletionPayload:
     start = time()
     synth_corpus = sutils.get_synth_corpus()
-    
+
     try:
         total_n_words = sutils.get_random_int_from_dist(size=1, max_value=task_config.orchestrator_server_config.load_model_config['max_model_len']//word_to_token)
         if total_n_words.size == 0:
-            total_n_words = 1000 
+            total_n_words = 1000
         else:
             total_n_words = int(total_n_words[0])
         total_n_words = total_n_words if total_n_words > 0 else 20
         logger.debug(f"generating prompt with {total_n_words} words for synth")
 
-        message = await sutils.generate_text(synth_corpus, total_n_words)
-        
+        message = await generate_text(synth_corpus, total_n_words)
+
         payload = payload_models.CompletionPayload(
             prompt=message,
             temperature=round(random.random(), 1),
@@ -102,7 +103,7 @@ async def generate_chat_comp_synthetic(model: str, task_config: Any, word_to_tok
         logger.debug(f"Generated {total_n_words} words chat completion synth in {round(time()-start, 3)}s")
         logger.debug(f"prompt : {message}")
         return payload
-    
+
     except Exception as e:
 
         logger.error("Error in new version of generate_chat_comp_synthetic: %s", e)

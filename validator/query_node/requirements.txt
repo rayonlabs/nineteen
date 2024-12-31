@@ -12,3 +12,5 @@ opentelemetry-instrumentation-httpx==0.47b0
 opentelemetry-instrumentation-logging==0.47b0
 opentelemetry-instrumentation-redis==0.47b0
 opentelemetry-instrumentation-system-metrics==0.47b0
+
+nltk==3.9.1

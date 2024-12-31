@@ -1,5 +1,6 @@
 from dotenv import load_dotenv
 import os
+import nltk
 
 # Must be done straight away, bit ugly
 load_dotenv(os.getenv("ENV_FILE", ".vali.env"))
@@ -14,6 +15,7 @@ from validator.utils.redis import redis_constants as rcst, redis_dataclasses as 
 from validator.query_node.src.process_queries import process_task
 from validator.db.src.sql.nodes import get_vali_ss58_address
 from validator.db.src.database import PSQLDB
+from validator.utils.synthetic import synthetic_utils as sutils
 from fiber.chain import chain_utils
 from opentelemetry import metrics
 
@@ -107,10 +109,13 @@ async def listen_for_tasks(config: Config):
 
 
 async def main() -> None:
+    nltk.download('punkt_tab')
+
     config = await load_config()
     logger.debug(f"config: {config}")
 
     await asyncio.gather(
+        sutils.get_save_random_text(),
         listen_for_tasks(config),
     )
 

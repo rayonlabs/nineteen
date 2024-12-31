@@ -6,7 +6,7 @@ from validator.models import Contender
 from validator.query_node.src.query_config import Config
 from core import task_config as tcfg
 from validator.utils.generic import generic_utils as gutils
-from validator.utils.contender import contender_utils as putils
+from validator.query_node.src import synthetic_generation as sgen
 from validator.utils.redis import redis_constants as rcst
 from fiber.logging_utils import get_logger
 from validator.utils.redis import redis_dataclasses as rdc
@@ -143,7 +143,7 @@ async def process_task(config: Config, message: rdc.QueryQueueMessage):
         logger.debug(f"Successfully acknowledged job id : {message.job_id} ✅")
         await _decrement_requests_remaining(config.redis_db, task)
     else:
-        message.query_payload = await putils.get_synthetic_payload(config.redis_db, task)
+        message.query_payload = await sgen.generate_synthetic_data(task)
 
     task_config = tcfg.get_enabled_task_config(task)
     if task_config is None:
@@ -171,13 +171,13 @@ async def process_task(config: Config, message: rdc.QueryQueueMessage):
         raise ValueError("No contenders to query! :(")
 
     COUNTER_TOTAL_QUERIES.add(1, {"task": task, "synthetic_query": str(message.query_type == gcst.SYNTHETIC)})
-    
+
     try:
         if stream:
             return await _handle_stream_query(config, message, contenders_to_query)
         else:
             return await _handle_nonstream_query(config=config, message=message, contenders_to_query=contenders_to_query)
-    
+
     except Exception as e:
         logger.error(f"Error processing task {task}: {e}")
         await _handle_error(
