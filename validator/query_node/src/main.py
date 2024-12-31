@@ -233,9 +233,20 @@ async def main() -> None:
     logger.debug(f"config: {config}")
 
     logger.info("Waiting for control node....")
-    control_node_ready = await config.redis_db.get(ccst.CONTROL_NODE_READY_KEY)
-    while str(control_node_ready) != '1':
+    attempts = 0
+    while True:
         control_node_ready = await config.redis_db.get(ccst.CONTROL_NODE_READY_KEY)
+        logger.debug(f"Control node ready status: {control_node_ready}")
+
+        if str(control_node_ready) == '1':
+            logger.info("Control node is ready, proceeding...")
+            break
+
+        attempts += 1
+        if attempts % 10 == 0:
+            logger.info(f"Still waiting for control node... (attempt {attempts})")
+
+        await asyncio.sleep(1)
 
     await asyncio.gather(
         sutils.get_save_random_text(),
