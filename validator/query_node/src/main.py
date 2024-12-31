@@ -232,6 +232,11 @@ async def main() -> None:
     config = await load_config()
     logger.debug(f"config: {config}")
 
+    logger.info("Waiting for control node....")
+    control_node_ready = await config.redis_db.get(ccst.CONTROL_NODE_READY_KEY)
+    while control_node_ready != 1:
+        control_node_ready = await config.redis_db.get(ccst.CONTROL_NODE_READY_KEY)
+
     await asyncio.gather(
         sutils.get_save_random_text(),
         listen_for_tasks_and_schedule_synth(config),

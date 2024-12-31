@@ -91,6 +91,7 @@ async def refresh_network_state(config: Config) -> list[Contender] | None:
     contenders = await refresh_contenders.get_and_store_contenders(config, nodes_where_handshake_worked)
     logger.info(f"Updated contender list with {len(contenders) if contenders else 0} contenders")
 
+    await config.redis_db.set(ccst.CONTROL_NODE_READY_KEY, 1)
     return contenders
 
 async def _remove_task_data(config: Config):
