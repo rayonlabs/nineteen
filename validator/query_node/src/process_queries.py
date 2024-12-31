@@ -146,7 +146,6 @@ async def process_task(config: Config, message: rdc.QueryQueueMessage):
         start = time.time()
         message.query_payload = await sgen.generate_synthetic_data(task)
         message.query_payload = message.query_payload.__dict__
-        logger.info(f"type : {type(message.query_payload)}")
         end = time.time()
         logger.info(f"Generated synth query for task {task} in {round(end-start, 3)}s : {message.query_payload}")
     task_config = tcfg.get_enabled_task_config(task)
