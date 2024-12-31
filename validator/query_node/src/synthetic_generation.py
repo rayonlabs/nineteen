@@ -5,7 +5,6 @@ import sys
 from typing import Any
 from core.models import utility_models
 from validator.utils.synthetic import synthetic_constants as scst
-from validator.query_node.src.synthetic_utils import generate_text
 from core import task_config as tcfg
 from core.models import payload_models
 from PIL import Image
@@ -41,18 +40,18 @@ async def generate_chat_synthetic(model: str, task_config: Any, word_to_token: f
         n_words_per_message = total_n_words // total_messages
 
         messages = [
-            utility_models.Message(content=await generate_text(synth_corpus, n_words_per_message), role=utility_models.Role.system),
-            utility_models.Message(content=await generate_text(synth_corpus, n_words_per_message), role=utility_models.Role.user)
+            utility_models.Message(content=await sutils.generate_text(synth_corpus, n_words_per_message), role=utility_models.Role.system),
+            utility_models.Message(content=await sutils.generate_text(synth_corpus, n_words_per_message), role=utility_models.Role.user)
         ]
         alternate_roles = [utility_models.Role.assistant, utility_models.Role.user]
         messages += [
-            utility_models.Message(content=await generate_text(synth_corpus, n_words_per_message), role=alternate_roles[i % 2])
+            utility_models.Message(content=await sutils.generate_text(synth_corpus, n_words_per_message), role=alternate_roles[i % 2])
             for i in range(total_messages - 2)
         ]
         # make sure we end with a user message
         if messages[-1].role != utility_models.Role.user:
             messages.append(utility_models.Message(
-                content=await generate_text(synth_corpus, 10),
+                content=await sutils.generate_text(synth_corpus, 10),
                 role=utility_models.Role.user
             ))
 
@@ -89,7 +88,7 @@ async def generate_chat_comp_synthetic(model: str, task_config: Any, word_to_tok
         total_n_words = total_n_words if total_n_words > 0 else 20
         logger.debug(f"generating prompt with {total_n_words} words for synth")
 
-        message = await generate_text(synth_corpus, total_n_words)
+        message = await sutils.generate_text(synth_corpus, total_n_words)
 
         payload = payload_models.CompletionPayload(
             prompt=message,

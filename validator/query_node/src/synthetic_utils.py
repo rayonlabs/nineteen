@@ -14,7 +14,7 @@ import re
 import base64
 from io import BytesIO
 import asyncio
-import aiohttp
+import httpx
 import diskcache
 from PIL import Image
 import uuid
@@ -118,18 +118,18 @@ async def fetch_random_text() -> Tuple[str, int, int]:
     n_sentences = random.randint(1, 6)
     url = f'http://metaphorpsum.com/paragraphs/{n_paragraphes}/{n_sentences}'
 
-    async with aiohttp.ClientSession() as session:
+    async with httpx.AsyncClient() as client:
         try:
-            async with session.get(url) as response:
-                if response.status == 200:
-                    text = await response.text()
-                    logger.debug(f"Fetched random text with {n_paragraphes} parapgraphes & {n_sentences} sentences")
-                    return text, n_paragraphes, n_sentences
-                else:
-                    error_msg = f"Failed to fetch text from metaphorpsum.com: {response.status}"
-                    logger.error(error_msg)
-                    raise aiohttp.ClientError(error_msg)
-        except aiohttp.ClientError as e:
+            response = await client.get(url)
+            if response.status_code == 200:
+                text = response.text
+                logger.debug(f"Fetched random text with {n_paragraphes} parapgraphes & {n_sentences} sentences")
+                return text, n_paragraphes, n_sentences
+            else:
+                error_msg = f"Failed to fetch text from metaphorpsum.com: {response.status_code}"
+                logger.error(error_msg)
+                raise httpx.RequestError(error_msg)
+        except httpx.RequestError as e:
             logger.error(f"Network error while fetching text: {e}")
             raise
         except Exception as e:
@@ -227,10 +227,10 @@ async def _get_random_picsum_image(x_dim: int, y_dim: int) -> str:
     Returns:
         str: The base64 encoded representation of the generated image.
     """
-    async with aiohttp.ClientSession() as session:
+    async with httpx.AsyncClient() as client:
         url = f"https://picsum.photos/{x_dim}/{y_dim}"
-        async with session.get(url) as resp:
-            data = await resp.read()
+        response = await client.get(url)
+        data = response.content
 
     img = Image.open(BytesIO(data))
     buffered = BytesIO()
