@@ -7,8 +7,8 @@ from core.models.payload_models import ImageResponse
 from validator.query_node.src.query_config import Config
 import traceback
 from validator.models import Contender
-from fiber.networking.models import NodeWithFernet as Node
-from fiber.validator import client
+from fiber.encrypted.networking.models import NodeWithFernet as Node
+from fiber.encrypted.validator import client
 from core import task_config as tcfg
 from fiber.logging_utils import get_logger
 from validator.query_node.src import utils
@@ -139,7 +139,7 @@ async def query_nonstream(
             config=config, query_result=query_result, contender=contender, synthetic_query=synthetic_query, payload=payload
         )
         return False
-    
+
 
     if formatted_response is not None:
         query_result = utility_models.QueryResult(

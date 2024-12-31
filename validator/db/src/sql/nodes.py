@@ -1,7 +1,7 @@
 import datetime
 from fiber import SubstrateInterface
 from validator.db.src.database import PSQLDB
-from fiber.networking.models import NodeWithFernet as Node
+from fiber.encrypted.networking.models import NodeWithFernet as Node
 from fiber.logging_utils import get_logger
 
 from asyncpg import Connection
@@ -132,7 +132,7 @@ async def insert_symmetric_keys_for_nodes(connection: Connection, nodes: list[No
 
 async def get_nodes(psql_db: PSQLDB, netuid: int) -> list[Node]:
     query = f"""
-        SELECT 
+        SELECT
             {dcst.HOTKEY},
             {dcst.COLDKEY},
             {dcst.NODE_ID},
@@ -171,7 +171,7 @@ async def get_node_stakes(psql_db: PSQLDB, netuid: int) -> dict[str, float]:
 
 async def get_node(psql_db: PSQLDB, node_id: int, netuid: int) -> Node | None:
     query = f"""
-        SELECT 
+        SELECT
             {dcst.HOTKEY},
             {dcst.COLDKEY},
             {dcst.NODE_ID},
@@ -217,7 +217,7 @@ async def update_our_vali_node_in_db(connection: Connection, ss58_address: str, 
 
 async def get_vali_ss58_address(psql_db: PSQLDB, netuid: int) -> str | None:
     query = f"""
-        SELECT 
+        SELECT
             {dcst.HOTKEY}
         FROM {dcst.NODES_TABLE}
         WHERE {dcst.OUR_VALIDATOR} = true AND {dcst.NETUID} = $1

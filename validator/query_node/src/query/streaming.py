@@ -10,8 +10,8 @@ from validator.query_node.src.query_config import Config
 from validator.query_node.src import utils
 
 from validator.models import Contender
-from fiber.validator import client
-from fiber.networking.models import NodeWithFernet as Node
+from fiber.encrypted.validator import client
+from fiber.encrypted.networking.models import NodeWithFernet as Node
 from core import task_config as tcfg
 from validator.utils.generic import generic_constants as gcst, generic_utils
 from validator.utils.redis import redis_constants as rcst
@@ -122,7 +122,7 @@ async def consume_generator(
 
     except (StopAsyncIteration, httpx.ConnectError, httpx.ReadError, httpx.HTTPError, httpx.ReadTimeout, Exception) as e:
         logger.error(f"Error when querying node: {node.node_id} for task: {task}.")
-        
+
         # drop the stacktrace while we're here (otel doesn't like logger.exception)
         logger.error("\n".join(traceback.format_exception(e)))
 
@@ -149,7 +149,7 @@ async def consume_generator(
                 except (IndexError, json.JSONDecodeError) as e:
                     logger.warning(f"Error {e} when trying to load text: {text}")
                     break
-                    
+
                 for text_json in loaded_jsons:
                     if not isinstance(text_json, dict):
                         logger.debug(f"Invalid text_json because its not a dict?: {text_json}")
@@ -165,7 +165,7 @@ async def consume_generator(
                         logger.debug(f"Invalid text_json because there's not delta content: {text_json}")
                         first_message = True  # NOTE: Janky, but so we mark it as a fail
                         break
-                    
+
                     text_jsons.append(text_json)
                     dumped_payload = json.dumps(text_json)
                     first_message = False
@@ -180,7 +180,7 @@ async def consume_generator(
 
                     if stream_time_init is None:
                         stream_time_init = time.time()
-                        
+
                     tokens += 1
 
         if len(text_jsons) > 0:
