@@ -1,31 +1,28 @@
 from dotenv import load_dotenv
 import os
 import asyncio
-import nltk
 
 from fiber.logging_utils import get_logger
 
 from validator.control_node.src.score_results import score_results
 from validator.control_node.src.control_config import load_config
-from validator.control_node.src.synthetics import refresh_synthetic_data  # noqa
 from validator.control_node.src.cycle import execute_cycle  # noqa
-from validator.utils.synthetic import synthetic_utils as sutils
+from core import constants as ccst
 
 load_dotenv(os.getenv("ENV_FILE", ".vali.env"))
 
 logger = get_logger(__name__)
 
 async def main() -> None:
-    nltk.download('punkt_tab')
-    
     config = load_config()
     await config.psql_db.connect()
+
+    # setting this so that query node awaits for nodes update
+    await config.redis_db.set(ccst.CONTROL_NODE_READY_KEY, 0)
 
     # NOTE: We could make separate threads if you wanted to be fancy
     await asyncio.gather(
         score_results.main(config),
-        sutils.get_save_random_text(),
-        refresh_synthetic_data.main(config),
         execute_cycle.main(config)
     )
 

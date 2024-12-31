@@ -16,5 +16,6 @@ class Config:
     ss58_address: str
     netuid: int
     httpx_client: httpx.AsyncClient = httpx.AsyncClient()
+    scoring_period_time_multiplier: float = 1
     replace_with_localhost: bool = False
     replace_with_docker_localhost: bool = True

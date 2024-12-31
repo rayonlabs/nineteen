@@ -4,7 +4,6 @@ A cycle consists of
 - Handshaking with the nodes
 - Gathering the contenders from the nodes by querying for capacities
 - Deciding what % of each contender should be queried
-- Scheduling synthetics according the the amount of volume I need to query
 - Getting the contender_scores from the 429's, 500's and successful queries
 - Calculating weights when the scoring period is expired
 - Setting the weights on the nodes async while starting the next cycle
@@ -17,7 +16,6 @@ from validator.control_node.src.cycle import (
     refresh_nodes,
     refresh_contenders,
 )
-from validator.control_node.src.cycle.schedule_synthetic_queries import schedule_synthetics_until_done
 from validator.db.src.sql.nodes import (
     get_nodes,
 )
@@ -43,7 +41,6 @@ async def get_worker_version(gpu_server_address: str):
         version = data.get('version', '')
         return version
 
-
 async def _post_vali_stats(config: Config):
     public_configs = get_public_task_configs()
 
@@ -53,7 +50,6 @@ async def _post_vali_stats(config: Config):
         except Exception as e:
             logger.error(f"Couldn't fetch the gpu worker's version - error : {e}")
             gpu_worker_version = 'UNKNOWN'
-
     else:
         gpu_worker_version = 'UNKNOWN'
 
@@ -69,22 +65,19 @@ async def _post_vali_stats(config: Config):
         data_type_to_post=DataTypeToPost.VALIDATOR_INFO,
     )
 
+async def refresh_network_state(config: Config) -> list[Contender] | None:
+    logger.info("Starting network refresh cycle...")
 
-async def get_nodes_and_contenders(config: Config) -> list[Contender] | None:
-    logger.info("Starting cycle...")
     if config.refresh_nodes:
-        logger.info("First refreshing metagraph and getting nodes")
+        logger.info("Refreshing metagraph and getting nodes")
         initial_nodes = await refresh_nodes.get_refresh_nodes(config)
     else:
         initial_nodes = await get_nodes(config.psql_db, config.netuid)
 
     await _post_vali_stats(config)
 
-    logger.info("Got nodes! Performing handshakes now...")
-
+    logger.info("Performing node handshakes...")
     all_handshake_nodes, nodes_where_handshake_worked = await refresh_nodes.perform_handshakes(initial_nodes, config)
-
-    logger.info("Got handshakes! Getting the contenders from the nodes...")
 
     if config.refresh_nodes:
         logger.info(f"Storing {len(initial_nodes)} nodes...")
@@ -96,42 +89,32 @@ async def get_nodes_and_contenders(config: Config) -> list[Contender] | None:
         await insert_symmetric_keys_for_nodes(connection, nodes_where_handshake_worked)
 
     contenders = await refresh_contenders.get_and_store_contenders(config, nodes_where_handshake_worked)
+    logger.info(f"Updated contender list with {len(contenders) if contenders else 0} contenders")
 
-    logger.info(f"Got all contenders! {len(contenders)} contenders will be queried...")
+    try:
+        await config.redis_db.set(ccst.CONTROL_NODE_READY_KEY, 1)
+        value = await config.redis_db.get(ccst.CONTROL_NODE_READY_KEY)
+        logger.info(f"Set control node ready key. Verification value: {value}")
+    except Exception as e:
+        logger.error(f"Failed to set control node ready key: {e}")
 
     return contenders
 
-
 async def _remove_task_data(config: Config):
-    # NOTE: remove on next update
-    # For a short time after this update, delete task data since the NSFW flag has changed.
     if datetime.now() < datetime(2024, 10, 14, 15):
         async with await config.psql_db.connection() as connection:
             await delete_task_data_older_than_date(connection, datetime.now())
 
-
 async def main(config: Config) -> None:
-    time_to_sleep_if_no_contenders = 20
-    contenders = await get_nodes_and_contenders(config)
-
-    if contenders is None or len(contenders) == 0:
-        logger.info(
-            f"No contenders to query, skipping synthetic scheduling and sleeping for {time_to_sleep_if_no_contenders} seconds to wait."
-        )
-        await asyncio.sleep(time_to_sleep_if_no_contenders)  # Sleep for 5 minutes to wait for contenders to become available
-        tasks = []
-    else:
-        tasks = [schedule_synthetics_until_done(config)]
+    refresh_interval = 20
 
     while True:
         await _remove_task_data(config)
-        await asyncio.gather(*tasks)
-        contenders = await get_nodes_and_contenders(config)
-        if contenders is None or len(contenders) == 0:
-            logger.info(
-                f"No contenders to query, skipping synthetic scheduling and sleeping for {time_to_sleep_if_no_contenders} seconds to wait."
-            )
-            await asyncio.sleep(time_to_sleep_if_no_contenders)  # Sleep for 5 minutes to wait for contenders to become available
-            tasks = []
+
+        contenders = await refresh_network_state(config)
+
+        if not contenders:
+            logger.info(f"No contenders found. Waiting {refresh_interval} seconds before next refresh...")
+            await asyncio.sleep(refresh_interval)
         else:
-            tasks = [schedule_synthetics_until_done(config)]
+            await asyncio.sleep(ccst.SCORING_PERIOD_TIME)

@@ -27,7 +27,6 @@ FROM core AS control_node
 WORKDIR /app/validator/control_node
 
 COPY validator/control_node/assets ./assets
-RUN wget https://huggingface.co/datasets/tau-vision/synth-gen/resolve/main/synth_corpus.json -P /app/validator/control_node/assets
 
 COPY validator/control_node/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
