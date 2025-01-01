@@ -116,6 +116,7 @@ async def _get_redis_remaining_requests(redis_db: Redis, task: str) -> int:
 
 async def construct_synthetic_query_message(task: str) -> dict:
     query_payload = await generate_synthetic_data(task)
+    query_payload = query_payload.model_dump()
     return asdict(rdc.QueryQueueMessage(query_payload=query_payload, query_type=gcst.SYNTHETIC, task=task, job_id=uuid.uuid4().hex))
 
 async def add_synthetic_query_to_queue(redis_db: Redis, task: str, max_length: int) -> None:
