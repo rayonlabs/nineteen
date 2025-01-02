@@ -68,3 +68,4 @@ It means a few things:
 - We can add as many tasks as we like! If there's demand for something we can add it! If not, we can remove it! No registrations or deregistrations needed, miners can just scale up and scale down their capacity as needed.
 - Miners have the ability to rate limit explicitly to validators without incurring a greater penalty. This means we can much more effectively load balance between miners, to make sure any organic requests can be always handled by a miner who is capable of performing that task!
 - There's nothing special about a synthetic or organic query. No distinction can be made on the miner side, but validators can still give preferential treatment to organics!
+ 
