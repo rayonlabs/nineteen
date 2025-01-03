@@ -72,11 +72,16 @@ async def _post_vali_stats(config: Config):
 
 async def get_nodes_and_contenders(config: Config) -> list[Contender] | None:
     logger.info("Starting cycle...")
-    if config.refresh_nodes:
-        logger.info("First refreshing metagraph and getting nodes")
-        initial_nodes = await refresh_nodes.get_refresh_nodes(config)
-    else:
-        initial_nodes = await get_nodes(config.psql_db, config.netuid)
+
+    try:
+        if config.refresh_nodes:
+            logger.info("First refreshing metagraph and getting nodes")
+            initial_nodes = await refresh_nodes.get_refresh_nodes(config)
+        else:
+            initial_nodes = await get_nodes(config.psql_db, config.netuid)
+    except Exception as e:
+        logger.error(f"Couldn't fetch nodes - error : {e}")
+        return None
 
     await _post_vali_stats(config)
 
