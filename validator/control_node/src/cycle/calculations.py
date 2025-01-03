@@ -27,7 +27,7 @@ from datetime import datetime, timezone, timedelta
 from fiber.logging_utils import get_logger
 from dataclasses import dataclass
 
-@dataclass 
+@dataclass
 class QualityScores:
     combined_quality_scores: dict[str, float]
     average_weighted_quality_scores: dict[str, float]
@@ -187,7 +187,7 @@ async def _process_quality_scores(
     average_weighted_quality_scores = {}
     for node_hotkey, scores in quality_scores.items():
         hotkey_average_quality_score = sum(score**1.5 for score in scores) / len(scores)
-        if hotkey_average_quality_score <=0.85:
+        if hotkey_average_quality_score <= 0.85 and task != 'avatar' :
             hotkey_average_quality_score = hotkey_average_quality_score ** 2
         # if hotkey_average_quality_score <= 0.8:
         #     hotkey_average_quality_score = 0
@@ -203,7 +203,7 @@ async def _process_quality_scores(
         combined_quality_scores,
         average_weighted_quality_scores,
         metric_bonuses,
-        metrics, 
+        metrics,
         stream_metrics
     )
 
@@ -429,6 +429,7 @@ async def _post_scoring_stats_to_nineteen(
 
 
 ###############################################################
+"""
 async def calculate_scores_for_settings_weights_debug(
     psql_db: PSQLDB, contenders: list[Contender], netuid: int
 ) -> tuple[
@@ -524,3 +525,4 @@ async def calculate_scores_for_settings_weights_debug(
         node_weights.append(score / total_score)
 
     return node_ids, node_weights, all_normalised_scores, detailed_scores_info
+"""

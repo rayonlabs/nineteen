@@ -1,14 +1,13 @@
 from contextlib import asynccontextmanager
 import os
 from fastapi import FastAPI
-import uvicorn
 from validator.entry_node.src.endpoints.text import router as chat_router
 from validator.entry_node.src.endpoints.image import router as image_router
 from validator.entry_node.src.endpoints.generic import router as generic_router
 from fastapi.middleware.cors import CORSMiddleware
 from validator.entry_node.src.core import configuration
 from fiber.logging_utils import get_logger
-from fiber.miner.middleware import configure_extra_logging_middleware  # noqa
+from fiber.encrypted.miner.middleware import configure_extra_logging_middleware  # noqa
 from scalar_fastapi import get_scalar_api_reference
 from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
 
