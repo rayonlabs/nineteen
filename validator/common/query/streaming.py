@@ -2,9 +2,10 @@ import json
 import time
 import traceback
 from typing import AsyncGenerator
-from fiber.validator import client
-from fiber.networking.models import NodeWithFernet as Node
+from fiber.encrypted.validator import client
+from fiber.encrypted.networking.models import NodeWithFernet as Node
 from fiber.logging_utils import get_logger
+
 import httpx
 from opentelemetry import metrics
 

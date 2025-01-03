@@ -1,7 +1,7 @@
 from functools import partial
 from fastapi import Depends, HTTPException
 
-from fiber.miner.security.encryption import decrypt_general_payload
+from fiber.encrypted.miner.security.encryption import decrypt_general_payload
 from pydantic import BaseModel
 from core.models import payload_models
 from fastapi.routing import APIRouter
@@ -10,8 +10,8 @@ from core import task_config as tcfg
 from miner.config import WorkerConfig
 from miner.dependencies import get_worker_config
 from miner.logic.image import get_image_from_server
-from fiber.miner.core.configuration import Config
-from fiber.miner.dependencies import blacklist_low_stake, get_config as get_fiber_config, verify_request
+from fiber.encrypted.miner.core.configuration import Config
+from fiber.encrypted.miner.dependencies import blacklist_low_stake, get_config as get_fiber_config, verify_request
 from fiber.logging_utils import get_logger
 
 logger = get_logger(__name__)

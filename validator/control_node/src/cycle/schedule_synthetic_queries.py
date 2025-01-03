@@ -5,15 +5,17 @@ import random
 import time
 from typing import Dict, List
 import heapq
-
+import uuid
 from redis.asyncio import Redis
 from validator.db.src.database import PSQLDB
 from validator.control_node.src.control_config import Config
+from validator.control_node.src.synthetics.synthetic_generation_funcs import generate_synthetic_data
 from validator.models import Contender
 from core import task_config as tcfg
 from validator.utils.contender import contender_utils as putils
 from validator.utils.generic import generic_constants as gcst
-from validator.utils.redis import redis_constants as rcst
+from validator.utils.redis import redis_constants as rcst, redis_utils as rutils, redis_dataclasses as rdc
+from dataclasses import asdict
 from core import constants as ccst
 from fiber.logging_utils import get_logger
 from opentelemetry import metrics
@@ -37,6 +39,10 @@ GAUGE_TOTAL_REQUESTS = metrics.get_meter(__name__).create_gauge(
     description="Number of total synthetic requests to be scheduled for the task in current cycle"
 )
 
+COUNTER_SYNTHETIC_QUERIES = metrics.get_meter(__name__).create_counter(
+    name="validator.control_node.synthetic.redis.synthetic_queries_added",
+    description="Number of synthetic queries added to redis list QUERY_QUEUE_KEY",
+)
 
 @dataclass
 class TaskScheduleInfo:
@@ -108,9 +114,19 @@ async def _get_redis_remaining_requests(redis_db: Redis, task: str) -> int:
     value = await redis_db.get(key)
     return int(value) if value is not None else 0
 
+async def construct_synthetic_query_message(task: str) -> dict:
+    query_payload = await generate_synthetic_data(task)
+    query_payload = query_payload.model_dump()
+    return asdict(rdc.QueryQueueMessage(query_payload=query_payload, query_type=gcst.SYNTHETIC, task=task, job_id=uuid.uuid4().hex))
+
+async def add_synthetic_query_to_queue(redis_db: Redis, task: str, max_length: int) -> None:
+    message = await construct_synthetic_query_message(task)
+    message = json.dumps(message)
+    COUNTER_SYNTHETIC_QUERIES.add(1, {"task": task})
+    await rutils.add_str_to_redis_list(redis_db, rcst.QUERY_QUEUE_KEY, message, max_length)
 
 async def _schedule_synthetic_query(redis_db: Redis, task: str, max_len: int):
-    await putils.add_synthetic_query_to_queue(redis_db, task, max_len)
+    await add_synthetic_query_to_queue(redis_db, task, max_len)
 
 
 async def _clear_old_synthetic_queries(redis_db: Redis):
@@ -185,7 +201,7 @@ async def schedule_synthetics_until_done(config: Config):
         GAUGE_TOTAL_REQUESTS.set(schedule.total_requests, {"task": schedule.task})
         GAUGE_SCHEDULE_REMAINING_REQUESTS.set(schedule.remaining_requests, {"task": schedule.task})
         GAUGE_LATEST_REMAINING_REQUESTS.set(latest_remaining_requests, {"task": schedule.task})
-        
+
         if schedule.remaining_requests > 0:
             heapq.heappush(task_schedules, schedule)
         else:
@@ -197,7 +213,7 @@ async def schedule_synthetics_until_done(config: Config):
         if i % 100 == 0:
             # Print full stats of all tasks
             schedules_left = [heapq.heappop(task_schedules) for _ in range(len(task_schedules))]
-            
+
             task_info = []
             for schedule in schedules_left:
                 task_info.append(

@@ -1,12 +1,12 @@
 from functools import partial
 import os
 from fastapi.routing import APIRouter
-from fiber.miner.dependencies import blacklist_low_stake, get_config, verify_request
-from fiber.miner.security.encryption import decrypt_general_payload
+from fiber.encrypted.miner.dependencies import blacklist_low_stake, get_config, verify_request
+from fiber.encrypted.miner.security.encryption import decrypt_general_payload
 from core.models.payload_models import CapacityPayload
 from fiber.logging_utils import get_logger
 from fastapi import Depends, Header
-from fiber.miner.core.configuration import Config
+from fiber.encrypted.miner.core.configuration import Config
 from fiber import constants as fcst
 from core import constants as cst
 
@@ -21,7 +21,7 @@ async def capacity(
     logger.info(f"Received task configs: {configs} from validator {validator_hotkey}. I should do something with this info...")
 
     my_miner_type = os.getenv("MINER_TYPE")
-    
+
     metagraph = config.metagraph
     validator_node = metagraph.nodes.get(validator_hotkey)
     total_stake = sum(node.stake for node in metagraph.nodes.values())
@@ -38,7 +38,7 @@ async def capacity(
 
         if my_miner_type != task_type:
             continue
-        
+
         # TO help dev by just returning 10% to all  validators
         if os.getenv("ENV", "prod").lower() == "dev":
             capacities[task] = max_capacity * 0.1

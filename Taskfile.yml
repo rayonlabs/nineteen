@@ -58,9 +58,9 @@ tasks:
 
   update_docker_fiber_version:
     cmds:
-      - docker run --rm nineteen-control_node sh -c "pip install git+https://github.com/rayonlabs/fiber.git@1.0.0 --upgrade"
-      - docker run --rm nineteen-organic_node sh -c "pip install git+https://github.com/rayonlabs/fiber.git@1.0.0 --upgrade"
-      - docker run --rm nineteen-synthetic_node sh -c "pip install git+https://github.com/rayonlabs/fiber.git@1.0.0 --upgrade"
+      - docker run --rm nineteen-control_node sh -c "pip install git+https://github.com/rayonlabs/fiber.git@2.1.0 --upgrade"
+      - docker run --rm nineteen-organic_node sh -c "pip install git+https://github.com/rayonlabs/fiber.git@2.1.0 --upgrade"
+      - docker run --rm nineteen-synthetic_node sh -c "pip install git+https://github.com/rayonlabs/fiber.git@2.1.0 --upgrade"
 
   createm:
     cmds:

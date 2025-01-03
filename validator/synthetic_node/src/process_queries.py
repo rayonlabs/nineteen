@@ -13,8 +13,6 @@ from validator.common.query import nonstream, streaming
 from validator.db.src.sql.contenders import get_contenders_for_task, update_total_requests_made
 from validator.db.src.sql.nodes import get_node
 from validator.utils.generic import generic_constants as gcst
-from validator.utils.contender import contender_utils as putils
-
 
 logger = get_logger(__name__)
 
@@ -134,8 +132,7 @@ async def process_task(config: Config, message: rdc.QueryQueueMessage):
             status_code=500,
             error_message=f"{message.query_type} type is not supported! This node only processes synthetic queries!",
         )
-
-    message.query_payload = await putils.get_synthetic_payload(config.redis_db, task)
+    logger.info("Got synthetic query, processing...")
 
     task_config = tcfg.get_enabled_task_config(task)
     if task_config is None:

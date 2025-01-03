@@ -2,15 +2,15 @@ from functools import partial
 from fastapi import Depends, HTTPException
 
 from fastapi.responses import StreamingResponse
-from fiber.miner.security.encryption import decrypt_general_payload
+from fiber.encrypted.miner.security.encryption import decrypt_general_payload
 import httpx
 from core.models import payload_models
 from fastapi.routing import APIRouter
 from fiber.logging_utils import get_logger
 
 from miner.logic.chat import chat_stream
-from fiber.miner.core.configuration import Config
-from fiber.miner.dependencies import blacklist_low_stake, get_config, verify_request
+from fiber.encrypted.miner.core.configuration import Config
+from fiber.encrypted.miner.dependencies import blacklist_low_stake, get_config, verify_request
 from miner.config import WorkerConfig
 from miner.dependencies import get_worker_config
 

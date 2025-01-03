@@ -2,8 +2,8 @@ import json
 import time
 from httpx import Response
 from pydantic import ValidationError
-from fiber.networking.models import NodeWithFernet as Node
-from fiber.validator import client
+from fiber.encrypted.networking.models import NodeWithFernet as Node
+from fiber.encrypted.validator import client
 from fiber.logging_utils import get_logger
 from typing import Tuple, Union
 import traceback

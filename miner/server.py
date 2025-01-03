@@ -1,11 +1,11 @@
 import os
-from fiber.miner import server
+from fiber.encrypted.miner import server
 from core.models.config_models import TaskType
 from miner.endpoints.text import factory_router as text_factory_router
 from miner.endpoints.image import factory_router as image_factory_router
 from miner.endpoints.generic import factory_router as generic_factory_router
 from fiber.logging_utils import get_logger
-from fiber.miner.middleware import configure_extra_logging_middleware
+from fiber.encrypted.miner.middleware import configure_extra_logging_middleware
 
 logger = get_logger(__name__)
 

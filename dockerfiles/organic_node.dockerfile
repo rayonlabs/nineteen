@@ -12,14 +12,21 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     curl \
     git \
+    wget \
+    ca-certificates \
+    && curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y \
     && rm -rf /var/lib/apt/lists/*
+
+# Needed for commit reveal
+ENV PATH="/root/.cargo/bin:${PATH}"
+
 
 RUN pip install --upgrade pip
 
 ENV PYTHONPATH=/app:$PYTHONPATH
 
 ARG BREAK_CACHE_ARG=0
-RUN pip install --no-cache-dir "git+https://github.com/rayonlabs/fiber.git@1.0.0#egg=fiber[full]"
+RUN pip install --no-cache-dir "fiber[full] @ git+https://github.com/rayonlabs/fiber.git@2.1.0"
 ################################################################################
 
 FROM core AS organic_node
