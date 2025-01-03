@@ -2,6 +2,7 @@ from typing import Any
 from pydantic import BaseModel, Field
 from core.models import utility_models
 from fiber.logging_utils import get_logger
+
 logger = get_logger(__name__)
 
 
@@ -44,8 +45,6 @@ class TextToImageRequest(BaseModel):
     model: str = Field(..., examples=["proteus_text_to_image"], title="Model")
 
 
-
-
 class ImageToImageRequest(BaseModel):
     init_image: str = Field(
         ...,
@@ -63,9 +62,6 @@ class ImageToImageRequest(BaseModel):
     height: int = Field(1024, description="Height for image generation")
     model: str = Field(..., examples=["proteus_image_to_image"], title="Model")
     image_strength: float = Field(0.5, description="Image strength for image generation")
-
-
-
 
 
 class AvatarRequest(BaseModel):
@@ -91,7 +87,6 @@ class AvatarRequest(BaseModel):
             "iVBORw0KGgoAAAANSUhEUgAAAAUA",
         ],
     )
-
 
 
 class ImageResponse(BaseModel):

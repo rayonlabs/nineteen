@@ -211,7 +211,6 @@ async def get_contenders_for_organic_task(psql_db: PSQLDB, task: str, top_x: int
         return await get_contenders_for_synthetic_task(psql_db, task, top_x)
 
 
-
 async def get_contenders_for_task(psql_db: PSQLDB, task: str, top_x: int = 5,
                                   query_type: str = gcst.SYNTHETIC) -> list[Contender]:
     if query_type == gcst.SYNTHETIC:

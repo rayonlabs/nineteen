@@ -2,40 +2,39 @@ import json
 import time
 import traceback
 from typing import AsyncGenerator
+from fiber.encrypted.validator import client
+from fiber.encrypted.networking.models import NodeWithFernet as Node
+from fiber.logging_utils import get_logger
 
 import httpx
 from opentelemetry import metrics
-from core.models import utility_models
-from validator.query_node.src.query_config import Config
-from validator.query_node.src import utils
 
+from core.models import utility_models
+from validator.common.query_config import Config
+from validator.common import utils
 from validator.models import Contender
-from fiber.encrypted.validator import client
-from fiber.encrypted.networking.models import NodeWithFernet as Node
 from core import task_config as tcfg
 from validator.utils.generic import generic_constants as gcst, generic_utils
 from validator.utils.redis import redis_constants as rcst
-
-from fiber.logging_utils import get_logger
-
 from validator.utils.query.query_utils import load_sse_jsons
+
 
 logger = get_logger(__name__)
 
 GAUGE_ORGANIC_TOKENS_PER_SEC = metrics.get_meter(__name__).create_gauge(
-    "validator.query_node.query.streaming.organic.tokens_per_sec",
+    "validator.synthetic_node.query.streaming.organic.tokens_per_sec",
     description="Average tokens per second metric for LLM streaming for any organic query"
 )
 GAUGE_ORGANIC_TOKENS = metrics.get_meter(__name__).create_gauge(
-    "validator.query_node.query.streaming.organic.tokens",
+    "validator.synthetic_node.query.streaming.organic.tokens",
     description="Total tokens for LLM streaming for an organic LLM query"
 )
 GAUGE_SYNTHETIC_TOKENS_PER_SEC = metrics.get_meter(__name__).create_gauge(
-    "validator.query_node.query.streaming.synthetic.tokens_per_sec",
+    "validator.synthetic_node.query.streaming.synthetic.tokens_per_sec",
     description="Average tokens per second metric for LLM streaming for any synthetic query"
 )
 GAUGE_SYNTHETIC_TOKENS = metrics.get_meter(__name__).create_gauge(
-    "validator.query_node.query.streaming.synthetic.tokens",
+    "validator.synthetic_node.query.streaming.synthetic.tokens",
     description="Total tokens for LLM streaming for a synthetic LLM query"
 )
 

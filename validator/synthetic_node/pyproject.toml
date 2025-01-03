@@ -3,14 +3,14 @@ requires = ["setuptools>=45", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "chain_node"
+name = "synthetic_node"
 version = "1.0.0"
-description = "Interacts with the chain - without holding any private key information"
+description = "Query node service for the validator"
 dynamic = ["dependencies"]
 
 [tool.setuptools.packages.find]
 where = ["src"]
-include = ["entry_node*"]
+include = ["synthetic_node*"]
 
 [tool.setuptools.dynamic]
 dependencies = { file = ["requirements.txt"] }

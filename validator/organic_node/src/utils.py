@@ -5,7 +5,7 @@ import httpx
 from core.models import config_models as cmodels
 from fiber.logging_utils import get_logger
 from core import task_config as tcfg
-from validator.entry_node.src.models.request_models import (
+from validator.organic_node.src.models.request_models import (
     AvatarRequest,
     ChatRequest,
     CompletionRequest,

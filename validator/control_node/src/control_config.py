@@ -1,6 +1,8 @@
 import os
 from dataclasses import dataclass
-from redis.asyncio import Redis
+from redis.asyncio import Redis, ConnectionPool
+from redis.retry import Retry
+from redis.backoff import ExponentialBackoff
 
 from fiber.logging_utils import get_logger
 
@@ -87,11 +89,30 @@ def load_config() -> Config:
         os.getenv("SET_METAGRAPH_WEIGHTS_WITH_HIGH_UPDATED_TO_NOT_DEREG", "false").lower() == "true"
     )
 
+    if "://" in redis_host:
+        pool = ConnectionPool.from_url(
+            redis_host,
+            max_connections=10,
+            socket_keepalive=True,
+            health_check_interval=30,
+            retry=Retry(ExponentialBackoff(), 3)
+        )
+        redis = Redis(connection_pool=pool)
+    else:
+        pool = ConnectionPool(
+            host=redis_host,
+            max_connections=10,
+            socket_keepalive=True,
+            health_check_interval=30,
+            retry=Retry(ExponentialBackoff(), 3)
+    )
+    redis = Redis(connection_pool=pool)
+
     return Config(
         substrate=substrate,  # type: ignore
         keypair=keypair,
         psql_db=PSQLDB(),
-        redis_db=Redis(host=redis_host),
+        redis_db=redis,
         subtensor_network=subtensor_network,
         subtensor_address=subtensor_address,
         netuid=netuid,
