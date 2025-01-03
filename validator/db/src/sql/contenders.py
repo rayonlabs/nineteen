@@ -184,11 +184,6 @@ async def get_contenders_for_organic_task(psql_db: PSQLDB, task: str, top_x: int
         )
     logger.debug(f"Number of valid contenders for task {task} for organic query : {len(rows)}")
 
-    #contenders = [Contender(**{k: v for k, v in row.items() if k != dcst.COLUMN_NORMALISED_NET_SCORE}) for row in rows]
-    #contenders = [contender for contender in contenders if contender.node_hotkey == '5HKqCY2TTeGKXmf48dBZLGyQB89TT3JUKz4X7iY5bjM886yB']
-    #logger.info(f"Selected contenders : {contenders}")
-    #return contenders
-
     contenders = [Contender(**{k: v for k, v in row.items() if k != dcst.COLUMN_NORMALISED_NET_SCORE}) for row in rows]
     scores = {c.node_id: row[dcst.COLUMN_NORMALISED_NET_SCORE] for c, row in zip(contenders, rows)}
 
