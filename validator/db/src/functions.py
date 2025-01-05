@@ -30,6 +30,7 @@ db_lock = asyncio.Lock()
 async def insert_task_results(
     connection: Connection, task: str, result: utility_models.QueryResult, synthetic_query: bool, payload: dict
 ) -> None:
+
     row_count = await select_count_of_rows_in_tasks(connection)
 
     if row_count >= MAX_TASKS_IN_DB_STORE + 10:
@@ -40,6 +41,7 @@ async def insert_task_results(
         "payload": json.dumps(payload),
         "synthetic_query": synthetic_query,
     }
+
     hotkey = result.node_hotkey
     if hotkey is None:
         return None
@@ -48,19 +50,28 @@ async def insert_task_results(
 
 
 async def potentially_store_result_in_db(
-    psql_db: PSQLDB, result: utility_models.QueryResult, task: str, synthetic_query: bool, payload: dict
+    psql_db: PSQLDB, result: utility_models.QueryResult, task: str, synthetic_query: bool, payload: dict, status_code: int = 200
 ) -> None:
+
     task_config = tcfg.get_enabled_task_config(task)
     if task_config is None:
         return
-    target_percentage = task_config.weight
-    target_number_of_tasks_to_store = int(MAX_TASKS_IN_DB_STORE * target_percentage)
-    async with await psql_db.connection() as connection:
-        number_of_these_tasks_already_stored = await select_count_rows_of_task_stored_for_scoring(connection, task)
-        if number_of_these_tasks_already_stored <= target_number_of_tasks_to_store:
+
+    if status_code == 200:
+        target_percentage = task_config.weight
+        target_number_of_tasks_to_store = int(MAX_TASKS_IN_DB_STORE * target_percentage)
+        async with await psql_db.connection() as connection:
+            number_of_these_tasks_already_stored = await select_count_rows_of_task_stored_for_scoring(connection, task)
+            if number_of_these_tasks_already_stored <= target_number_of_tasks_to_store:
+                await insert_task_results(
+                    connection=connection, task=task, result=result, payload=payload, synthetic_query=synthetic_query
+                )
+    else:
+        async with await psql_db.connection() as connection:
             await insert_task_results(
                 connection=connection, task=task, result=result, payload=payload, synthetic_query=synthetic_query
             )
+
 
 
 async def select_and_delete_task_result(psql_db: PSQLDB, task: str) -> tuple[list[dict[str, Any]], str] | None:
