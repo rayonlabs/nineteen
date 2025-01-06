@@ -56,7 +56,4 @@ async def adjust_contender_from_result(
     else:
         logger.debug(f"❌ 💔 500 error; Adjusting node {contender.node_id} for task {query_result.task}.")
         await update_contender_500_count(config.psql_db, contender)
-        await db_functions.potentially_store_result_in_db(
-            config.psql_db, query_result, query_result.task, synthetic_query=synthetic_query, payload=payload, status_code=500
-        )
     return query_result
