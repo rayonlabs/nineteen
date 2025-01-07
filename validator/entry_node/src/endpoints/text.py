@@ -153,7 +153,20 @@ async def _handle_no_stream_comp(text_generator: AsyncGenerator[str, str]) -> JS
                 if content == "":
                     break
 
-    return JSONResponse({"choices": [{"message": {"content": all_content}}]})
+    return JSONResponse(
+            {
+                "choices": [
+                    {
+                        "index": 0,
+                        "finish_reason": "stop",
+                        "message": {
+                            "content": all_content,
+                            "role": "assistant"
+                        }
+                    }
+                ]
+            }
+        )
 
 
 async def chat(
