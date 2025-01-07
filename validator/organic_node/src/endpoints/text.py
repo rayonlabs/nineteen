@@ -131,7 +131,7 @@ async def _process_stream_query(
     raise HTTPException(status_code=500, detail="No available nodes could process the request")
 
 
-async def _handle_nonstream_response(generator: AsyncGenerator[str, None]) -> JSONResponse:
+async def _handle_nonstream_response(generator: AsyncGenerator[str, None], chat=True) -> JSONResponse:
     all_content = ""
     first_chunk = True
     role = "assistant"
@@ -166,8 +166,7 @@ async def _handle_nonstream_response(generator: AsyncGenerator[str, None]) -> JS
             if content is not None:
                 all_content += content
 
-    # format response based on request type
-    if role == "assistant":
+    if chat:
         return JSONResponse(
             {
             "choices": [
@@ -253,7 +252,7 @@ async def chat_comp(
         if chat_request.stream:
             return StreamingResponse(generator, media_type="text/event-stream")
         else:
-            return await _handle_nonstream_response(generator)
+            return await _handle_nonstream_response(generator, chat=False)
 
     except HTTPException as http_exc:
         COUNTER_TEXT_GENERATION_ERROR.add(1, {
