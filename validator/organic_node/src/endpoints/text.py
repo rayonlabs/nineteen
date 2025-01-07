@@ -171,6 +171,8 @@ async def _handle_nonstream_response(generator: AsyncGenerator[str, None], chat=
             {
             "choices": [
                 {
+                "index": 0,
+                "finish_reason": "stop",
                 "message": {
                     "content": all_content,
                     "role": role
