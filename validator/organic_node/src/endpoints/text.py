@@ -168,8 +168,10 @@ async def _handle_nonstream_response(generator: AsyncGenerator[str, None]) -> JS
 
     # format response based on request type
     if role == "assistant":
-        return JSONResponse({
-            "choices": [{
+        return JSONResponse(
+            {
+            "choices": [
+                {
                 "message": {
                     "content": all_content,
                     "role": role
@@ -178,11 +180,20 @@ async def _handle_nonstream_response(generator: AsyncGenerator[str, None]) -> JS
         })
     else:
         # completion-style responses
-        return JSONResponse({
-            "choices": [{
-                "text": all_content
-            }]
-        })
+        return JSONResponse(
+            {
+                "choices": [
+                    {
+                        "index": 0,
+                        "finish_reason": "stop",
+                        "message": {
+                            "content": all_content,
+                            "role": "assistant"
+                        }
+                    }
+                ]
+            }
+        )
 
 async def chat(
     chat_request: request_models.ChatRequest,
