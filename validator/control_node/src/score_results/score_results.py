@@ -111,6 +111,7 @@ async def _process_and_store_score(
     payload: Dict[str, Any],
     node_hotkey: str,
     task_result: Dict[str, Any],
+    checking_data: str,
     synthetic_query: bool,
 ) -> None:
     node_scores = task_result.get("node_scores", {})
@@ -142,6 +143,7 @@ async def _process_and_store_score(
             validator_hotkey=config.keypair.ss58_address,
             node_hotkey=node_hotkey,
             synthetic_query=synthetic_query,
+            checking_data=checking_data,
             response_time=result["response_time"],
             volume=volume,
             metric=metric,
@@ -233,6 +235,7 @@ async def _score_task(config: Config, task: str, max_tasks_to_score: int):
             task=task,
             result=query_result,
             payload=payload,
+            checking_data=json.dumps(raw_checking_data),
             node_hotkey=node_hotkey,
             task_result=task_result,
             synthetic_query=synthetic_query,

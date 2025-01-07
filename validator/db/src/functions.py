@@ -109,11 +109,12 @@ async def fetch_recent_most_rewards(
             validator_hotkey=row[4],
             node_hotkey=row[5],
             synthetic_query=row[6],
-            metric=row[7],
-            stream_metric=row[8],
-            response_time=row[9],
-            volume=row[10],
-            created_at=row[11],
+            checking_data=row[7],
+            metric=row[8],
+            stream_metric=row[9],
+            response_time=row[10],
+            volume=row[11],
+            created_at=row[12],
         )
         for row in priority_results + fill_results
     ]
