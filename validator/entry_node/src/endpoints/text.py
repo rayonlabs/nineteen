@@ -139,8 +139,20 @@ async def _handle_no_stream(text_generator: AsyncGenerator[str, str]) -> JSONRes
                 if content == "":
                     break
 
-    return JSONResponse({"choices": [{"message": {"content": all_content, "role": "assistant"}}]})
-
+    return JSONResponse(
+            {
+                "choices": [
+                    {
+                        "index": 0,
+                        "finish_reason": "stop",
+                        "message": {
+                            "content": all_content,
+                            "role": "assistant"
+                        }
+                    }
+                ]
+            }
+        )
 
 async def _handle_no_stream_comp(text_generator: AsyncGenerator[str, str]) -> JSONResponse:
     all_content = ""
