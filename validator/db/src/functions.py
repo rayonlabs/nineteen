@@ -57,9 +57,10 @@ async def potentially_store_result_in_db(
     if task_config is None:
         return
 
+    target_percentage = task_config.weight
+    target_number_of_tasks_to_store = int(MAX_TASKS_IN_DB_STORE * target_percentage)
+
     if status_code == 200:
-        target_percentage = task_config.weight
-        target_number_of_tasks_to_store = int(MAX_TASKS_IN_DB_STORE * target_percentage)
         async with await psql_db.connection() as connection:
             number_of_these_tasks_already_stored = await select_count_rows_of_task_stored_for_scoring(connection, task)
             if number_of_these_tasks_already_stored <= target_number_of_tasks_to_store:
@@ -68,10 +69,11 @@ async def potentially_store_result_in_db(
                 )
     else:
         async with await psql_db.connection() as connection:
-            await insert_task_results(
-                connection=connection, task=task, result=result, payload=payload, synthetic_query=synthetic_query
-            )
-
+            number_of_contender_tasks_already_stored = await select_count_rows_of_task_stored_for_scoring(connection, task, result.node_hotkey) # type: ignore
+            if number_of_contender_tasks_already_stored <= 0.1 * target_number_of_tasks_to_store:
+                await insert_task_results(
+                    connection=connection, task=task, result=result, payload=payload, synthetic_query=synthetic_query
+                )
 
 
 async def select_and_delete_task_result(psql_db: PSQLDB, task: str) -> tuple[list[dict[str, Any]], str] | None:
