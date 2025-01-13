@@ -5,7 +5,7 @@ Stores the scored results in the database and potentially posts stats to TauVisi
 """
 
 import asyncio
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import random
 import json
 from typing import Any, Dict
@@ -20,12 +20,12 @@ from validator.models import RewardData
 from validator.utils import work_and_speed_functions
 from validator.db.src import functions as db_functions
 from validator.db.src.sql.rewards_and_scores import (
-    delete_all_of_specific_task,
     delete_contender_history_older_than,
     delete_reward_data_older_than,
     delete_task_data_older_than_date,
     select_tasks_and_number_of_results,
     sql_insert_reward_data,
+    select_latest_reward_dates_per_task
 )
 from validator.control_node.src.control_config import Config
 
@@ -173,26 +173,33 @@ async def score_results(config: Config):
     if config.gpu_server_address is None:
         logger.error("GPU_SERVER_ADDRESS is not set - skipping all scoring!")
         return
+
     await _wait_for_external_server(config)
+
     while True:
         async with await config.psql_db.connection() as connection:
+            latest_reward_dates = await select_latest_reward_dates_per_task(connection)
             tasks_and_results = await select_tasks_and_number_of_results(connection)
 
-        total_tasks_stored = sum(tasks_and_results.values())
         min_tasks_to_start_scoring = 100 if config.netuid == ccst.PROD_NETUID else 1
+        total_tasks_stored = sum(tasks_and_results.values())
 
         if total_tasks_stored < min_tasks_to_start_scoring:
             await asyncio.sleep(5)
             continue
 
-        task_to_score_str = random.choices(list(tasks_and_results.keys()), weights=list(tasks_and_results.values()), k=1)[0]
-        try:
-            task_to_score = task_to_score_str
-        except ValueError:
-            logger.error(f"Invalid task: {task_to_score_str}")
-            async with await config.psql_db.connection() as connection:
-                await delete_all_of_specific_task(connection, task_to_score_str)
-            continue
+        current_time = datetime.now(timezone.utc)
+
+        never_scored_tasks = [task for task in tasks_and_results if task not in latest_reward_dates]
+        if never_scored_tasks:
+            task_to_score = random.choice(never_scored_tasks)
+            logger.info(f"Selected never-scored task: {task_to_score}")
+            await _score_task(config, task_to_score, max_tasks_to_score=200)
+
+        else:
+            task_to_score = max(latest_reward_dates.items(),
+                            key=lambda x: (current_time - x[1].replace(tzinfo=timezone.utc)).total_seconds())[0]
+            logger.info(f"Selected oldest-scored task: {task_to_score}")
 
         await _score_task(config, task_to_score, max_tasks_to_score=200)
 
