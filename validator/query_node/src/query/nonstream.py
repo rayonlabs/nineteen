@@ -1,6 +1,7 @@
 import json
 import time
 from httpx import Response
+import httpx
 from pydantic import ValidationError
 from core.models import utility_models
 from core.models.payload_models import ImageResponse
@@ -16,20 +17,6 @@ from validator.utils.redis import redis_constants as rcst
 from validator.utils.generic import generic_utils
 
 logger = get_logger(__name__)
-
-
-def _get_500_query_result(node_id: int, contender: Contender) -> utility_models.QueryResult:
-    query_result = utility_models.QueryResult(
-        formatted_response=None,
-        node_id=node_id,
-        node_hotkey=contender.node_hotkey,
-        response_time=None,
-        stream_time=None,
-        task=contender.task,
-        status_code=500,
-        success=False,
-    )
-    return query_result
 
 
 def get_formatted_response(
@@ -121,9 +108,25 @@ async def query_nonstream(
             payload=payload,
             timeout=task_config.timeout,
         )
-    except Exception as e:
+    except httpx.HTTPStatusError as e:
+        if e.response.status_code == 400:
+            logger.error(f"400 Bad Request error when querying node: {node.node_id} for task: {contender.task}. Error: {e}")
+            query_result = generic_utils._get_400_query_result(node_id=node_id, contender=contender)
+        else:
+            logger.error(f"HTTP error {e.response.status_code} when querying node: {node.node_id} for task: {contender.task}. Error: {e}")
+            query_result = generic_utils._get_500_query_result(node_id=node_id, contender=contender)
+
+        await utils.adjust_contender_from_result(
+            config=config,
+            query_result=query_result,
+            contender=contender,
+            synthetic_query=synthetic_query,
+            payload=payload
+        )
+        return False
+    except Exception as e: # for all other exceptions (network issues, timeouts etc)
         logger.error(f"Error when querying node: {node.node_id} for task: {contender.task}. Error: {e}")
-        query_result = _get_500_query_result(node_id=node_id, contender=contender)
+        query_result = generic_utils._get_500_query_result(node_id=node_id, contender=contender)
         await utils.adjust_contender_from_result(
             config=config, query_result=query_result, contender=contender, synthetic_query=synthetic_query, payload=payload
         )
@@ -134,7 +137,7 @@ async def query_nonstream(
         formatted_response = get_formatted_response(response, response_model)
     except Exception as e:
         logger.error(f"Error when deserializing response for task: {contender.task}. Error: {traceback.format_exception(e)}")
-        query_result = _get_500_query_result(node_id=node_id, contender=contender)
+        query_result = generic_utils._get_500_query_result(node_id=node_id, contender=contender)
         await utils.adjust_contender_from_result(
             config=config, query_result=query_result, contender=contender, synthetic_query=synthetic_query, payload=payload
         )
