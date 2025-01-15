@@ -3,12 +3,38 @@ import json
 import logging
 import time
 from typing import AsyncGenerator
-
-
+from core.models import utility_models
+from validator.models import Contender
 from fiber.logging_utils import get_logger
 from validator.utils.generic import generic_constants as gcst
 
 logger = get_logger(__name__)
+
+def _get_500_query_result(node_id: int, contender: Contender) -> utility_models.QueryResult:
+    query_result = utility_models.QueryResult(
+        formatted_response=None,
+        node_id=node_id,
+        node_hotkey=contender.node_hotkey,
+        response_time=None,
+        stream_time=None,
+        task=contender.task,
+        status_code=500,
+        success=False,
+    )
+    return query_result
+
+def _get_400_query_result(node_id: int, contender: Contender) -> utility_models.QueryResult:
+    query_result = utility_models.QueryResult(
+        formatted_response=None,
+        node_id=node_id,
+        node_hotkey=contender.node_hotkey,
+        response_time=None,
+        stream_time=None,
+        task=contender.task,
+        status_code=400,
+        success=False,
+    )
+    return query_result
 
 
 @contextlib.contextmanager

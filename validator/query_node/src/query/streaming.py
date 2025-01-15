@@ -87,20 +87,6 @@ async def async_chain(first_chunk, async_gen):
         yield item  # then yield from the original generator
 
 
-def construct_500_query_result(node: Node, task: str) -> utility_models.QueryResult:
-    query_result = utility_models.QueryResult(
-        node_id=node.node_id,
-        task=task,
-        success=False,
-        node_hotkey=node.hotkey,
-        formatted_response=None,
-        status_code=500,
-        response_time=None,
-        stream_time=None
-    )
-    return query_result
-
-
 async def consume_generator(
     config: Config,
     generator: AsyncGenerator,
@@ -120,13 +106,30 @@ async def consume_generator(
     try:
         first_chunk = await generator.__anext__()  # TODO: use `anext(generator)`
 
+    except httpx.HTTPStatusError as e:
+        if e.response.status_code == 400:
+            logger.error(f"400 Bad Request error when querying node: {node.node_id} for task: {contender.task}. Error: {e}")
+            query_result = generic_utils._get_400_query_result(node_id=node.node_id, contender=contender)
+        else:
+            logger.error(f"HTTP error {e.response.status_code} when querying node: {node.node_id} for task: {contender.task}. Error: {e}")
+            query_result = generic_utils._get_500_query_result(node_id=node.node_id, contender=contender)
+
+        await utils.adjust_contender_from_result(
+            config=config,
+            query_result=query_result,
+            contender=contender,
+            synthetic_query=synthetic_query,
+            payload=payload
+        )
+        return False
+
     except (StopAsyncIteration, httpx.ConnectError, httpx.ReadError, httpx.HTTPError, httpx.ReadTimeout, Exception) as e:
         logger.error(f"Error when querying node: {node.node_id} for task: {task}.")
 
         # drop the stacktrace while we're here (otel doesn't like logger.exception)
         logger.error("\n".join(traceback.format_exception(e)))
 
-        query_result = construct_500_query_result(node, task)
+        query_result = generic_utils._get_500_query_result(node, contender)
         await utils.adjust_contender_from_result(config, query_result, contender, synthetic_query, payload=payload)
 
         return False
@@ -218,9 +221,17 @@ async def consume_generator(
             else:
                 GAUGE_ORGANIC_TOKENS.set(tokens, {"task": task})
                 GAUGE_ORGANIC_TOKENS_PER_SEC.set(tokens / response_time, {"task": task})
+    except httpx.HTTPStatusError as e:
+        if e.response.status_code == 400:
+            logger.error(f"400 Bad Request error when querying node: {node.node_id} for task: {contender.task}. Error: {e}")
+            query_result = generic_utils._get_400_query_result(node_id=node.node_id, contender=contender)
+        else:
+            logger.error(f"HTTP error {e.response.status_code} when querying node: {node.node_id} for task: {contender.task}. Error: {e}")
+            query_result = generic_utils._get_500_query_result(node_id=node.node_id, contender=contender)
+        success = False
     except Exception as e:
         logger.error(f"Unexpected exception when querying node: {node.node_id} for task: {task}. Payload: {payload}. Error: {e}")
-        query_result = construct_500_query_result(node, task)
+        query_result = generic_utils._get_500_query_result(node, contender)
         success = False
     finally:
         if query_result is not None:
