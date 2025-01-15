@@ -46,9 +46,12 @@ def create_redis_pool(host: str) -> BlockingConnectionPool:
     pool_config = {
         "max_connections": 10,
         "socket_keepalive": True,
+        "retry_on_timeout": True,
         "health_check_interval": 30,
-        "retry": Retry(ExponentialBackoff(), 3),
+        "retry": Retry(ExponentialBackoff(cap=10, base=1), 5),
         "timeout": 20,
+        "socket_connect_timeout": 10,
+        "socket_timeout": 10
     }
     if "://" in host:
         return BlockingConnectionPool.from_url(host, **pool_config)

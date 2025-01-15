@@ -193,10 +193,11 @@ async def consume_generator(
             logger.info(f" 👀  Queried node: {node.node_id} for task: {task}. Success: {not first_message}.")
 
         response_time = time.time() - start_time
-        try:
+
+        if stream_time_init is not None:
             stream_time = time.time() - stream_time_init
-        except Exception as e:
-            logger.error(f"Error in calculating stream_time: {e} ; setting stream_time as response_time")
+        else:
+            logger.info("Error in calculating stream_time; setting stream_time as response_time")
             stream_time = response_time
 
         query_result = utility_models.QueryResult(
@@ -226,11 +227,6 @@ async def consume_generator(
             await utils.adjust_contender_from_result(config, query_result, contender, synthetic_query, payload=payload)
             await config.redis_db.expire(rcst.QUERY_RESULTS_KEY + ":" + job_id, 10)
 
-    if "comp" in task:
-        character_count = sum([len(text_json["choices"][0]["text"]) for text_json in text_jsons])
-    else:
-        character_count = sum([len(text_json["choices"][0]["delta"]["content"]) for text_json in text_jsons])
-    logger.debug(f"Success: {success}; Node: {node.node_id}; Task: {task}; response_time: {response_time}; first_message: {first_message}; character_count: {character_count}")
     logger.info(f"Success: {success}")
     return success
 
