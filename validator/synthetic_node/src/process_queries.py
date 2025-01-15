@@ -1,12 +1,15 @@
 import time
 from opentelemetry import metrics
 from fiber.logging_utils import get_logger
+import httpx
+import traceback
 
 from core.models.payload_models import ImageResponse
 from core import task_config as tcfg
 from validator.models import Contender
 from validator.common.query_config import Config
 from validator.utils.generic import generic_utils as gutils
+from validator.common import utils as cutils
 from validator.utils.redis import redis_constants as rcst
 from validator.utils.redis import redis_dataclasses as rdc
 from validator.common.query import nonstream, streaming
@@ -46,6 +49,19 @@ async def _handle_stream_query(config: Config, message: rdc.QueryQueueMessage, c
         )
         # TODO: Make sure we still punish if generator is None
         if generator is None:
+            continue
+
+        try:
+            _ = await generator.__anext__()  # TODO: use `anext(generator)`
+
+        except (StopAsyncIteration, httpx.ConnectError, httpx.ReadError, httpx.HTTPError, httpx.ReadTimeout, Exception) as e:
+            logger.error(f"Error when querying node: {node.node_id} for task: {contender.task}.")
+
+            # drop the stacktrace while we're here (otel doesn't like logger.exception)
+            logger.error("\n".join(traceback.format_exception(e)))
+
+            query_result = streaming.construct_500_query_result(node, contender.task)
+            await cutils.adjust_contender_from_result(config, query_result, contender, False, payload=message.query_payload)
             continue
 
         success = await streaming.consume_generator(

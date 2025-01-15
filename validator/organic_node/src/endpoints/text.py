@@ -4,6 +4,8 @@ from fastapi.responses import JSONResponse, StreamingResponse
 from opentelemetry import metrics
 from fiber.logging_utils import get_logger
 from fastapi.routing import APIRouter
+import httpx
+import traceback
 import time
 import json
 
@@ -68,6 +70,19 @@ async def _process_stream_query(
         if not generator:
             continue
 
+        try:
+            _ = await generator.__anext__()  # TODO: use `anext(generator)`
+
+        except (StopAsyncIteration, httpx.ConnectError, httpx.ReadError, httpx.HTTPError, httpx.ReadTimeout, Exception) as e:
+            logger.error(f"Error when querying node: {node.node_id} for task: {task}.")
+
+            # drop the stacktrace while we're here (otel doesn't like logger.exception)
+            logger.error("\n".join(traceback.format_exception(e)))
+
+            query_result = streaming.construct_500_query_result(node, task)
+            await cutils.adjust_contender_from_result(config, query_result, contender, False, payload=payload)
+            continue
+
         stream_time_init = None
         try:
             text_jsons = []
@@ -127,6 +142,7 @@ async def _process_stream_query(
                 await cutils.adjust_contender_from_result(config, query_result, contender, False, payload=payload)
             return
 
+    logger.error(f"All contenders failed for task {task}")
     COUNTER_TEXT_GENERATION_ERROR.add(1, {"task": task, "kind": "all_contenders_failed", "status_code": 500})
     raise HTTPException(status_code=500, detail="No available nodes could process the request")
 
