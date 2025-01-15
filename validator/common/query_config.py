@@ -16,7 +16,7 @@ class Config:
     redis_db: Redis
     ss58_address: str
     netuid: int
-    httpx_client: httpx.AsyncClient = httpx.AsyncClient()
+    httpx_client: httpx.AsyncClient = httpx.AsyncClient(timeout = 5)
     replace_with_localhost: bool = False
     replace_with_docker_localhost: bool = True
     prod: bool = True
