@@ -38,7 +38,7 @@ GAUGE_TOKENS = metrics.get_meter(__name__).create_gauge(
     description="Total tokens for LLM streaming for an organic LLM query"
 )
 GAUGE_TTFB = metrics.get_meter(__name__).create_gauge(
-    "validator.entry_node.text.ttfb",
+    "validator.organic_node.text.ttfb",
     description="Time to first byte for LLM streaming for an organic LLM query"
 )
 
