@@ -37,6 +37,10 @@ GAUGE_TOKENS = metrics.get_meter(__name__).create_gauge(
     "validator.organic_node.text.tokens",
     description="Total tokens for LLM streaming for an organic LLM query"
 )
+GAUGE_TTFB = metrics.get_meter(__name__).create_gauge(
+    "validator.entry_node.text.ttfb",
+    description="Time to first byte for LLM streaming for an organic LLM query"
+)
 
 async def _process_stream_query(
     config: Config,
@@ -118,6 +122,7 @@ async def _process_stream_query(
 
             GAUGE_TOKENS.set(num_tokens, {"task": task})
             GAUGE_TOKENS_PER_SEC.set(tps, {"task": task})
+            GAUGE_TTFB.set(stream_time_init - start_time, {"task": task})
             COUNTER_TEXT_GENERATION_SUCCESS.add(1, {"task": task, "status_code": 200})
 
             logger.info(f"Tokens per second for task {task}: {tps}")
