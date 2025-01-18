@@ -9,6 +9,7 @@ import traceback
 import time
 import json
 
+from core.constants import CHARACTER_TO_TOKEN_CONVERSION
 from validator.organic_node.src.core.configuration import Config
 from validator.organic_node.src.core.dependencies import get_config
 from validator.organic_node.src.core.middleware import verify_api_key_rate_limit
@@ -152,10 +153,11 @@ async def _process_stream_query(
     raise HTTPException(status_code=500, detail="No available nodes could process the request")
 
 
-async def _handle_nonstream_response(generator: AsyncGenerator[str, None], chat=True) -> JSONResponse:
+async def _handle_nonstream_response(prompt_tokens: int, generator: AsyncGenerator[str, None], chat=True) -> JSONResponse:
     all_content = ""
     first_chunk = True
     role = "assistant"
+    out_counter = 0
 
     async for chunk in generator:
         chunks = load_sse_jsons(chunk)
@@ -167,6 +169,7 @@ async def _handle_nonstream_response(generator: AsyncGenerator[str, None], chat=
                 continue
 
             choice = chunk_data["choices"][0]
+            out_counter += 1
 
             if first_chunk:
                 if "delta" in choice:
@@ -190,16 +193,23 @@ async def _handle_nonstream_response(generator: AsyncGenerator[str, None], chat=
     if chat:
         return JSONResponse(
             {
-            "choices": [
-                {
-                "index": 0,
-                "finish_reason": "stop",
-                "message": {
-                    "content": all_content,
-                    "role": role
+                "choices": [
+                    {
+                        "index": 0,
+                        "finish_reason": "stop",
+                        "message": {
+                            "content": all_content,
+                            "role": role
+                        }
+                    }
+                ],
+                "usage": {
+                    "prompt_tokens": prompt_tokens,
+                    "completion_tokens": out_counter,
+                    "total_tokens": prompt_tokens + out_counter
                 }
-            }]
-        })
+            }
+        )
     else:
         # completion-style responses
         return JSONResponse(
@@ -213,7 +223,12 @@ async def _handle_nonstream_response(generator: AsyncGenerator[str, None], chat=
                             "role": "assistant"
                         }
                     }
-                ]
+                ],
+                "usage": {
+                    "prompt_tokens": prompt_tokens,
+                    "completion_tokens": out_counter,
+                    "total_tokens": prompt_tokens + out_counter
+                }
             }
         )
 
@@ -224,6 +239,7 @@ async def chat(
 
     payload = orutils.chat_to_payload(chat_request)
     payload.temperature = 0.5
+    prompt_tokens = int(sum(len(message.content) for message in payload.messages) // CHARACTER_TO_TOKEN_CONVERSION)
 
     await cutils._decrement_requests_remaining(config.redis_db, payload.model)
 
@@ -237,7 +253,7 @@ async def chat(
         if chat_request.stream:
             return StreamingResponse(generator, media_type="text/event-stream")
         else:
-            return await _handle_nonstream_response(generator)
+            return await _handle_nonstream_response(prompt_tokens, generator)
 
     except HTTPException as http_exc:
         COUNTER_TEXT_GENERATION_ERROR.add(1, {
@@ -263,6 +279,8 @@ async def chat_comp(
 
     payload = orutils.chat_comp_to_payload(chat_request)
     payload.temperature = 0.5
+    prompt_tokens = int(len(payload.prompt) // CHARACTER_TO_TOKEN_CONVERSION)
+    
     await cutils._decrement_requests_remaining(config.redis_db, payload.model)
 
     try:
@@ -275,7 +293,7 @@ async def chat_comp(
         if chat_request.stream:
             return StreamingResponse(generator, media_type="text/event-stream")
         else:
-            return await _handle_nonstream_response(generator, chat=False)
+            return await _handle_nonstream_response(prompt_tokens, generator, chat=False)
 
     except HTTPException as http_exc:
         COUNTER_TEXT_GENERATION_ERROR.add(1, {

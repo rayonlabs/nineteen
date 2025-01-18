@@ -9,6 +9,7 @@ from fiber.logging_utils import get_logger
 import httpx
 from opentelemetry import metrics
 
+from core.constants import CHARACTER_TO_TOKEN_CONVERSION
 from core.models import utility_models
 from validator.common.query_config import Config
 from validator.common import utils
@@ -38,7 +39,7 @@ GAUGE_SYNTHETIC_TOKENS = metrics.get_meter(__name__).create_gauge(
     description="Total tokens for LLM streaming for a synthetic LLM query"
 )
 
-def _get_formatted_payload(content: str, first_message: bool, add_finish_reason: bool = False, task: str = "") -> str:
+def _get_formatted_payload(content: str, first_message: bool, add_finish_reason: bool = False, task: str = "") -> dict:
     if 'comp' in task:
         choices_payload: dict[str, str | dict[str, str]] = {"text": content}
         choices_payload["finish_reason"] = "stop"
@@ -52,8 +53,7 @@ def _get_formatted_payload(content: str, first_message: bool, add_finish_reason:
     payload = {
         "choices": [choices_payload],
     }
-    dumped_payload = json.dumps(payload)
-    return dumped_payload
+    return payload
 
 
 async def _handle_event(
@@ -134,6 +134,15 @@ async def consume_generator(
 
     stream_time_init = None
     try:
+        out_tokens_counter = 0
+
+        if payload.get('prompt') is not None:
+            num_input_tokens = int(len(payload['prompt']) // CHARACTER_TO_TOKEN_CONVERSION)
+        elif payload.get('messages') is not None:
+            num_input_tokens = int(sum(len(message['content']) for message in payload['messages']) // CHARACTER_TO_TOKEN_CONVERSION)
+        else:
+            logger.error(f"Can't count input tokens in payload for task: {task}; payload: {payload}")
+            num_input_tokens = 0
         async for text in async_chain(first_chunk, generator):
             if isinstance(text, bytes):
                 text = text.decode()
@@ -164,6 +173,13 @@ async def consume_generator(
                         logger.debug(f"Invalid text_json because there's not delta content: {text_json}")
                         first_message = True  # NOTE: Janky, but so we mark it as a fail
                         break
+                    
+                    out_tokens_counter += 1
+                    text_json["usage"] = {
+                        "prompt_tokens": num_input_tokens,
+                        "completion_tokens": out_tokens_counter,
+                        "total_tokens": num_input_tokens + out_tokens_counter,
+                    }
 
                     text_jsons.append(text_json)
                     dumped_payload = json.dumps(text_json)
@@ -184,6 +200,12 @@ async def consume_generator(
 
         if len(text_jsons) > 0:
             last_payload = _get_formatted_payload("", False, add_finish_reason=True, task = task)
+            last_payload["usage"] = {
+                "prompt_tokens": num_input_tokens,
+                "completion_tokens": out_tokens_counter,
+                "total_tokens": num_input_tokens + out_tokens_counter,
+            }
+            last_payload = json.dumps(last_payload)
             await _handle_event(
                 config, content=f"data: {last_payload}\n\n", synthetic_query=synthetic_query, job_id=job_id, status_code=200
             )
