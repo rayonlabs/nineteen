@@ -38,6 +38,23 @@ GAUGE_TOKENS = metrics.get_meter(__name__).create_gauge(
     description="Total tokens for LLM streaming for an organic LLM query"
 )
 
+
+def estimate_text_tokens(text: str) -> int:
+    return len(text.strip()) // 4 + 1
+
+async def estimate_prompt_tokens(payload: dict[str, Any]) -> int:
+    if "messages" in payload:
+        total_tokens = 0
+        for msg in payload["messages"]:
+            content = msg.get("content", "")
+            # 3 tokens for message format (role / content markers)
+            total_tokens += estimate_text_tokens(content) + 3
+        return total_tokens
+    elif "prompt" in payload:
+        return estimate_text_tokens(payload["prompt"])
+    else:
+        raise ValueError(f"The payload doesn't contain 'messages' nor 'prompt' fields!\n{payload}")
+
 async def _process_stream_query(
     config: Config,
     payload: dict[str, Any],
@@ -51,6 +68,8 @@ async def _process_stream_query(
     start_time = time.time()
     num_tokens = 0
     query_result = None
+
+    n_prompt_tokens = await estimate_prompt_tokens(payload)
 
     for contender in contenders[:5]:
         node = await get_node(config.psql_db, contender.node_id, config.netuid)
@@ -100,6 +119,16 @@ async def _process_stream_query(
                 for chunk_data in chunks:
                     try:
                         num_tokens += 1
+                        chunk_data['usage'] = {
+                                                "prompt_tokens": n_prompt_tokens,
+                                                "completion_tokens": num_tokens,
+                                                "total_tokens": n_prompt_tokens + num_tokens,
+                                                "completion_tokens_details": {
+                                                    "reasoning_tokens": 0,
+                                                    "accepted_prediction_tokens": 0,
+                                                    "rejected_prediction_tokens": 0
+                                                    }
+                                                }
                         yield f"data: {json.dumps(chunk_data)}\n\n"
                     except Exception as e:
                         logger.error(f"Error processing chunk: {e}")
@@ -151,6 +180,7 @@ async def _handle_nonstream_response(generator: AsyncGenerator[str, None], chat=
     all_content = ""
     first_chunk = True
     role = "assistant"
+    usage_info = {}
 
     async for chunk in generator:
         chunks = load_sse_jsons(chunk)
@@ -181,6 +211,8 @@ async def _handle_nonstream_response(generator: AsyncGenerator[str, None], chat=
 
             if content is not None:
                 all_content += content
+            
+            usage_info = chunk_data['usage']
 
     if chat:
         return JSONResponse(
@@ -193,7 +225,8 @@ async def _handle_nonstream_response(generator: AsyncGenerator[str, None], chat=
                     "content": all_content,
                     "role": role
                 }
-            }]
+            }],
+            'usage': usage_info
         })
     else:
         # completion-style responses
@@ -208,7 +241,8 @@ async def _handle_nonstream_response(generator: AsyncGenerator[str, None], chat=
                             "role": "assistant"
                         }
                     }
-                ]
+                ],
+                'usage': usage_info
             }
         )
 
