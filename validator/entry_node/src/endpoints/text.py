@@ -32,6 +32,10 @@ GAUGE_TOKENS = metrics.get_meter(__name__).create_gauge(
     "validator.entry_node.text.tokens",
     description="Total tokens for LLM streaming for an organic LLM query"
 )
+GAUGE_TTFB = metrics.get_meter(__name__).create_gauge(
+    "validator.entry_node.text.ttfb",
+    description="Time to first byte for LLM streaming for an organic LLM query"
+)
 
 def _construct_organic_message(payload: dict, job_id: str, task: str) -> str:
     return json.dumps({"query_type": gcst.ORGANIC, "query_payload": payload, "task": task, "job_id": job_id})
@@ -93,6 +97,7 @@ async def make_stream_organic_query(
     payload: dict[str, Any],
     task: str,
 ) -> AsyncGenerator[str, str]:
+    init_time = time.time()
     job_id = uuid.uuid4().hex
     organic_message = _construct_organic_message(payload=payload, job_id=job_id, task=task)
 
@@ -115,6 +120,7 @@ async def make_stream_organic_query(
     start_time = time.time()
     try:
         first_chunk = await asyncio.wait_for(_get_first_chunk(pubsub, job_id), timeout=2)
+        GAUGE_TTFB.set(time.time() - init_time, {"task": task})
     except asyncio.TimeoutError:
         logger.error(
             f"Query node down? Timed out waiting for the first chunk of results for job {job_id}. Task: {task}, model: {payload['model']}"
