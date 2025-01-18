@@ -40,7 +40,7 @@ GAUGE_TOKENS = metrics.get_meter(__name__).create_gauge(
 
 
 def estimate_text_tokens(text: str) -> int:
-    return len(text.strip()) // 4 + 1
+    return len(text.strip()) // 4
 
 async def estimate_prompt_tokens(payload: dict[str, Any]) -> int:
     if "messages" in payload:
