@@ -140,7 +140,7 @@ async def consume_generator(
         if payload.get('prompt') is not None:
             num_input_tokens = int(len(payload['prompt']) // CHARACTER_TO_TOKEN_CONVERSION)
         elif payload.get('messages') is not None:
-            num_input_tokens = int(sum(len(message.content) for message in payload['messages']) // CHARACTER_TO_TOKEN_CONVERSION)
+            num_input_tokens = int(sum(len(message['content']) for message in payload['messages']) // CHARACTER_TO_TOKEN_CONVERSION)
         else:
             logger.error(f"Can't count input tokens in payload for task: {task}; payload: {payload}")
             num_input_tokens = 0
@@ -254,7 +254,7 @@ async def consume_generator(
         character_count = sum([len(text_json["choices"][0]["text"]) for text_json in text_jsons])
     else:
         character_count = sum([len(text_json["choices"][0]["delta"]["content"]) for text_json in text_jsons])
-    logger.debug(f"Success: {success}; Node: {node.node_id}; Task: {task}; response_time: {response_time}; first_message: {first_message}; character_count: {character_count}")
+    logger.debug(f"Success: {success}; Node: {node.node_id}; Task: {task}; first_message: {first_message}; character_count: {character_count}")
     logger.info(f"Success: {success}")
     return success
 
