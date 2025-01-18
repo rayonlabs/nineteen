@@ -2,10 +2,9 @@ import json
 
 from core.models import config_models as cmodels
 from fiber.logging_utils import get_logger
+from core.constants import CHARACTER_TO_TOKEN_CONVERSION
 
 logger = get_logger(__name__)
-
-CHARACTER_TO_TOKEN_CONVERSION = 4.0
 
 
 def _calculate_work_image(steps: int) -> float:
