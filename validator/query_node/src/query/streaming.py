@@ -140,7 +140,7 @@ async def consume_generator(
         if payload.get('prompt') is not None:
             num_input_tokens = int(len(payload['prompt']) // CHARACTER_TO_TOKEN_CONVERSION)
         elif payload.get('messages') is not None:
-            num_input_tokens = int(sum(len(message.content) for message in payload['messages']) // CHARACTER_TO_TOKEN_CONVERSION)
+            num_input_tokens = int(sum(len(message['content']) for message in payload['messages']) // CHARACTER_TO_TOKEN_CONVERSION)
         else:
             logger.error(f"Can't count input tokens in payload for task: {task}; payload: {payload}")
             num_input_tokens = 0
