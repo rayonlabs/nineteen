@@ -101,6 +101,33 @@ def construct_500_query_result(node: Node, task: str) -> utility_models.QueryRes
     return query_result
 
 
+# def gini_coefficient(intervals: List[float]) -> float:
+#     """Calculates the Gini coefficient for a list of intervals."""
+#     intervals = np.array(intervals)
+#     sorted_intervals = np.sort(intervals)
+#     n = len(intervals)
+#     cumulative_intervals = np.cumsum(sorted_intervals)
+#     gini = (n + 1 - 2 * np.sum(cumulative_intervals) / cumulative_intervals[-1]) / n
+#     return gini
+
+
+# async def consume_generator_with_penalty():
+#     """Pseudocode implementation."""
+#     last_time = start_time
+#     intervals = []
+
+#     async for chunks in stream:
+#         if len(chunks) > 1:
+#             intervals.append(time.time() - last_time)
+#             intervals.extend([0] * (len(chunks) - 1))
+#         else:
+#             intervals.append(time.time() - last_time)
+        
+#         last_time = time.time()
+
+#     if gini_coefficient(intervals) > threshold:
+#         apply_penalty()
+
 async def consume_generator(
     config: Config,
     generator: AsyncGenerator,
